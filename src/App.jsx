@@ -158,6 +158,52 @@ function LoadDots() {
     </div>
   );
 }
+// ─── MAP COMPONENT (OpenStreetMap via Leaflet) ────────────────────────────────
+function MapView({ height, riderMode, finding }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const loadMap = () => {
+      if (!window.L) return;
+      if (mapInstanceRef.current) return;
+      const map = window.L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([43.2557, -79.8711], 13);
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+      window.L.control.zoom({ position: "bottomright" }).addTo(map);
+      const icon = window.L.divIcon({ className: "", html: `<div style="background:${riderMode?"#2563eb":"#22c55e"};width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`, iconSize:[14,14], iconAnchor:[7,7] });
+      const marker = window.L.marker([43.2557, -79.8711], { icon }).addTo(map);
+      markerRef.current = marker;
+      mapInstanceRef.current = map;
+    };
+    if (window.L) { loadMap(); return; }
+    const link = document.createElement("link");
+    link.rel = "stylesheet"; link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload = loadMap;
+    document.head.appendChild(script);
+    return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
+  }, []);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current || !markerRef.current) return;
+    if (finding) {
+      const lat = 43.2557 + (Math.random()-0.5)*0.02;
+      const lng = -79.8711 + (Math.random()-0.5)*0.02;
+      markerRef.current.setLatLng([lat, lng]);
+      mapInstanceRef.current.panTo([lat, lng]);
+    }
+  }, [finding]);
+
+  return (
+    <div ref={mapRef} style={{ width:"100%", height: height||200, borderRadius:14, overflow:"hidden", border:"1px solid "+BORDER }} />
+  );
+}
+
+
 
 // ─── BOTTOM NAVS ──────────────────────────────────────────────────────────────
 function RiderBottomNav({ tab, onTab }) {
@@ -870,16 +916,17 @@ function DriverApp() {
 
   // EN ROUTE
   if (scr==="enroute") return (
-    <div style={{ ...sc, background:"linear-gradient(160deg,#0f172a,#0d2744)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:20, padding:24 }}>
+    <div style={{ ...sc, background:"linear-gradient(160deg,#0f172a,#0d2744)", display:"flex", flexDirection:"column", gap:14, padding:24, paddingTop:36 }}>
       <style>{STYLES}</style>
       <div className="fade" style={{ textAlign:"center" }}>
-        <div style={{ fontSize:64, animation:"bounce 1s ease infinite", marginBottom:14 }}>🚙</div>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:26, color:WHITE }}>Trip in Progress</div>
-        <div style={{ color:LBLUE, fontSize:13, marginTop:6 }}>Navigate to rider pickup</div>
+        <div style={{ fontSize:48, animation:"bounce 1s ease infinite", marginBottom:10 }}>🚙</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>Trip in Progress</div>
+        <div style={{ color:LBLUE, fontSize:13, marginTop:4 }}>Navigate to rider pickup</div>
       </div>
-      <div style={{ background:"rgba(34,197,94,0.12)", border:"1.5px solid "+GREEN, borderRadius:16, padding:"18px 32px", textAlign:"center" }}>
+      <MapView height={180} riderMode={false} finding={true} />
+      <div style={{ background:"rgba(34,197,94,0.12)", border:"1.5px solid "+GREEN, borderRadius:16, padding:"14px 32px", textAlign:"center" }}>
         <div style={{ color:LBLUE, fontSize:11, fontWeight:600 }}>EARNING</div>
-        <div style={{ color:GREEN, fontWeight:900, fontSize:34, fontFamily:"'Syne',sans-serif" }}>CA$9.40</div>
+        <div style={{ color:GREEN, fontWeight:900, fontSize:30, fontFamily:"'Syne',sans-serif" }}>CA$9.40</div>
       </div>
       <div style={{ width:"100%" }}>
         <BigBtn onClick={()=>go("dash")} green>Complete Trip</BigBtn>
@@ -912,6 +959,8 @@ function DriverApp() {
           </div>
           <div style={{ padding:"16px 16px 10px" }}>
             {err && <Err msg={err} />}
+            <MapView height={160} riderMode={false} finding={online} />
+            <div style={{ marginBottom:14 }} />
             {!subPaid ? (
               <div style={{ background:"#fefce8", border:"1.5px solid #fde68a", borderRadius:14, padding:16, marginBottom:14, textAlign:"center" }}>
                 <div style={{ fontSize:28, marginBottom:8 }}>💳</div>
@@ -920,16 +969,16 @@ function DriverApp() {
                 <BigBtn onClick={()=>go("subscription")}>Pay Now</BigBtn>
               </div>
             ) : online ? (
-              <div style={{ background:"#f0fdf4", border:"1.5px solid #86efac", borderRadius:14, padding:20, textAlign:"center", marginBottom:14 }}>
-                <div style={{ fontSize:32, marginBottom:10, animation:"pulse 1.5s ease infinite" }}>📡</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:"#166534" }}>Waiting for ride requests</div>
-                <div style={{ fontSize:12, color:"#16a34a", marginTop:4 }}>A demo request arrives in a few seconds</div>
+              <div style={{ background:"#f0fdf4", border:"1.5px solid #86efac", borderRadius:14, padding:14, textAlign:"center", marginBottom:14 }}>
+                <div style={{ fontSize:28, marginBottom:6, animation:"pulse 1.5s ease infinite" }}>📡</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:"#166534" }}>Waiting for ride requests</div>
+                <div style={{ fontSize:11, color:"#16a34a", marginTop:3 }}>A demo request arrives in a few seconds</div>
               </div>
             ) : (
-              <div style={{ background:"#f8fafc", border:"1px solid "+BORDER, borderRadius:14, padding:20, textAlign:"center", marginBottom:14 }}>
-                <div style={{ fontSize:32, marginBottom:10 }}>😴</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:NAVY }}>You are offline</div>
-                <div style={{ fontSize:12, color:SLATE, marginTop:4 }}>Tap Online to start receiving trips</div>
+              <div style={{ background:"#f8fafc", border:"1px solid "+BORDER, borderRadius:14, padding:14, textAlign:"center", marginBottom:14 }}>
+                <div style={{ fontSize:28, marginBottom:6 }}>😴</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:NAVY }}>You are offline</div>
+                <div style={{ fontSize:11, color:SLATE, marginTop:3 }}>Tap Online to start receiving trips</div>
               </div>
             )}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
