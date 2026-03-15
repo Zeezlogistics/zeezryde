@@ -364,8 +364,8 @@ function RiderApp() {
           <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:20, color:NAVY }}>ZeezRyde</span>
         </div>
         <RolePill>RIDER</RolePill>
-        <h2 style={{ color:NAVY, fontSize:20, fontWeight:800, marginTop:14, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Sign in</h2>
-        <p style={{ color:LBLUE, fontSize:11, marginBottom:18 }}>Welcome back to your account</p>
+        <h2 style={{ color:NAVY, fontSize:20, fontWeight:800, marginTop:14, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Rider Sign In</h2>
+        <p style={{ color:LBLUE, fontSize:11, marginBottom:18 }}>Sign in with your rider account only</p>
         <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="your@email.com" />
         <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Enter your password" />
         <Err msg={err} />
@@ -1075,8 +1075,11 @@ function DriverApp() {
 
   useEffect(() => {
     db.auth.getSession().then(({ data }) => {
-      if (data.session) { setUser(data.session.user); setName(data.session.user.user_metadata?.name||""); go("dash"); }
-      else setTimeout(() => go("login"), 1800);
+      if (data.session) {
+        const role = data.session.user.user_metadata?.role;
+        if (role && role !== "driver") { db.auth.signOut(); setTimeout(() => go("login"), 1800); return; }
+        setUser(data.session.user); setName(data.session.user.user_metadata?.name||""); go("dash");
+      } else setTimeout(() => go("login"), 1800);
     }).catch(() => setTimeout(() => go("login"), 1800));
   }, []);
 
@@ -1204,7 +1207,7 @@ function DriverApp() {
         </div>
         <RolePill color="#059669">DRIVER</RolePill>
         <h2 style={{ color:NAVY, fontSize:20, fontWeight:800, marginTop:14, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Driver Sign In</h2>
-        <p style={{ color:LBLUE, fontSize:11, marginBottom:18 }}>Welcome back to ZeezRyde</p>
+        <p style={{ color:LBLUE, fontSize:11, marginBottom:18 }}>Sign in with your driver account only</p>
         <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="driver@email.com" />
         <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Your password" />
         <Err msg={err} />
