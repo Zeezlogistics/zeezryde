@@ -686,6 +686,185 @@ function RiderApp() {
   return <div style={sc}><style>{STYLES}</style><div style={{ padding:30, textAlign:"center", paddingTop:80 }}><Loader /></div></div>;
 }
 
+
+// ─── VEHICLE COLORS ─────────────────────────────────────────────────────────
+const VEHICLE_COLORS = [
+  { name:"White",   hex:"#ffffff", border:"#cbd5e1" },
+  { name:"Black",   hex:"#1e293b", border:"#1e293b" },
+  { name:"Silver",  hex:"#94a3b8", border:"#94a3b8" },
+  { name:"Gray",    hex:"#64748b", border:"#64748b" },
+  { name:"Red",     hex:"#ef4444", border:"#ef4444" },
+  { name:"Blue",    hex:"#3b82f6", border:"#3b82f6" },
+  { name:"Navy",    hex:"#1e3a5f", border:"#1e3a5f" },
+  { name:"Green",   hex:"#22c55e", border:"#22c55e" },
+  { name:"Yellow",  hex:"#eab308", border:"#eab308" },
+  { name:"Orange",  hex:"#f97316", border:"#f97316" },
+  { name:"Brown",   hex:"#92400e", border:"#92400e" },
+  { name:"Beige",   hex:"#d4b896", border:"#b8926a" },
+];
+
+// ─── DRIVER ACCOUNT TAB COMPONENT ────────────────────────────────────────────
+function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, trips, onSubscription, onDocs, onEarnings, onLogout }) {
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [vehicles, setVehicles] = useState(
+    vehicle ? [{ id:1, make:vehicle, plate: plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
+  );
+  const [addOpen, setAddOpen]   = useState(false);
+  const [newYear, setNewYear]   = useState("");
+  const [newMake, setNewMake]   = useState("");
+  const [newModel, setNewModel] = useState("");
+  const [newPlate, setNewPlate] = useState("");
+  const [newColor, setNewColor] = useState(VEHICLE_COLORS[0]);
+
+  const YEARS = Array.from({length:26},(_,i)=>(2025-i).toString());
+
+  function addVehicle() {
+    if (!newYear || !newMake.trim() || !newModel.trim()) return;
+    const label = newYear + " " + newMake + " " + newModel.trim();
+    setVehicles(v => [
+      ...v.map(x => ({ ...x, active:false })),
+      { id: Date.now(), make: label, plate: newPlate.trim(), color: newColor.hex, colorName: newColor.name, active: true }
+    ]);
+    setNewYear(""); setNewMake(""); setNewModel(""); setNewPlate(""); setNewColor(VEHICLE_COLORS[0]); setAddOpen(false);
+  }
+
+  function setActive(id) {
+    setVehicles(v => v.map(x => ({ ...x, active: x.id === id })));
+  }
+
+  function removeVehicle(id) {
+    setVehicles(v => {
+      const remaining = v.filter(x => x.id !== id);
+      if (remaining.length > 0 && !remaining.some(x => x.active)) {
+        remaining[0].active = true;
+      }
+      return remaining;
+    });
+  }
+
+  return (
+    <div className="fade" style={{ padding:"20px 20px 10px" }}>
+      {/* Profile card */}
+      <Card style={{ marginBottom:14, display:"flex", gap:14, alignItems:"center" }}>
+        <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#059669,#065f46)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, flexShrink:0 }}>
+          {displayName[0].toUpperCase()}
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:"#1e3a5f" }}>{displayName}</div>
+          <div style={{ color:"#94a3b8", fontSize:12, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email}</div>
+          <div style={{ marginTop:6 }}><PillBadge label={subPaid?"Subscribed":"Pending"} color={subPaid?"green":"yellow"} /></div>
+        </div>
+      </Card>
+
+      {/* Vehicles section */}
+      <div style={{ marginBottom:14 }}>
+        <button onClick={()=>setVehicleOpen(o=>!o)} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+          <span style={{ fontSize:18 }}>🚗</span>
+          <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+            My Vehicles {vehicles.length > 0 && <span style={{ background:"#eff6ff", color:"#2563eb", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:20, marginLeft:6 }}>{vehicles.length}</span>}
+          </span>
+          <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transition:"transform 0.2s", transform: vehicleOpen?"rotate(90deg)":"rotate(0deg)" }}>{"›"}</span>
+        </button>
+
+        {vehicleOpen && (
+          <div style={{ background:"#f8fafc", border:"1px solid #bfdbfe", borderTop:"none", borderRadius:"0 0 14px 14px", padding:"12px" }}>
+            {vehicles.length === 0 && (
+              <div style={{ textAlign:"center", color:"#94a3b8", fontSize:13, padding:"12px 0" }}>No vehicles added yet</div>
+            )}
+            {vehicles.map(v => (
+              <div key={v.id} style={{ background:"#fff", borderRadius:12, padding:"12px 14px", marginBottom:8, border:"2px solid "+(v.active?"#2563eb":"#e2e8f0"), display:"flex", alignItems:"center", gap:10 }}>
+                {/* Color swatch */}
+                <div style={{ width:36, height:36, borderRadius:10, background:v.color, border:"2px solid "+(v.color==="#ffffff"?"#cbd5e1":v.color), flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  {v.active && <span style={{ fontSize:14, filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }}>✓</span>}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:700, fontSize:13, color:"#1e3a5f", fontFamily:"'Syne',sans-serif" }}>{v.make}</div>
+                  <div style={{ display:"flex", gap:8, marginTop:3, alignItems:"center" }}>
+                    {v.plate && <span style={{ fontSize:10, fontWeight:700, color:"#2563eb", background:"#eff6ff", padding:"2px 7px", borderRadius:6, letterSpacing:1 }}>{v.plate}</span>}
+                    <span style={{ fontSize:10, color:"#94a3b8" }}>{v.colorName}</span>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {!v.active && (
+                    <button onClick={()=>setActive(v.id)} style={{ fontSize:10, fontWeight:700, color:"#2563eb", background:"#eff6ff", border:"none", borderRadius:8, padding:"5px 10px", cursor:"pointer" }}>Use</button>
+                  )}
+                  {v.active && <PillBadge label="Active" color="green" />}
+                  {vehicles.length > 1 && (
+                    <button onClick={()=>removeVehicle(v.id)} style={{ fontSize:14, background:"#fef2f2", border:"none", borderRadius:8, padding:"5px 8px", cursor:"pointer", color:"#ef4444" }}>✕</button>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Add vehicle button */}
+            {!addOpen ? (
+              <button onClick={()=>setAddOpen(true)} style={{ width:"100%", background:"#eff6ff", border:"1.5px dashed #93c5fd", borderRadius:12, padding:"10px", color:"#2563eb", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>
+                + Add Vehicle
+              </button>
+            ) : (
+              <div style={{ background:"#fff", borderRadius:12, padding:"14px", border:"1.5px solid #bfdbfe" }}>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:"#1e3a5f", marginBottom:10 }}>New Vehicle</div>
+                {/* Year */}
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Year</div>
+                <select value={newYear} onChange={e=>setNewYear(e.target.value)}
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color: newYear?"#1e3a5f":"#94a3b8", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif", appearance:"none" }}>
+                  <option value="">Select year</option>
+                  {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
+                </select>
+                {/* Make */}
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Make</div>
+                <select value={newMake} onChange={e=>{ setNewMake(e.target.value); setNewModel(""); }}
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color: newMake?"#1e3a5f":"#94a3b8", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                  <option value="">Select make</option>
+                  {CAR_MAKES.map(c=><option key={c.make} value={c.make}>{c.make}</option>)}
+                </select>
+                {/* Model */}
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Model</div>
+                <select value={newModel} onChange={e=>setNewModel(e.target.value)} disabled={!newMake}
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background: newMake?"#eff6ff":"#f1f5f9", fontSize:13, color: newMake?"#1e3a5f":"#94a3b8", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                  <option value="">{newMake ? "Select model" : "Select make first"}</option>
+                  {newMake && CAR_MAKES.find(c=>c.make===newMake)?.models.map(m=>(
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                {/* License plate */}
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>License Plate</div>
+                <input value={newPlate} onChange={e=>setNewPlate(e.target.value)} placeholder="e.g. ABCD 123"
+                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+                <div style={{ fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Vehicle Color</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+                  {VEHICLE_COLORS.map(c => (
+                    <button key={c.name} onClick={()=>setNewColor(c)} title={c.name} style={{ width:30, height:30, borderRadius:8, background:c.hex, border:"3px solid "+(newColor.name===c.name?"#2563eb":c.border), cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow: newColor.name===c.name?"0 0 0 2px #2563eb":"none" }}>
+                      {newColor.name===c.name && <span style={{ fontSize:12, color:c.hex==="#ffffff"||c.hex==="#d4b896"?"#1e293b":"#fff", fontWeight:900 }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize:12, color:"#64748b", marginBottom:12 }}>Selected: <strong style={{ color:"#1e3a5f" }}>{newColor.name}</strong></div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={()=>setAddOpen(false)} style={{ flex:1, padding:"9px", borderRadius:10, border:"1.5px solid #bfdbfe", background:"transparent", color:"#64748b", fontWeight:600, fontSize:13, cursor:"pointer" }}>Cancel</button>
+                  <button onClick={addVehicle} disabled={!newYear||!newMake||!newModel.trim()} style={{ flex:2, padding:"9px", borderRadius:10, border:"none", background:(newYear&&newMake&&newModel.trim())?"#2563eb":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(newYear&&newMake&&newModel.trim())?"pointer":"not-allowed" }}>Add Vehicle</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Menu */}
+      <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
+        {[["💳","Subscription",onSubscription],["📄","Documents",onDocs],["💰","Earnings",onEarnings]].map(([ic,lb,action])=>(
+          <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid #bfdbfe", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+            <span style={{ fontSize:18 }}>{ic}</span>
+            <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{lb}</span>
+            <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
+          </button>
+        ))}
+      </Card>
+      <BigBtn onClick={onLogout} ghost>Sign Out</BigBtn>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DRIVER APP
 // ─────────────────────────────────────────────────────────────────────────────
@@ -708,6 +887,7 @@ function DriverApp() {
   const [inReq, setInReq]   = useState(null);
   const [cdown, setCdown]   = useState(15);
   const [subPaid, setSubPaid] = useState(false);
+  const [hideBalance, setHideBalance] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing" })));
@@ -960,19 +1140,28 @@ function DriverApp() {
             {err && <div style={{ marginBottom:8 }}><Err msg={err} /></div>}
             <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
               {/* Earnings row */}
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, paddingBottom:12, borderBottom:"1px solid "+BORDER }}>
-                <div>
-                  <div style={{ fontSize:10, color:SLATE, fontWeight:600, letterSpacing:1, textTransform:"uppercase" }}>This Week</div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:28, color:NAVY }}>{"CA$"+earned.toFixed(2)}</div>
-                  <div style={{ fontSize:11, color:SLATE }}>{trips.length} trip{trips.length!==1?"s":""} completed</div>
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                  {[["⭐","5.0"],["📄",approvedDocs+"/"+DOC_TYPES.length]].map(([ic,val])=>(
-                    <div key={ic} style={{ background:"#f8fafc", borderRadius:10, padding:"6px 10px", textAlign:"center", border:"1px solid "+BORDER }}>
-                      <div style={{ fontSize:16 }}>{ic}</div>
-                      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{String(val)}</div>
+              <div style={{ marginBottom:14, paddingBottom:12, borderBottom:"1px solid "+BORDER }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div>
+                    <div style={{ fontSize:10, color:SLATE, fontWeight:600, letterSpacing:1, textTransform:"uppercase" }}>This Week</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:28, color:NAVY }}>
+                      {hideBalance ? "CA$ ••••" : "CA$"+earned.toFixed(2)}
                     </div>
-                  ))}
+                    <div style={{ fontSize:11, color:SLATE }}>{trips.length} trip{trips.length!==1?"s":""} completed</div>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
+                    <button onClick={()=>setHideBalance(h=>!h)} style={{ background:"#f1f5f9", border:"1px solid "+BORDER, borderRadius:20, padding:"4px 10px", cursor:"pointer", fontSize:11, fontWeight:600, color:SLATE, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                      {hideBalance ? "👁 Show" : "🙈 Hide"}
+                    </button>
+                    <div style={{ display:"flex", gap:6 }}>
+                      {[["⭐","5.0"],["📄",approvedDocs+"/"+DOC_TYPES.length]].map(([ic,val])=>(
+                        <div key={ic} style={{ background:"#f8fafc", borderRadius:10, padding:"6px 10px", textAlign:"center", border:"1px solid "+BORDER }}>
+                          <div style={{ fontSize:14 }}>{ic}</div>
+                          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>{String(val)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
               {/* Status */}
@@ -1009,27 +1198,51 @@ function DriverApp() {
 
       {tab==="earnings" && (
         <div className="fade">
-          <div style={{ background:"linear-gradient(160deg,"+NAVY+","+DARK+")", padding:"24px 20px", textAlign:"center" }}>
-            <div style={{ color:LBLUE, fontSize:11, fontWeight:700, letterSpacing:1 }}>WEEK TOTAL</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:46, color:WHITE, marginTop:6 }}>{"CA$"+earned.toFixed(2)}</div>
+          {/* Weekly summary header */}
+          <div style={{ background:"linear-gradient(160deg,"+NAVY+","+DARK+")", padding:"24px 20px 28px" }}>
+            <div style={{ color:LBLUE, fontSize:11, fontWeight:700, letterSpacing:1, textAlign:"center" }}>WEEK TOTAL</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:46, color:WHITE, marginTop:6, textAlign:"center" }}>{"CA$"+earned.toFixed(2)}</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginTop:16 }}>
+              {[["Trips",trips.length,"🚗"],["Avg Fare",trips.length?("CA$"+(earned/trips.length).toFixed(2)):"CA$0.00","💵"],["Rating","5.0 ★","⭐"]].map(([lb,val,ic])=>(
+                <div key={lb} style={{ background:"rgba(255,255,255,0.08)", borderRadius:12, padding:"10px 6px", textAlign:"center" }}>
+                  <div style={{ fontSize:18 }}>{ic}</div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, color:WHITE, marginTop:4 }}>{String(val)}</div>
+                  <div style={{ fontSize:10, color:LBLUE, marginTop:2 }}>{lb}</div>
+                </div>
+              ))}
+            </div>
           </div>
           <div style={{ padding:"16px 16px 10px" }}>
+            {/* Cash out button */}
+            <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:14, padding:"16px", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center", boxShadow:"0 4px 14px rgba(5,150,105,0.3)" }}>
+              <div>
+                <div style={{ color:"rgba(255,255,255,0.7)", fontSize:11, fontWeight:600 }}>Available to Cash Out</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>{"CA$"+earned.toFixed(2)}</div>
+              </div>
+              <button style={{ background:WHITE, border:"none", borderRadius:10, padding:"10px 18px", color:"#059669", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
+                Cash Out
+              </button>
+            </div>
+            {/* Trip list */}
             {trips.length===0 ? (
-              <div style={{ textAlign:"center", paddingTop:50, color:SLATE }}>
+              <div style={{ textAlign:"center", paddingTop:40, color:SLATE }}>
                 <div style={{ fontSize:36, marginBottom:12 }}>💸</div>
                 <div style={{ fontWeight:700 }}>No earnings yet</div>
                 <div style={{ fontSize:12, marginTop:4 }}>Go online to start earning</div>
               </div>
             ) : (
-              trips.map((t,i)=>(
-                <Card key={i} style={{ marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <div>
-                    <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
-                    <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
-                  </div>
-                  <div style={{ fontWeight:800, color:GREEN, fontSize:15 }}>{t.fare}</div>
-                </Card>
-              ))
+              <div>
+                <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>Trip History</div>
+                {trips.map((t,i)=>(
+                  <Card key={i} style={{ marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
+                      <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
+                    </div>
+                    <div style={{ fontWeight:800, color:GREEN, fontSize:15 }}>{t.fare}</div>
+                  </Card>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -1065,29 +1278,12 @@ function DriverApp() {
       )}
 
       {tab==="account" && (
-        <div className="fade" style={{ padding:"20px 20px 10px" }}>
-          <Card style={{ marginBottom:14, display:"flex", gap:14, alignItems:"center" }}>
-            <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#059669,#065f46)", display:"flex", alignItems:"center", justifyContent:"center", color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22 }}>
-              {displayName[0].toUpperCase()}
-            </div>
-            <div>
-              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY }}>{displayName}</div>
-              <div style={{ color:SLATE, fontSize:12, marginTop:2 }}>{user?.email}</div>
-              {vehicle && <div style={{ color:SLATE, fontSize:11, marginTop:2 }}>{vehicle}</div>}
-              <div style={{ marginTop:6 }}><PillBadge label={subPaid?"Subscribed":"Pending"} color={subPaid?"green":"yellow"} /></div>
-            </div>
-          </Card>
-          <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
-            {[["💳","Subscription",()=>go("subscription")],["📄","Documents",()=>setTab("docs")],["💰","Earnings",()=>setTab("earnings")]].map(([ic,lb,action])=>(
-              <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
-                <span style={{ fontSize:18 }}>{ic}</span>
-                <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>{lb}</span>
-                <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
-              </button>
-            ))}
-          </Card>
-          <BigBtn onClick={doLogout} ghost>Sign Out</BigBtn>
-        </div>
+        <DriverAccountTab
+          displayName={displayName} user={user} vehicle={vehicle} plate={plate}
+          subPaid={subPaid} earned={earned} trips={trips}
+          onSubscription={()=>go("subscription")} onDocs={()=>setTab("docs")}
+          onEarnings={()=>setTab("earnings")} onLogout={doLogout}
+        />
       )}
 
       <DriverBottomNav tab={tab} onTab={setTab} />
