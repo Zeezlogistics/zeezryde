@@ -253,8 +253,25 @@ function RiderApp() {
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
-  const [promoCode, setPromoCode]   = useState("");
+  const [promoCode, setPromoCode]       = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
+  const [payModal, setPayModal]         = useState(null); // "card" | "bank" | "digital"
+  const [savedCards, setSavedCards]     = useState([{ id:1, type:"VISA", last4:"4242", exp:"12/27", isDefault:true }]);
+  const [savedBanks, setSavedBanks]     = useState([]);
+  // card form
+  const [cardNum, setCardNum]   = useState("");
+  const [cardName, setCardName] = useState("");
+  const [cardExp, setCardExp]   = useState("");
+  const [cardCvv, setCardCvv]   = useState("");
+  const [cardErr, setCardErr]   = useState("");
+  const [cardSaved, setCardSaved] = useState(false);
+  // bank form
+  const [bankFormName, setBankFormName]       = useState("");
+  const [bankFormAcct, setBankFormAcct]       = useState("");
+  const [bankFormTransit, setBankFormTransit] = useState("");
+  const [bankFormInst, setBankFormInst]       = useState("");
+  const [bankErr, setBankErr]                 = useState("");
+  const [bankSavedMsg, setBankSavedMsg]       = useState(false);
 
   const go = (s) => { setErr(""); setScr(s); };
 
@@ -799,17 +816,38 @@ function RiderApp() {
       {tab==="payment" && (
         <div className="fade" style={{ padding:"20px 20px 10px" }}>
           <SectionHeader title="Payment Methods" sub="Manage how you pay for rides" />
-          <div style={{ background:"linear-gradient(135deg,"+NAVY+","+BLUE+")", borderRadius:16, padding:"18px", marginBottom:16, boxShadow:"0 4px 20px rgba(37,99,235,0.25)" }}>
-            <div style={{ color:"rgba(255,255,255,0.7)", fontSize:11, fontWeight:600 }}>Default Card</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:WHITE, marginTop:6, letterSpacing:2 }}>•••• •••• •••• 4242</div>
-            <div style={{ color:"rgba(255,255,255,0.6)", fontSize:12, marginTop:4 }}>VISA  ·  Expires 12/27</div>
-          </div>
+
+          {/* Saved cards */}
+          {savedCards.map(c=>(
+            <div key={c.id} style={{ background:"linear-gradient(135deg,"+NAVY+","+BLUE+")", borderRadius:16, padding:"16px 18px", marginBottom:10, boxShadow:"0 4px 20px rgba(37,99,235,0.25)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, fontWeight:600 }}>{c.isDefault?"DEFAULT CARD":c.type}</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:WHITE, marginTop:4, letterSpacing:2 }}>•••• •••• •••• {c.last4}</div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:3 }}>{c.type}  ·  Expires {c.exp}</div>
+              </div>
+              <button onClick={()=>setSavedCards(cards=>cards.filter(x=>x.id!==c.id))} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, padding:"6px 10px", color:WHITE, fontSize:12, cursor:"pointer" }}>Remove</button>
+            </div>
+          ))}
+
+          {/* Saved banks */}
+          {savedBanks.map((b,i)=>(
+            <div key={i} style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:16, padding:"16px 18px", marginBottom:10, boxShadow:"0 4px 20px rgba(5,150,105,0.2)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, fontWeight:600 }}>BANK ACCOUNT</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:WHITE, marginTop:4 }}>{b.name}</div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:3 }}>Acct: •••{b.acct.slice(-3)}</div>
+              </div>
+              <button onClick={()=>setSavedBanks(banks=>banks.filter((_,j)=>j!==i))} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, padding:"6px 10px", color:WHITE, fontSize:12, cursor:"pointer" }}>Remove</button>
+            </div>
+          ))}
+
+          {/* Add options */}
           <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
-            {[["💳","Add Credit / Debit Card",()=>{}],["🏦","Link Bank Account",()=>{}],["📱","Apple Pay / Google Pay",()=>{}]].map(([ic,lb,action])=>(
-              <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+            {[["💳","Add Credit / Debit Card","card"],["🏦","Link Bank Account","bank"],["📱","Apple Pay / Google Pay","digital"]].map(([ic,lb,modal])=>(
+              <button key={lb} onClick={()=>{ setPayModal(modal); setCardErr(""); setBankErr(""); setCardSaved(false); setBankSavedMsg(false); setCardNum(""); setCardName(""); setCardExp(""); setCardCvv(""); setBankFormName(""); setBankFormAcct(""); setBankFormTransit(""); setBankFormInst(""); }} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
                 <span style={{ fontSize:18 }}>{ic}</span>
                 <span style={{ flex:1, fontSize:13, fontWeight:500, color:NAVY }}>{lb}</span>
-                <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
+                <span style={{ color:"#cbd5e1", fontSize:18 }}>{"+"}</span>
               </button>
             ))}
           </Card>
@@ -817,6 +855,86 @@ function RiderApp() {
             <span style={{ fontSize:16 }}>🔒</span>
             <span>Payments are secured and encrypted. ZeezRyde never stores your full card details.</span>
           </div>
+
+          {/* ── ADD CARD MODAL ── */}
+          {payModal==="card" && (
+            <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:100, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={e=>{ if(e.target===e.currentTarget) setPayModal(null); }}>
+              <div style={{ background:WHITE, borderRadius:"20px 20px 0 0", padding:"24px 20px 32px", width:"100%", maxWidth:420 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY }}>💳 Add Card</div>
+                  <button onClick={()=>setPayModal(null)} style={{ background:"#f1f5f9", border:"none", borderRadius:8, width:32, height:32, fontSize:18, cursor:"pointer", color:SLATE }}>×</button>
+                </div>
+                <Input label="Cardholder Name" value={cardName} onChange={e=>setCardName(e.target.value)} placeholder="As it appears on card" />
+                <Input label="Card Number" value={cardNum} onChange={e=>setCardNum(e.target.value.replace(/\D/g,"").slice(0,16).replace(/(.{4})/g,"$1 ").trim())} placeholder="1234 5678 9012 3456" />
+                <div style={{ display:"flex", gap:10 }}>
+                  <div style={{ flex:1 }}><Input label="Expiry (MM/YY)" value={cardExp} onChange={e=>{ let v=e.target.value.replace(/\D/g,""); if(v.length>2) v=v.slice(0,2)+"/"+v.slice(2,4); setCardExp(v); }} placeholder="MM/YY" /></div>
+                  <div style={{ flex:1 }}><Input label="CVV" value={cardCvv} onChange={e=>setCardCvv(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="123" /></div>
+                </div>
+                {cardErr && <Err msg={cardErr} />}
+                {cardSaved && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Card added successfully!</div>}
+                <BigBtn onClick={()=>{
+                  if (!cardName||!cardNum||!cardExp||!cardCvv) { setCardErr("All fields are required"); return; }
+                  if (cardNum.replace(/\s/g,"").length < 16) { setCardErr("Enter a valid 16-digit card number"); return; }
+                  if (cardCvv.length < 3) { setCardErr("Enter a valid CVV"); return; }
+                  const last4 = cardNum.replace(/\s/g,"").slice(-4);
+                  const type = cardNum.startsWith("4")?"VISA":cardNum.startsWith("5")?"Mastercard":"Card";
+                  setSavedCards(c=>[...c.map(x=>({...x,isDefault:false})),{ id:Date.now(), type, last4, exp:cardExp, isDefault:c.length===0 }]);
+                  setCardSaved(true); setTimeout(()=>{ setPayModal(null); setCardSaved(false); }, 1200);
+                }}>Save Card</BigBtn>
+              </div>
+            </div>
+          )}
+
+          {/* ── LINK BANK MODAL ── */}
+          {payModal==="bank" && (
+            <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:100, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={e=>{ if(e.target===e.currentTarget) setPayModal(null); }}>
+              <div style={{ background:WHITE, borderRadius:"20px 20px 0 0", padding:"24px 20px 32px", width:"100%", maxWidth:420 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY }}>🏦 Link Bank Account</div>
+                  <button onClick={()=>setPayModal(null)} style={{ background:"#f1f5f9", border:"none", borderRadius:8, width:32, height:32, fontSize:18, cursor:"pointer", color:SLATE }}>×</button>
+                </div>
+                <Input label="Bank Name" value={bankFormName} onChange={e=>setBankFormName(e.target.value)} placeholder="e.g. TD Bank, RBC, Scotiabank" />
+                <Input label="Account Number" value={bankFormAcct} onChange={e=>setBankFormAcct(e.target.value.replace(/\D/g,""))} placeholder="e.g. 1234567" />
+                <div style={{ display:"flex", gap:10 }}>
+                  <div style={{ flex:1 }}><Input label="Transit No." value={bankFormTransit} onChange={e=>setBankFormTransit(e.target.value.replace(/\D/g,"").slice(0,5))} placeholder="5 digits" /></div>
+                  <div style={{ flex:1 }}><Input label="Institution No." value={bankFormInst} onChange={e=>setBankFormInst(e.target.value.replace(/\D/g,"").slice(0,3))} placeholder="3 digits" /></div>
+                </div>
+                <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#92400e" }}>🔒 Your banking details are encrypted and never shared.</div>
+                {bankErr && <Err msg={bankErr} />}
+                {bankSavedMsg && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Bank account linked!</div>}
+                <BigBtn onClick={()=>{
+                  if (!bankFormName||!bankFormAcct||!bankFormTransit||!bankFormInst) { setBankErr("All fields are required"); return; }
+                  if (bankFormTransit.length!==5) { setBankErr("Transit number must be 5 digits"); return; }
+                  if (bankFormInst.length!==3) { setBankErr("Institution number must be 3 digits"); return; }
+                  setSavedBanks(b=>[...b,{ name:bankFormName, acct:bankFormAcct, transit:bankFormTransit, inst:bankFormInst }]);
+                  setBankSavedMsg(true); setTimeout(()=>{ setPayModal(null); setBankSavedMsg(false); }, 1200);
+                }}>Link Account</BigBtn>
+              </div>
+            </div>
+          )}
+
+          {/* ── DIGITAL WALLET MODAL ── */}
+          {payModal==="digital" && (
+            <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:100, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={e=>{ if(e.target===e.currentTarget) setPayModal(null); }}>
+              <div style={{ background:WHITE, borderRadius:"20px 20px 0 0", padding:"24px 20px 32px", width:"100%", maxWidth:420 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY }}>📱 Digital Wallets</div>
+                  <button onClick={()=>setPayModal(null)} style={{ background:"#f1f5f9", border:"none", borderRadius:8, width:32, height:32, fontSize:18, cursor:"pointer", color:SLATE }}>×</button>
+                </div>
+                {[["Apple Pay","🍎","#1c1c1e","Connect your Apple Pay wallet for fast, secure payments on iPhone."],["Google Pay","🔵","#4285f4","Connect your Google Pay wallet for fast, secure payments on Android."]].map(([name,ic,color,desc])=>(
+                  <div key={name} style={{ border:"1px solid "+BORDER, borderRadius:14, padding:"14px 16px", marginBottom:12, display:"flex", gap:14, alignItems:"center" }}>
+                    <div style={{ width:44, height:44, borderRadius:12, background:color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{ic}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:700, fontSize:14, color:NAVY }}>{name}</div>
+                      <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{desc}</div>
+                    </div>
+                    <button style={{ background:BLUE, border:"none", borderRadius:8, padding:"7px 14px", color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, cursor:"pointer" }} onClick={()=>{ alert(name+" integration requires Stripe or a payment SDK. Contact your developer to enable."); }}>Connect</button>
+                  </div>
+                ))}
+                <div style={{ background:VLIGHT, borderRadius:10, padding:"10px 14px", fontSize:11, color:SLATE }}>Digital wallet payments require app store version with Stripe SDK integration.</div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
