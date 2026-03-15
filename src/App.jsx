@@ -87,6 +87,30 @@ function LogoAnim({ size }) {
   );
 }
 
+// ─── RATING HELPER ───────────────────────────────────────────────────────────
+function calcRating(trips) {
+  if (!trips || trips.length === 0) return null;
+  const last100 = trips.slice(-100);
+  // trips that have a rating field; if none, default to 5
+  const rated = last100.filter(t => t.rating != null);
+  if (rated.length === 0) return null;
+  const avg = rated.reduce((s,t) => s + t.rating, 0) / rated.length;
+  return Math.round(avg * 10) / 10;
+}
+
+function RatingStars({ rating, size=14, color="#f59e0b" }) {
+  const display = rating != null ? rating.toFixed(1) : "—";
+  const filled  = rating != null ? Math.round(rating) : 0;
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:3 }}>
+      {[1,2,3,4,5].map(s=>(
+        <span key={s} style={{ fontSize:size, color: s<=filled ? color : "#d1d5db", filter: s<=filled ? "drop-shadow(0 1px 2px rgba(234,179,8,0.7))" : "none", textShadow: s<=filled ? "0 1px 0 #92400e, 0 -1px 0 #fef08a" : "none" }}>★</span>
+      ))}
+      <span style={{ fontSize:size-2, fontWeight:700, color:"inherit", marginLeft:3 }}>{display}</span>
+    </div>
+  );
+}
+
 function RolePill({ children, color }) {
   return (
     <div style={{ display:"inline-block", background: color || BLUE, color:"#fff", fontSize:8, fontWeight:700, letterSpacing:2, textTransform:"uppercase", padding:"3px 10px", borderRadius:20, marginBottom:6 }}>{children}</div>
@@ -197,7 +221,7 @@ function RiderBottomNav({ tab, onTab }) {
 function DriverBottomNav({ tab, onTab }) {
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, background:WHITE, borderTop:"1px solid "+BORDER, display:"flex", paddingBottom:8, zIndex:50, boxShadow:"0 -2px 12px rgba(37,99,235,0.06)" }}>
-      {[["home","🏠","Home"],["earnings","💰","Earnings"],["account","👤","Me"]].map(([id,icon,label]) => (
+      {[["home","🏠","Home"],["earnings","💰","Earnings"],["summary","📊","Summary"],["account","👤","Me"]].map(([id,icon,label]) => (
         <button key={id} onClick={() => onTab(id)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", padding:"8px 0 2px", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
           <span style={{ fontSize:20 }}>{icon}</span>
           <span style={{ fontSize:10, fontWeight:tab===id?700:400, color:tab===id?GREEN:SLATE }}>{label}</span>
@@ -237,6 +261,7 @@ function RiderApp() {
   const [bankAcct, setBankAcct]         = useState("");
   const [bankTransit, setBankTransit]   = useState("");
   const [bankInst, setBankInst]         = useState("");
+  const [bankOpen, setBankOpen]         = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [ride, setRide]     = useState("family");
   const [dest, setDest]     = useState("");
@@ -758,11 +783,8 @@ function RiderApp() {
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY }}>{displayName}</div>
               <div style={{ color:SLATE, fontSize:12, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email}</div>
-              <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4, marginBottom:4 }}>
-                {[1,2,3,4,5].map(s=>(
-                  <span key={s} style={{ fontSize:14, color:"#f59e0b", filter:"drop-shadow(0 1px 2px rgba(234,179,8,0.7))", textShadow:"0 1px 0 #92400e, 0 -1px 0 #fef08a" }}>★</span>
-                ))}
-                <span style={{ fontSize:12, fontWeight:700, color:NAVY, marginLeft:4 }}>5.0</span>
+              <div style={{ marginTop:4, marginBottom:4, color:NAVY }}>
+                <RatingStars rating={calcRating(trips) ?? 5.0} size={14} />
               </div>
               <div style={{ marginTop:2 }}><PillBadge label="Active Rider" color="blue" /></div>
             </div>
@@ -781,15 +803,6 @@ function RiderApp() {
                 <Input label="Email Address" value={editEmail} onChange={e=>setEditEmail(e.target.value)} type="email" placeholder="your@email.com" />
                 <Input label="Phone Number" value={editPhone} onChange={e=>setEditPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
                 <div style={{ height:1, background:BORDER, margin:"12px 0" }} />
-                <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Bank Details (for payments)</div>
-                <Input label="Bank Name" value={bankName} onChange={e=>setBankName(e.target.value)} placeholder="e.g. TD Bank, RBC, Scotiabank" />
-                <Input label="Account Number" value={bankAcct} onChange={e=>setBankAcct(e.target.value)} placeholder="e.g. 1234567" />
-                <div style={{ display:"flex", gap:8 }}>
-                  <div style={{ flex:1 }}><Input label="Transit No." value={bankTransit} onChange={e=>setBankTransit(e.target.value)} placeholder="5 digits" /></div>
-                  <div style={{ flex:1 }}><Input label="Institution No." value={bankInst} onChange={e=>setBankInst(e.target.value)} placeholder="3 digits" /></div>
-                </div>
-                <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#92400e" }}>🔒 Bank details are encrypted and used only for processing payments.</div>
-                <div style={{ height:1, background:BORDER, margin:"12px 0" }} />
                 <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>
                   Security {profileSaved && <span style={{ color:"#ef4444", fontWeight:800 }}>— Password required to save changes</span>}
                 </div>
@@ -800,6 +813,46 @@ function RiderApp() {
               </div>
             )}
           </div>
+          {/* Bank Details — standalone collapsible dropdown */}
+          <div style={{ marginBottom:14 }}>
+            <button onClick={()=>{ setBankOpen(o=>!o); }} style={{ width:"100%", background:WHITE, border:"1px solid "+BORDER, borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+              <span style={{ fontSize:18 }}>🏦</span>
+              <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>Bank Details</span>
+              <span style={{ fontSize:11, color:bankName?"#22c55e":SLATE, marginRight:4 }}>{bankName?"✓ Saved":"Not set"}</span>
+              <span style={{ color:SLATE, fontSize:14, display:"inline-block", transform:bankOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
+            </button>
+            {bankOpen && (
+              <div style={{ background:"#f8fafc", border:"1px solid "+BORDER, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
+                <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Bank for Payments</div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Bank Name</div>
+                  <select value={bankName} onChange={e=>setBankName(e.target.value)} style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+BORDER, background:VLIGHT, fontSize:13, color:bankName?NAVY:SLATE, outline:"none", boxSizing:"border-box" }}>
+                    <option value="">Select your bank</option>
+                    {["TD Bank","RBC Royal Bank","Scotiabank","BMO Bank of Montreal","CIBC","National Bank","Desjardins","HSBC Canada","Tangerine","EQ Bank","Simplii Financial","Meridian Credit Union","Coast Capital","ATB Financial","Other"].map(b=>(
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Account Number</div>
+                  <input value={bankAcct} onChange={e=>setBankAcct(e.target.value.replace(/[^0-9]/g,""))} placeholder="e.g. 1234567" style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+BORDER, background:VLIGHT, fontSize:13, color:NAVY, outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+                </div>
+                <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Transit No.</div>
+                    <input value={bankTransit} onChange={e=>setBankTransit(e.target.value.replace(/[^0-9]/g,"").slice(0,5))} placeholder="5 digits" style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+BORDER, background:VLIGHT, fontSize:13, color:NAVY, outline:"none", boxSizing:"border-box" }} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Institution No.</div>
+                    <input value={bankInst} onChange={e=>setBankInst(e.target.value.replace(/[^0-9]/g,"").slice(0,3))} placeholder="3 digits" style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+BORDER, background:VLIGHT, fontSize:13, color:NAVY, outline:"none", boxSizing:"border-box" }} />
+                  </div>
+                </div>
+                <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#92400e" }}>🔒 Bank details are encrypted and used only for processing payments.</div>
+                <button onClick={()=>{ if(bankName&&bankAcct) setBankOpen(false); }} disabled={!bankName||!bankAcct} style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:(bankName&&bankAcct)?BLUE:"#cbd5e1", color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(bankName&&bankAcct)?"pointer":"not-allowed" }}>Save Bank Details</button>
+              </div>
+            )}
+          </div>
+
           <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
             {[["💳","Payment Methods",()=>setTab("payment")],["🎁","Promo",()=>setTab("promo")]].map(([ic,lb,action])=>(
               <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
@@ -1205,7 +1258,7 @@ function MonthlySummaryTab({ trips, earned, displayName }) {
 
         {/* Stats row */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:14 }}>
-          {[["🚗","Trips",monthTrips.length],["💵","Avg Fare",monthTrips.length?"CA$"+avgFare.toFixed(2):"—"],["⭐","Rating","5.0"]].map(([ic,lb,val])=>(
+          {[["🚗","Trips",monthTrips.length],["💵","Avg Fare",monthTrips.length?"CA$"+avgFare.toFixed(2):"—"],["⭐","Rating",(calcRating(trips)??"5.0")+""]].map(([ic,lb,val])=>(
             <Card key={lb} style={{ textAlign:"center", padding:"12px 8px" }}>
               <div style={{ fontSize:20 }}>{ic}</div>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:NAVY, marginTop:4 }}>{String(val)}</div>
@@ -1255,7 +1308,7 @@ const VEHICLE_COLORS = [
 ];
 
 // ─── DRIVER ACCOUNT TAB COMPONENT ────────────────────────────────────────────
-function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscription, onDocs, onSummary, onLogout }) {
+function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, onSubscription, onDocs, onSummary, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [editName,    setEditName]    = useState("");
   const [editEmail,   setEditEmail]   = useState("");
@@ -1317,7 +1370,10 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:"#1e3a5f" }}>{displayName}</div>
           <div style={{ color:"#94a3b8", fontSize:12, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email}</div>
-          <div style={{ marginTop:6 }}><PillBadge label={subPaid?"Subscribed":"Pending"} color={subPaid?"green":"yellow"} /></div>
+          <div style={{ marginTop:4, marginBottom:4, color:"#1e3a5f" }}>
+            <RatingStars rating={trips && trips.length ? (calcRating(trips) ?? 5.0) : 5.0} size={14} />
+          </div>
+          <div style={{ marginTop:2 }}><PillBadge label={subPaid?"Subscribed":"Pending"} color={subPaid?"green":"yellow"} /></div>
         </div>
       </div>
 
@@ -1483,7 +1539,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
 
       {/* Menu */}
       <div style={{ background:"#fff", borderRadius:14, overflow:"hidden", border:"1px solid #bfdbfe", marginBottom:14 }}>
-        {[["💳","Subscription",onSubscription],["📊","Earnings",onSummary]].map(([ic,lb,action])=>(
+        {[["💳","Subscription",onSubscription],["📊","Monthly Summary",onSummary]].map(([ic,lb,action])=>(
           <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid #bfdbfe", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
             <span style={{ fontSize:18 }}>{ic}</span>
             <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{lb}</span>
@@ -1910,6 +1966,10 @@ function DriverApp() {
         <WeeklyEarningsTab trips={trips} earned={earned} />
       )}
 
+      {tab==="summary" && (
+        <MonthlySummaryTab trips={trips} earned={earned} displayName={displayName} />
+      )}
+
       {tab==="docs" && (
         <div className="fade" style={{ padding:"16px 16px 10px" }}>
           <SectionHeader title="My Documents" sub="All 10 required for approval" />
@@ -1944,7 +2004,7 @@ function DriverApp() {
           displayName={displayName} user={user} vehicle={vehicle} plate={plate}
           subPaid={subPaid}
           onSubscription={()=>go("subscription")} onDocs={()=>setTab("docs")}
-          onSummary={()=>setTab("earnings")} onLogout={doLogout}
+          onSummary={()=>setTab("summary")} onLogout={doLogout}
         />
       )}
 
