@@ -197,7 +197,7 @@ function RiderBottomNav({ tab, onTab }) {
 function DriverBottomNav({ tab, onTab }) {
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, background:WHITE, borderTop:"1px solid "+BORDER, display:"flex", paddingBottom:8, zIndex:50, boxShadow:"0 -2px 12px rgba(37,99,235,0.06)" }}>
-      {[["home","🏠","Home"],["earnings","💰","Earnings"],["docs","📄","Docs"],["account","👤","Me"]].map(([id,icon,label]) => (
+      {[["home","🏠","Home"],["earnings","📊","Summary"],["docs","📄","Docs"],["account","👤","Me"]].map(([id,icon,label]) => (
         <button key={id} onClick={() => onTab(id)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", padding:"8px 0 2px", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
           <span style={{ fontSize:20 }}>{icon}</span>
           <span style={{ fontSize:10, fontWeight:tab===id?700:400, color:tab===id?GREEN:SLATE }}>{label}</span>
@@ -810,6 +810,122 @@ const CAR_MAKES = [
   { make:"Other",       models:["Other / Not Listed"] },
 ];
 
+// ─── MONTHLY SUMMARY TAB ─────────────────────────────────────────────────────
+function MonthlySummaryTab({ trips, earned, displayName }) {
+  const now   = new Date();
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const [selMonth, setSelMonth] = useState(now.getMonth());
+  const [selYear,  setSelYear]  = useState(now.getFullYear());
+  const COMMISSION_RATE = 0.20; // 20% platform fee
+
+  // Build per-month trip data
+  function tripsForMonth(m, y) {
+    return trips.filter(t => {
+      const d = new Date(t.date);
+      return d.getMonth() === m && d.getFullYear() === y;
+    });
+  }
+
+  const monthTrips   = tripsForMonth(selMonth, selYear);
+  const grossEarned  = monthTrips.reduce((s, t) => s + parseFloat(t.fare.replace("CA$","")||0), 0);
+  const commission   = grossEarned * COMMISSION_RATE;
+  const subFee       = 25; // weekly sub × ~4.3 weeks
+  const netPayout    = Math.max(0, grossEarned - commission - subFee);
+  const avgFare      = monthTrips.length ? grossEarned / monthTrips.length : 0;
+
+  // Month picker — prev/next
+  function prevMonth() {
+    if (selMonth === 0) { setSelMonth(11); setSelYear(y => y - 1); }
+    else setSelMonth(m => m - 1);
+  }
+  function nextMonth() {
+    const isCurrentMonth = selMonth === now.getMonth() && selYear === now.getFullYear();
+    if (isCurrentMonth) return;
+    if (selMonth === 11) { setSelMonth(0); setSelYear(y => y + 1); }
+    else setSelMonth(m => m + 1);
+  }
+  const isCurrentMonth = selMonth === now.getMonth() && selYear === now.getFullYear();
+
+  return (
+    <div className="fade" style={{ paddingBottom:80 }}>
+      {/* Header */}
+      <div style={{ background:"linear-gradient(160deg,"+NAVY+","+DARK+")", padding:"20px 20px 24px" }}>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:WHITE, marginBottom:2 }}>📊 Monthly Summary</div>
+        <div style={{ color:LBLUE, fontSize:12 }}>End-of-month payment report</div>
+        {/* Month navigator */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:16, background:"rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 14px" }}>
+          <button onClick={prevMonth} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:8, width:32, height:32, color:WHITE, fontSize:18, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:WHITE }}>{MONTHS[selMonth]}</div>
+            <div style={{ color:LBLUE, fontSize:12 }}>{selYear}</div>
+          </div>
+          <button onClick={nextMonth} style={{ background: isCurrentMonth?"rgba(255,255,255,0.05)":"rgba(255,255,255,0.1)", border:"none", borderRadius:8, width:32, height:32, color: isCurrentMonth?"#475569":WHITE, fontSize:18, cursor: isCurrentMonth?"not-allowed":"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+        </div>
+      </div>
+
+      <div style={{ padding:"16px 16px 0" }}>
+        {/* Summary card */}
+        <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:16, padding:"18px", marginBottom:14, boxShadow:"0 4px 20px rgba(5,150,105,0.25)" }}>
+          <div style={{ color:"rgba(255,255,255,0.7)", fontSize:10, fontWeight:700, letterSpacing:1, textTransform:"uppercase" }}>Net Payout — {MONTHS[selMonth]} {selYear}</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:44, color:WHITE, marginTop:4 }}>{"CA$"+netPayout.toFixed(2)}</div>
+          <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:4 }}>After platform fee & subscription</div>
+          <button style={{ marginTop:14, background:WHITE, border:"none", borderRadius:10, padding:"10px 22px", color:"#059669", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, cursor: netPayout > 0 ? "pointer" : "not-allowed", opacity: netPayout > 0 ? 1 : 0.5, boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
+            {netPayout > 0 ? "Cash Out CA$"+netPayout.toFixed(2) : "Nothing to cash out"}
+          </button>
+        </div>
+
+        {/* Breakdown */}
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, color:NAVY, marginBottom:10, letterSpacing:0.5 }}>Earnings Breakdown</div>
+        <Card style={{ marginBottom:14, padding:0, overflow:"hidden" }}>
+          {[
+            ["Gross Earnings",   "CA$"+grossEarned.toFixed(2),  GREEN,  "💰"],
+            ["Platform Fee (20%)","- CA$"+commission.toFixed(2), "#ef4444", "⚙️"],
+            ["Weekly Sub × 4",   "- CA$"+subFee.toFixed(2),     "#f59e0b", "💳"],
+            ["Net Payout",        "CA$"+netPayout.toFixed(2),    GREEN,  "✅"],
+          ].map(([label, val, color, ic], i, arr) => (
+            <div key={label} style={{ padding:"13px 16px", borderBottom: i<arr.length-1?"1px solid "+BORDER:"none", display:"flex", alignItems:"center", gap:12, background: i===arr.length-1?"#f0fdf4":"transparent" }}>
+              <span style={{ fontSize:18 }}>{ic}</span>
+              <span style={{ flex:1, fontSize:13, fontWeight: i===arr.length-1?700:500, color:NAVY }}>{label}</span>
+              <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, color }}>{val}</span>
+            </div>
+          ))}
+        </Card>
+
+        {/* Stats row */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:14 }}>
+          {[["🚗","Trips",monthTrips.length],["💵","Avg Fare",monthTrips.length?"CA$"+avgFare.toFixed(2):"—"],["⭐","Rating","5.0"]].map(([ic,lb,val])=>(
+            <Card key={lb} style={{ textAlign:"center", padding:"12px 8px" }}>
+              <div style={{ fontSize:20 }}>{ic}</div>
+              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:NAVY, marginTop:4 }}>{String(val)}</div>
+              <div style={{ fontSize:10, color:SLATE, marginTop:2 }}>{lb}</div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Trip list for month */}
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, color:NAVY, marginBottom:10 }}>Trip History — {MONTHS[selMonth]}</div>
+        {monthTrips.length === 0 ? (
+          <div style={{ textAlign:"center", paddingTop:30, color:SLATE, paddingBottom:20 }}>
+            <div style={{ fontSize:36, marginBottom:10 }}>📭</div>
+            <div style={{ fontWeight:600 }}>No trips this month</div>
+            <div style={{ fontSize:12, marginTop:4 }}>Complete trips to see them here</div>
+          </div>
+        ) : (
+          monthTrips.map((t,i) => (
+            <Card key={i} style={{ marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
+                <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
+              </div>
+              <div style={{ fontWeight:800, color:GREEN, fontSize:14 }}>{t.fare}</div>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── VEHICLE COLORS ─────────────────────────────────────────────────────────
 const VEHICLE_COLORS = [
   { name:"White",   hex:"#ffffff", border:"#cbd5e1" },
@@ -827,7 +943,33 @@ const VEHICLE_COLORS = [
 ];
 
 // ─── DRIVER ACCOUNT TAB COMPONENT ────────────────────────────────────────────
-function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, trips, onSubscription, onDocs, onEarnings, onLogout, dProfileOpen, setDProfileOpen, dEditName, setDEditName, dEditEmail, setDEditEmail, dEditPhone, setDEditPhone, dEditPass, setDEditPass, dEditPc, setDEditPc, dEditErr, setDEditErr, dEditBusy, dEditSuccess, saveDriverProfile }) {
+function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscription, onDocs, onSummary, onLogout }) {
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [editName, setEditName]       = useState("");
+  const [editEmail, setEditEmail]     = useState("");
+  const [editPhone, setEditPhone]     = useState("");
+  const [editPass, setEditPass]       = useState("");
+  const [editPc, setEditPc]           = useState("");
+  const [editErr, setEditErr]         = useState("");
+  const [editBusy, setEditBusy]       = useState(false);
+  const [editSuccess, setEditSuccess] = useState(false);
+
+  async function saveProfile() {
+    if (!editName || !editEmail) { setEditErr("Name and email required"); return; }
+    if (editPass && editPass !== editPc) { setEditErr("Passwords do not match"); return; }
+    if (editPass && editPass.length < 8) { setEditErr("Password needs 8+ characters"); return; }
+    setEditBusy(true); setEditErr(""); setEditSuccess(false);
+    try {
+      const updates = { data: { name: editName } };
+      if (editEmail !== user?.email) updates.email = editEmail;
+      if (editPass) updates.password = editPass;
+      await db.auth.updateUser(updates);
+      await db.from("drivers").update({ name: editName, email: editEmail, phone: editPhone || null }).eq("id", user?.id);
+      setEditSuccess(true);
+      setTimeout(() => { setEditSuccess(false); setProfileOpen(false); }, 1800);
+    } catch(e) { setEditErr(e.message || "Update failed"); }
+    finally { setEditBusy(false); }
+  }
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [vehicles, setVehicles] = useState(
     vehicle ? [{ id:1, make:vehicle, plate: plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
@@ -1013,7 +1155,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, 
 
       {/* Menu */}
       <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
-        {[["💳","Subscription",onSubscription],["📄","Documents",onDocs],["💰","Earnings",onEarnings]].map(([ic,lb,action])=>(
+        {[["💳","Subscription",onSubscription],["📄","Documents",onDocs],["📊","Summary",onSummary]].map(([ic,lb,action])=>(
           <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid #bfdbfe", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
             <span style={{ fontSize:18 }}>{ic}</span>
             <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{lb}</span>
@@ -1459,55 +1601,7 @@ function DriverApp() {
       )}
 
       {tab==="earnings" && (
-        <div className="fade">
-          {/* Weekly summary header */}
-          <div style={{ background:"linear-gradient(160deg,"+NAVY+","+DARK+")", padding:"24px 20px 28px" }}>
-            <div style={{ color:LBLUE, fontSize:11, fontWeight:700, letterSpacing:1, textAlign:"center" }}>WEEK TOTAL</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:46, color:WHITE, marginTop:6, textAlign:"center" }}>{"CA$"+earned.toFixed(2)}</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginTop:16 }}>
-              {[["Trips",trips.length,"🚗"],["Avg Fare",trips.length?("CA$"+(earned/trips.length).toFixed(2)):"CA$0.00","💵"],["Rating","5.0 ★","⭐"]].map(([lb,val,ic])=>(
-                <div key={lb} style={{ background:"rgba(255,255,255,0.08)", borderRadius:12, padding:"10px 6px", textAlign:"center" }}>
-                  <div style={{ fontSize:18 }}>{ic}</div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, color:WHITE, marginTop:4 }}>{String(val)}</div>
-                  <div style={{ fontSize:10, color:LBLUE, marginTop:2 }}>{lb}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ padding:"16px 16px 10px" }}>
-            {/* Cash out button */}
-            <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:14, padding:"16px", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center", boxShadow:"0 4px 14px rgba(5,150,105,0.3)" }}>
-              <div>
-                <div style={{ color:"rgba(255,255,255,0.7)", fontSize:11, fontWeight:600 }}>Available to Cash Out</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>{"CA$"+earned.toFixed(2)}</div>
-              </div>
-              <button style={{ background:WHITE, border:"none", borderRadius:10, padding:"10px 18px", color:"#059669", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
-                Cash Out
-              </button>
-            </div>
-            {/* Trip list */}
-            {trips.length===0 ? (
-              <div style={{ textAlign:"center", paddingTop:40, color:SLATE }}>
-                <div style={{ fontSize:36, marginBottom:12 }}>💸</div>
-                <div style={{ fontWeight:700 }}>No earnings yet</div>
-                <div style={{ fontSize:12, marginTop:4 }}>Go online to start earning</div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>Trip History</div>
-                {trips.map((t,i)=>(
-                  <Card key={i} style={{ marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div>
-                      <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
-                      <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
-                    </div>
-                    <div style={{ fontWeight:800, color:GREEN, fontSize:15 }}>{t.fare}</div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <MonthlySummaryTab trips={trips} earned={earned} displayName={displayName} />
       )}
 
       {tab==="docs" && (
@@ -1544,7 +1638,7 @@ function DriverApp() {
           displayName={displayName} user={user} vehicle={vehicle} plate={plate}
           subPaid={subPaid} earned={earned} trips={trips}
           onSubscription={()=>go("subscription")} onDocs={()=>setTab("docs")}
-          onEarnings={()=>setTab("earnings")} onLogout={doLogout}
+          onSummary={()=>setTab("earnings")} onLogout={doLogout}
           dProfileOpen={dProfileOpen} setDProfileOpen={setDProfileOpen}
           dEditName={dEditName} setDEditName={setDEditName}
           dEditEmail={dEditEmail} setDEditEmail={setDEditEmail}
