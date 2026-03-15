@@ -945,72 +945,56 @@ const VEHICLE_COLORS = [
 // ─── DRIVER ACCOUNT TAB COMPONENT ────────────────────────────────────────────
 function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscription, onDocs, onSummary, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
-  const [editName, setEditName]       = useState("");
-  const [editEmail, setEditEmail]     = useState("");
-  const [editPhone, setEditPhone]     = useState("");
-  const [editPass, setEditPass]       = useState("");
-  const [editPc, setEditPc]           = useState("");
-  const [editErr, setEditErr]         = useState("");
-  const [editBusy, setEditBusy]       = useState(false);
+  const [editName,    setEditName]    = useState("");
+  const [editEmail,   setEditEmail]   = useState("");
+  const [editPhone,   setEditPhone]   = useState("");
+  const [editPass,    setEditPass]    = useState("");
+  const [editPc,      setEditPc]      = useState("");
+  const [editErr,     setEditErr]     = useState("");
+  const [editBusy,    setEditBusy]    = useState(false);
   const [editSuccess, setEditSuccess] = useState(false);
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [vehicles, setVehicles] = useState(
+    vehicle ? [{ id:1, make:vehicle, plate:plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
+  );
+  const [addOpen,    setAddOpen]    = useState(false);
+  const [newYear,    setNewYear]    = useState("");
+  const [newMake,    setNewMake]    = useState("");
+  const [newModel,   setNewModel]   = useState("");
+  const [newPlate,   setNewPlate]   = useState("");
+  const [newColor,   setNewColor]   = useState(VEHICLE_COLORS[0]);
+  const YEARS = Array.from({length:11},(_,i)=>(new Date().getFullYear()-i).toString());
 
   async function saveProfile() {
-    if (!editName || !editEmail) { setEditErr("Name and email required"); return; }
-    if (editPass && editPass !== editPc) { setEditErr("Passwords do not match"); return; }
-    if (editPass && editPass.length < 8) { setEditErr("Password needs 8+ characters"); return; }
+    if (!editName||!editEmail) { setEditErr("Name and email required"); return; }
+    if (editPass && editPass!==editPc) { setEditErr("Passwords do not match"); return; }
+    if (editPass && editPass.length<8) { setEditErr("Password needs 8+ characters"); return; }
     setEditBusy(true); setEditErr(""); setEditSuccess(false);
     try {
-      const updates = { data: { name: editName } };
+      const updates = { data:{ name:editName } };
       if (editEmail !== user?.email) updates.email = editEmail;
       if (editPass) updates.password = editPass;
       await db.auth.updateUser(updates);
-      await db.from("drivers").update({ name: editName, email: editEmail, phone: editPhone || null }).eq("id", user?.id);
+      await db.from("drivers").update({ name:editName, email:editEmail, phone:editPhone||null }).eq("id", user?.id);
       setEditSuccess(true);
-      setTimeout(() => { setEditSuccess(false); setProfileOpen(false); }, 1800);
-    } catch(e) { setEditErr(e.message || "Update failed"); }
+      setTimeout(()=>{ setEditSuccess(false); setProfileOpen(false); }, 1800);
+    } catch(e) { setEditErr(e.message||"Update failed"); }
     finally { setEditBusy(false); }
   }
-  const [vehicleOpen, setVehicleOpen] = useState(false);
-  const [vehicles, setVehicles] = useState(
-    vehicle ? [{ id:1, make:vehicle, plate: plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
-  );
-  const [addOpen, setAddOpen]   = useState(false);
-  const [newYear, setNewYear]   = useState("");
-  const [newMake, setNewMake]   = useState("");
-  const [newModel, setNewModel] = useState("");
-  const [newPlate, setNewPlate] = useState("");
-  const [newColor, setNewColor] = useState(VEHICLE_COLORS[0]);
-
-  const YEARS = Array.from({length:11},(_,i)=>(new Date().getFullYear()-i).toString());
 
   function addVehicle() {
-    if (!newYear || !newMake || !newModel) return;
-    const label = newYear + " " + newMake + " " + newModel.trim();
-    setVehicles(v => [
-      ...v.map(x => ({ ...x, active:false })),
-      { id: Date.now(), make: label, plate: newPlate.trim(), color: newColor.hex, colorName: newColor.name, active: true }
-    ]);
+    if (!newYear||!newMake||!newModel) return;
+    const label = newYear+" "+newMake+" "+newModel;
+    setVehicles(v=>[...v.map(x=>({...x,active:false})),{ id:Date.now(), make:label, plate:newPlate.trim(), color:newColor.hex, colorName:newColor.name, active:true }]);
     setNewYear(""); setNewMake(""); setNewModel(""); setNewPlate(""); setNewColor(VEHICLE_COLORS[0]); setAddOpen(false);
   }
-
-  function setActive(id) {
-    setVehicles(v => v.map(x => ({ ...x, active: x.id === id })));
-  }
-
-  function removeVehicle(id) {
-    setVehicles(v => {
-      const remaining = v.filter(x => x.id !== id);
-      if (remaining.length > 0 && !remaining.some(x => x.active)) {
-        remaining[0].active = true;
-      }
-      return remaining;
-    });
-  }
+  function setActive(id){ setVehicles(v=>v.map(x=>({...x,active:x.id===id}))); }
+  function removeVehicle(id){ setVehicles(v=>{ const r=v.filter(x=>x.id!==id); if(r.length&&!r.some(x=>x.active)) r[0].active=true; return r; }); }
 
   return (
     <div className="fade" style={{ padding:"20px 20px 10px" }}>
       {/* Profile card */}
-      <Card style={{ marginBottom:14, display:"flex", gap:14, alignItems:"center" }}>
+      <div style={{ background:"#fff", borderRadius:14, border:"1px solid #bfdbfe", padding:16, marginBottom:14, display:"flex", gap:14, alignItems:"center" }}>
         <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#059669,#065f46)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, flexShrink:0 }}>
           {displayName[0].toUpperCase()}
         </div>
@@ -1019,41 +1003,29 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
           <div style={{ color:"#94a3b8", fontSize:12, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email}</div>
           <div style={{ marginTop:6 }}><PillBadge label={subPaid?"Subscribed":"Pending"} color={subPaid?"green":"yellow"} /></div>
         </div>
-      </Card>
+      </div>
 
-      {/* Personal Info — collapsible edit */}
+      {/* Personal Information — collapsible */}
       <div style={{ marginBottom:14 }}>
-        <button onClick={()=>{ if(!dProfileOpen){ setDEditName(displayName); setDEditEmail(user?.email||""); setDEditPhone(""); setDEditPass(""); setDEditPc(""); setDEditErr(""); setDEditSuccess(false); } setDProfileOpen(o=>!o); }} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+        <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(""); setEditPass(""); setEditPc(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>👤</span>
           <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Personal Information</span>
-          <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:dProfileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
+          <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:profileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
         </button>
-        {dProfileOpen && (
+        {profileOpen && (
           <div style={{ background:"#f8fafc", border:"1px solid #bfdbfe", borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Full Name</div>
-              <input value={dEditName} onChange={e=>setDEditName(e.target.value)} placeholder="Your name" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
-            </div>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Email Address</div>
-              <input value={dEditEmail} onChange={e=>setDEditEmail(e.target.value)} type="email" placeholder="your@email.com" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
-            </div>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Phone Number</div>
-              <input value={dEditPhone} onChange={e=>setDEditPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
-            </div>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>New Password (leave blank to keep)</div>
-              <input value={dEditPass} onChange={e=>setDEditPass(e.target.value)} type="password" placeholder="Min 8 characters" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
-            </div>
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Confirm New Password</div>
-              <input value={dEditPc} onChange={e=>setDEditPc(e.target.value)} type="password" placeholder="Re-enter password" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
-            </div>
-            {dEditErr && <div style={{ color:"#ef4444", fontSize:12, marginBottom:8, textAlign:"center" }}>{dEditErr}</div>}
-            {dEditSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>Profile updated!</div>}
-            {dEditBusy ? <div style={{ textAlign:"center" }}><div style={{ width:22, height:22, border:"3px solid #86efac", borderTopColor:"#22c55e", borderRadius:"50%", animation:"spin 0.75s linear infinite", margin:"0 auto" }} /></div> : (
-              <button onClick={saveDriverProfile} style={{ width:"100%", padding:"12px", borderRadius:12, border:"none", background:"#059669", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, cursor:"pointer" }}>Save Changes</button>
+            {[["Full Name",editName,setEditName,"text","Your name"],["Email Address",editEmail,setEditEmail,"email","your@email.com"],["Phone Number",editPhone,setEditPhone,"tel","+1 905 000 0000"],["New Password (leave blank to keep)",editPass,setEditPass,"password","Min 8 characters"],["Confirm New Password",editPc,setEditPc,"password","Re-enter"]].map(([label,val,setter,type,ph])=>(
+              <div key={label} style={{ marginBottom:10 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                <input value={val} onChange={e=>setter(e.target.value)} type={type} placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+              </div>
+            ))}
+            {editErr && <div style={{ color:"#ef4444", fontSize:12, marginBottom:8, textAlign:"center" }}>{editErr}</div>}
+            {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>Profile updated!</div>}
+            {editBusy ? (
+              <div style={{ textAlign:"center" }}><div style={{ width:22, height:22, border:"3px solid #86efac", borderTopColor:"#22c55e", borderRadius:"50%", animation:"spin 0.75s linear infinite", margin:"0 auto" }} /></div>
+            ) : (
+              <button onClick={saveProfile} style={{ width:"100%", padding:"12px", borderRadius:12, border:"none", background:"#059669", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, cursor:"pointer" }}>Save Changes</button>
             )}
           </div>
         )}
@@ -1063,82 +1035,56 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
       <div style={{ marginBottom:14 }}>
         <button onClick={()=>setVehicleOpen(o=>!o)} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>🚗</span>
-          <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-            My Vehicles {vehicles.length > 0 && <span style={{ background:"#eff6ff", color:"#2563eb", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:20, marginLeft:6 }}>{vehicles.length}</span>}
+          <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>
+            My Vehicles{vehicles.length>0&&<span style={{ background:"#eff6ff", color:"#2563eb", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:20, marginLeft:6 }}>{vehicles.length}</span>}
           </span>
-          <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transition:"transform 0.2s", transform: vehicleOpen?"rotate(90deg)":"rotate(0deg)" }}>{"›"}</span>
+          <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:vehicleOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
         </button>
-
         {vehicleOpen && (
           <div style={{ background:"#f8fafc", border:"1px solid #bfdbfe", borderTop:"none", borderRadius:"0 0 14px 14px", padding:"12px" }}>
-            {vehicles.length === 0 && (
-              <div style={{ textAlign:"center", color:"#94a3b8", fontSize:13, padding:"12px 0" }}>No vehicles added yet</div>
-            )}
-            {vehicles.map(v => (
+            {vehicles.length===0&&<div style={{ textAlign:"center", color:"#94a3b8", fontSize:13, padding:"10px 0" }}>No vehicles added yet</div>}
+            {vehicles.map(v=>(
               <div key={v.id} style={{ background:"#fff", borderRadius:12, padding:"12px 14px", marginBottom:8, border:"2px solid "+(v.active?"#2563eb":"#e2e8f0"), display:"flex", alignItems:"center", gap:10 }}>
-                {/* Color swatch */}
                 <div style={{ width:36, height:36, borderRadius:10, background:v.color, border:"2px solid "+(v.color==="#ffffff"?"#cbd5e1":v.color), flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  {v.active && <span style={{ fontSize:14, filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }}>✓</span>}
+                  {v.active&&<span style={{ fontSize:14, filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }}>✓</span>}
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:13, color:"#1e3a5f", fontFamily:"'Syne',sans-serif" }}>{v.make}</div>
+                  <div style={{ fontWeight:700, fontSize:13, color:"#1e3a5f" }}>{v.make}</div>
                   <div style={{ display:"flex", gap:8, marginTop:3, alignItems:"center" }}>
-                    {v.plate && <span style={{ fontSize:10, fontWeight:700, color:"#2563eb", background:"#eff6ff", padding:"2px 7px", borderRadius:6, letterSpacing:1 }}>{v.plate}</span>}
+                    {v.plate&&<span style={{ fontSize:10, fontWeight:700, color:"#2563eb", background:"#eff6ff", padding:"2px 7px", borderRadius:6, letterSpacing:1 }}>{v.plate}</span>}
                     <span style={{ fontSize:10, color:"#94a3b8" }}>{v.colorName}</span>
                   </div>
                 </div>
-                <div style={{ display:"flex", gap:6 }}>
-                  {!v.active && (
-                    <button onClick={()=>setActive(v.id)} style={{ fontSize:10, fontWeight:700, color:"#2563eb", background:"#eff6ff", border:"none", borderRadius:8, padding:"5px 10px", cursor:"pointer" }}>Use</button>
-                  )}
-                  {v.active && <PillBadge label="Active" color="green" />}
-                  {vehicles.length > 1 && (
-                    <button onClick={()=>removeVehicle(v.id)} style={{ fontSize:14, background:"#fef2f2", border:"none", borderRadius:8, padding:"5px 8px", cursor:"pointer", color:"#ef4444" }}>✕</button>
-                  )}
+                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                  {!v.active&&<button onClick={()=>setActive(v.id)} style={{ fontSize:10, fontWeight:700, color:"#2563eb", background:"#eff6ff", border:"none", borderRadius:8, padding:"5px 10px", cursor:"pointer" }}>Use</button>}
+                  {v.active&&<PillBadge label="Active" color="green" />}
+                  {vehicles.length>1&&<button onClick={()=>removeVehicle(v.id)} style={{ fontSize:14, background:"#fef2f2", border:"none", borderRadius:8, padding:"5px 8px", cursor:"pointer", color:"#ef4444" }}>✕</button>}
                 </div>
               </div>
             ))}
-
-            {/* Add vehicle button */}
-            {!addOpen ? (
-              <button onClick={()=>setAddOpen(true)} style={{ width:"100%", background:"#eff6ff", border:"1.5px dashed #93c5fd", borderRadius:12, padding:"10px", color:"#2563eb", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>
-                + Add Vehicle
-              </button>
-            ) : (
+            {!addOpen?(
+              <button onClick={()=>setAddOpen(true)} style={{ width:"100%", background:"#eff6ff", border:"1.5px dashed #93c5fd", borderRadius:12, padding:"10px", color:"#2563eb", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>+ Add Vehicle</button>
+            ):(
               <div style={{ background:"#fff", borderRadius:12, padding:"14px", border:"1.5px solid #bfdbfe" }}>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:"#1e3a5f", marginBottom:10 }}>New Vehicle</div>
-                {/* Year */}
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Year</div>
-                <select value={newYear} onChange={e=>setNewYear(e.target.value)}
-                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color: newYear?"#1e3a5f":"#94a3b8", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif", appearance:"none" }}>
-                  <option value="">Select year</option>
-                  {YEARS.map(y=><option key={y} value={y}>{y}</option>)}
-                </select>
-                {/* Make */}
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Make</div>
-                <select value={newMake} onChange={e=>{ setNewMake(e.target.value); setNewModel(""); }}
-                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color: newMake?"#1e3a5f":"#94a3b8", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                  <option value="">Select make</option>
-                  {CAR_MAKES.map(c=><option key={c.make} value={c.make}>{c.make}</option>)}
-                </select>
-                {/* Model */}
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Model</div>
-                <select value={newModel} onChange={e=>setNewModel(e.target.value)} disabled={!newMake}
-                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background: newMake?"#eff6ff":"#f1f5f9", fontSize:13, color: newMake?"#1e3a5f":"#94a3b8", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                  <option value="">{newMake ? "Select model" : "Select make first"}</option>
-                  {newMake && CAR_MAKES.find(c=>c.make===newMake)?.models.map(m=>(
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-                {/* License plate */}
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>License Plate</div>
-                <input value={newPlate} onChange={e=>setNewPlate(e.target.value)} placeholder="e.g. ABCD 123"
-                  style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", marginBottom:10, boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+                {[["Year",newYear,setNewYear,"select",YEARS.map(y=>({v:y,l:y}))],["Make",newMake,v=>{ setNewMake(v); setNewModel(""); },"select",CAR_MAKES.map(c=>({v:c.make,l:c.make}))],["Model",newModel,setNewModel,"select",newMake?CAR_MAKES.find(c=>c.make===newMake)?.models.map(m=>({v:m,l:m}))||[]:[]],["License Plate",newPlate,setNewPlate,"text",null]].map(([label,val,setter,type,opts])=>(
+                  <div key={label} style={{ marginBottom:10 }}>
+                    <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                    {type==="select"?(
+                      <select value={val} onChange={e=>setter(e.target.value)} disabled={label==="Model"&&!newMake} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:(label==="Model"&&!newMake)?"#f1f5f9":"#eff6ff", fontSize:13, color:(val||label==="License Plate")?"#1e3a5f":"#94a3b8", outline:"none", boxSizing:"border-box" }}>
+                        <option value="">{label==="Model"?(!newMake?"Select make first":"Select model"):"Select "+label.toLowerCase()}</option>
+                        {(opts||[]).map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                      </select>
+                    ):(
+                      <input value={val} onChange={e=>setter(e.target.value)} placeholder={"e.g. ABCD 123"} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+                    )}
+                  </div>
+                ))}
                 <div style={{ fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Vehicle Color</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
-                  {VEHICLE_COLORS.map(c => (
-                    <button key={c.name} onClick={()=>setNewColor(c)} title={c.name} style={{ width:30, height:30, borderRadius:8, background:c.hex, border:"3px solid "+(newColor.name===c.name?"#2563eb":c.border), cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow: newColor.name===c.name?"0 0 0 2px #2563eb":"none" }}>
-                      {newColor.name===c.name && <span style={{ fontSize:12, color:c.hex==="#ffffff"||c.hex==="#d4b896"?"#1e293b":"#fff", fontWeight:900 }}>✓</span>}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:10 }}>
+                  {VEHICLE_COLORS.map(c=>(
+                    <button key={c.name} onClick={()=>setNewColor(c)} title={c.name} style={{ width:30, height:30, borderRadius:8, background:c.hex, border:"3px solid "+(newColor.name===c.name?"#2563eb":c.border), cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:newColor.name===c.name?"0 0 0 2px #2563eb":"none" }}>
+                      {newColor.name===c.name&&<span style={{ fontSize:12, color:c.hex==="#ffffff"||c.hex==="#d4b896"?"#1e293b":"#fff", fontWeight:900 }}>✓</span>}
                     </button>
                   ))}
                 </div>
@@ -1154,7 +1100,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
       </div>
 
       {/* Menu */}
-      <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
+      <div style={{ background:"#fff", borderRadius:14, overflow:"hidden", border:"1px solid #bfdbfe", marginBottom:14 }}>
         {[["💳","Subscription",onSubscription],["📄","Documents",onDocs],["📊","Summary",onSummary]].map(([ic,lb,action])=>(
           <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid #bfdbfe", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
             <span style={{ fontSize:18 }}>{ic}</span>
@@ -1162,15 +1108,13 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
             <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
           </button>
         ))}
-      </Card>
-      <BigBtn onClick={onLogout} ghost>Sign Out</BigBtn>
+      </div>
+      <button onClick={onLogout} style={{ width:"100%", padding:"14px", borderRadius:12, border:"1.5px solid #bfdbfe", background:"transparent", color:"#2563eb", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:15, cursor:"pointer" }}>Sign Out</button>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DRIVER APP
-// ─────────────────────────────────────────────────────────────────────────────
+
 function DriverApp() {
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
@@ -1195,15 +1139,6 @@ function DriverApp() {
   const [dOtpSent, setDOtpSent]     = useState(false);
   const [dOtpValue, setDOtpValue]   = useState("");
   const [dOtpError, setDOtpError]   = useState("");
-  const [dProfileOpen, setDProfileOpen] = useState(false);
-  const [dEditName, setDEditName]   = useState("");
-  const [dEditEmail, setDEditEmail] = useState("");
-  const [dEditPhone, setDEditPhone] = useState("");
-  const [dEditPass, setDEditPass]   = useState("");
-  const [dEditPc, setDEditPc]       = useState("");
-  const [dEditBusy, setDEditBusy]   = useState(false);
-  const [dEditErr, setDEditErr]     = useState("");
-  const [dEditSuccess, setDEditSuccess] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing" })));
@@ -1284,22 +1219,6 @@ function DriverApp() {
     finally { setBusy(false); }
   }
 
-  async function saveDriverProfile() {
-    if (!dEditName||!dEditEmail) { setDEditErr("Name and email required"); return; }
-    if (dEditPass && dEditPass!==dEditPc) { setDEditErr("Passwords do not match"); return; }
-    if (dEditPass && dEditPass.length<8) { setDEditErr("Password needs 8+ characters"); return; }
-    setDEditBusy(true); setDEditErr(""); setDEditSuccess(false);
-    try {
-      const updates = { data:{ name:dEditName } };
-      if (dEditEmail !== user?.email) updates.email = dEditEmail;
-      if (dEditPass) updates.password = dEditPass;
-      await db.auth.updateUser(updates);
-      await db.from("drivers").update({ name:dEditName, email:dEditEmail, phone:dEditPhone||null }).eq("id", user.id);
-      setName(dEditName); setDEditSuccess(true);
-      setTimeout(()=>{ setDEditSuccess(false); setDProfileOpen(false); }, 1500);
-    } catch(e) { setDEditErr(e.message||"Update failed"); }
-    finally { setDEditBusy(false); }
-  }
 
   async function doLogout() {
     await db.auth.signOut();
@@ -1636,18 +1555,9 @@ function DriverApp() {
       {tab==="account" && (
         <DriverAccountTab
           displayName={displayName} user={user} vehicle={vehicle} plate={plate}
-          subPaid={subPaid} earned={earned} trips={trips}
+          subPaid={subPaid}
           onSubscription={()=>go("subscription")} onDocs={()=>setTab("docs")}
           onSummary={()=>setTab("earnings")} onLogout={doLogout}
-          dProfileOpen={dProfileOpen} setDProfileOpen={setDProfileOpen}
-          dEditName={dEditName} setDEditName={setDEditName}
-          dEditEmail={dEditEmail} setDEditEmail={setDEditEmail}
-          dEditPhone={dEditPhone} setDEditPhone={setDEditPhone}
-          dEditPass={dEditPass} setDEditPass={setDEditPass}
-          dEditPc={dEditPc} setDEditPc={setDEditPc}
-          dEditErr={dEditErr} setDEditErr={setDEditErr}
-          dEditBusy={dEditBusy} dEditSuccess={dEditSuccess}
-          saveDriverProfile={saveDriverProfile}
         />
       )}
 
