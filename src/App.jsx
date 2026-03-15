@@ -197,7 +197,7 @@ function RiderBottomNav({ tab, onTab }) {
 function DriverBottomNav({ tab, onTab }) {
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, background:WHITE, borderTop:"1px solid "+BORDER, display:"flex", paddingBottom:8, zIndex:50, boxShadow:"0 -2px 12px rgba(37,99,235,0.06)" }}>
-      {[["home","🏠","Home"],["earnings","📊","Summary"],["docs","📄","Docs"],["account","👤","Me"]].map(([id,icon,label]) => (
+      {[["home","🏠","Home"],["earnings","💰","Earnings"],["account","👤","Me"]].map(([id,icon,label]) => (
         <button key={id} onClick={() => onTab(id)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", padding:"8px 0 2px", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
           <span style={{ fontSize:20 }}>{icon}</span>
           <span style={{ fontSize:10, fontWeight:tab===id?700:400, color:tab===id?GREEN:SLATE }}>{label}</span>
@@ -1014,6 +1014,114 @@ const CAR_MAKES = [
   { make:"Other",       models:["Other / Not Listed"] },
 ];
 
+// ─── WEEKLY EARNINGS TAB ─────────────────────────────────────────────────────
+function WeeklyEarningsTab({ trips, earned }) {
+  const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const now  = new Date();
+
+  // Build 7-day data (last 7 days)
+  const days = Array.from({length:7},(_,i)=>{
+    const d = new Date(now);
+    d.setDate(d.getDate() - (6-i));
+    const label = DAYS[d.getDay()];
+    const dateStr = d.toLocaleDateString("en-CA");
+    const dayTrips = trips.filter(t => t.date === dateStr);
+    const amt = dayTrips.reduce((s,t)=>s+parseFloat((t.fare||"0").replace("CA$","")),0);
+    return { label, dateStr, amt, count: dayTrips.length };
+  });
+
+  const maxAmt = Math.max(...days.map(d=>d.amt), 1);
+  const weekTotal = days.reduce((s,d)=>s+d.amt, 0);
+  const weekTrips = days.reduce((s,d)=>s+d.count, 0);
+  const avgFare   = weekTrips ? weekTotal/weekTrips : 0;
+  const today     = now.toLocaleDateString("en-CA");
+
+  return (
+    <div className="fade" style={{ paddingBottom:80 }}>
+      {/* Header */}
+      <div style={{ background:"linear-gradient(160deg,"+NAVY+","+DARK+")", padding:"20px 20px 24px" }}>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:WHITE }}>💰 Weekly Earnings</div>
+        <div style={{ color:LBLUE, fontSize:12, marginTop:2 }}>Last 7 days</div>
+        <div style={{ marginTop:14, display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+          {[["Total","CA$"+weekTotal.toFixed(2),"💵"],["Trips",weekTrips,"🚗"],["Avg Fare",weekTrips?"CA$"+avgFare.toFixed(2):"—","📊"]].map(([lb,val,ic])=>(
+            <div key={lb} style={{ background:"rgba(255,255,255,0.08)", borderRadius:12, padding:"10px 6px", textAlign:"center" }}>
+              <div style={{ fontSize:16 }}>{ic}</div>
+              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, color:WHITE, marginTop:4 }}>{String(val)}</div>
+              <div style={{ fontSize:10, color:LBLUE, marginTop:2 }}>{lb}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding:"16px 16px 0" }}>
+        {/* Bar chart */}
+        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, color:NAVY, marginBottom:14 }}>Daily Income</div>
+          <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:6, height:140 }}>
+            {days.map((d,i)=>{
+              const barH = d.amt > 0 ? Math.max(18, Math.round((d.amt/maxAmt)*110)) : 4;
+              const isToday = d.dateStr === today;
+              return (
+                <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                  {/* Amount label above bar */}
+                  <div style={{ fontSize:9, fontWeight:700, color:d.amt>0?BLUE:SLATE, whiteSpace:"nowrap" }}>
+                    {d.amt>0?"CA$"+d.amt.toFixed(0):""}
+                  </div>
+                  {/* Bar */}
+                  <div style={{ width:"100%", height:barH, borderRadius:"6px 6px 3px 3px", background:isToday?"linear-gradient(180deg,#3b82f6,#1d4ed8)":d.amt>0?"linear-gradient(180deg,#60a5fa,#3b82f6)":"#e2e8f0", boxShadow:d.amt>0?"0 2px 8px rgba(59,130,246,0.3)":"none", transition:"height 0.4s ease" }} />
+                  {/* Day label */}
+                  <div style={{ fontSize:10, fontWeight:isToday?800:500, color:isToday?BLUE:SLATE }}>{d.label}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display:"flex", gap:14, marginTop:10 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:10, height:10, borderRadius:3, background:"#3b82f6" }} />
+              <span style={{ fontSize:10, color:SLATE }}>This week</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:10, height:10, borderRadius:3, background:"#1d4ed8" }} />
+              <span style={{ fontSize:10, color:SLATE }}>Today</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cash out card */}
+        <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:14, padding:"14px 16px", marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center", boxShadow:"0 4px 14px rgba(5,150,105,0.3)" }}>
+          <div>
+            <div style={{ color:"rgba(255,255,255,0.7)", fontSize:10, fontWeight:600 }}>Available to Cash Out</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>{"CA$"+weekTotal.toFixed(2)}</div>
+          </div>
+          <button style={{ background:WHITE, border:"none", borderRadius:10, padding:"9px 16px", color:"#059669", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, cursor:weekTotal>0?"pointer":"not-allowed", opacity:weekTotal>0?1:0.5, boxShadow:"0 2px 8px rgba(0,0,0,0.12)" }}>
+            Cash Out
+          </button>
+        </div>
+
+        {/* Trip history */}
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, color:NAVY, marginBottom:10 }}>Trip History — This Week</div>
+        {trips.length===0 ? (
+          <div style={{ textAlign:"center", paddingTop:30, color:SLATE, paddingBottom:20 }}>
+            <div style={{ fontSize:36, marginBottom:10 }}>📭</div>
+            <div style={{ fontWeight:600 }}>No trips this week</div>
+            <div style={{ fontSize:12, marginTop:4 }}>Complete trips to see them here</div>
+          </div>
+        ) : (
+          trips.map((t,i)=>(
+            <div key={i} style={{ background:WHITE, borderRadius:12, padding:"12px 14px", marginBottom:8, border:"1px solid "+BORDER, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
+                <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
+              </div>
+              <div style={{ fontWeight:800, color:GREEN, fontSize:14 }}>{t.fare}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── MONTHLY SUMMARY TAB ─────────────────────────────────────────────────────
 function MonthlySummaryTab({ trips, earned, displayName }) {
   const now   = new Date();
@@ -1158,6 +1266,11 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
   const [editBusy,    setEditBusy]    = useState(false);
   const [editSuccess, setEditSuccess] = useState(false);
   const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [bankOpen,   setBankOpen]    = useState(false);
+  const [dBankName,  setDBankName]   = useState("");
+  const [dBankAcct,  setDBankAcct]   = useState("");
+  const [dBankTransit, setDBankTransit] = useState("");
+  const [dBankInst,  setDBankInst]   = useState("");
   const [vehicles, setVehicles] = useState(
     vehicle ? [{ id:1, make:vehicle, plate:plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
   );
@@ -1260,6 +1373,46 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
         )}
       </div>
 
+      {/* Bank Details — dropdown */}
+      <div style={{ marginBottom:14 }}>
+        <button onClick={()=>setBankOpen(o=>!o)} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+          <span style={{ fontSize:18 }}>🏦</span>
+          <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Bank Details</span>
+          <span style={{ fontSize:11, color:dBankName?"#22c55e":"#94a3b8", marginRight:4 }}>{dBankName?"✓ Saved":"Not set"}</span>
+          <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:bankOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
+        </button>
+        {bankOpen && (
+          <div style={{ background:"#f8fafc", border:"1px solid #bfdbfe", borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
+            <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Bank for Receiving Payouts</div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Bank Name</div>
+              <select value={dBankName} onChange={e=>setDBankName(e.target.value)} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:dBankName?"#1e3a5f":"#94a3b8", outline:"none", boxSizing:"border-box" }}>
+                <option value="">Select your bank</option>
+                {["TD Bank","RBC Royal Bank","Scotiabank","BMO Bank of Montreal","CIBC","National Bank","Desjardins","HSBC Canada","Tangerine","EQ Bank","Simplii Financial","Meridian Credit Union","Coast Capital","ATB Financial","Other"].map(b=>(
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Account Number</div>
+              <input value={dBankAcct} onChange={e=>setDBankAcct(e.target.value.replace(/[^0-9]/g,""))} placeholder="e.g. 1234567" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+            </div>
+            <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Transit No.</div>
+                <input value={dBankTransit} onChange={e=>setDBankTransit(e.target.value.replace(/[^0-9]/g,"").slice(0,5))} placeholder="5 digits" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Institution No.</div>
+                <input value={dBankInst} onChange={e=>setDBankInst(e.target.value.replace(/[^0-9]/g,"").slice(0,3))} placeholder="3 digits" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+              </div>
+            </div>
+            <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#065f46" }}>🔒 Bank details are encrypted and used only for processing your payouts.</div>
+            <button onClick={()=>{ if(dBankName&&dBankAcct) setBankOpen(false); }} disabled={!dBankName||!dBankAcct} style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:(dBankName&&dBankAcct)?"#059669":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(dBankName&&dBankAcct)?"pointer":"not-allowed" }}>Save Bank Details</button>
+          </div>
+        )}
+      </div>
+
       {/* Vehicles section */}
       <div style={{ marginBottom:14 }}>
         <button onClick={()=>setVehicleOpen(o=>!o)} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
@@ -1330,7 +1483,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
 
       {/* Menu */}
       <div style={{ background:"#fff", borderRadius:14, overflow:"hidden", border:"1px solid #bfdbfe", marginBottom:14 }}>
-        {[["💳","Subscription",onSubscription],["📄","Documents",onDocs],["📊","Summary",onSummary]].map(([ic,lb,action])=>(
+        {[["💳","Subscription",onSubscription],["📊","Earnings",onSummary]].map(([ic,lb,action])=>(
           <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid #bfdbfe", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
             <span style={{ fontSize:18 }}>{ic}</span>
             <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{lb}</span>
@@ -1678,13 +1831,18 @@ function DriverApp() {
           {/* Top header overlay */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div style={{ background:"rgba(15,23,42,0.85)", backdropFilter:"blur(8px)", borderRadius:12, padding:"8px 14px" }}>
-                <div style={{ color:LBLUE, fontSize:10 }}>Driver Dashboard</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:16, color:WHITE }}>{displayName}</div>
-              </div>
               <button onClick={toggleOnline} style={{ padding:"10px 18px", borderRadius:20, border:"none", cursor:"pointer", background:online?GREEN:"rgba(51,65,85,0.9)", backdropFilter:"blur(8px)", color:WHITE, fontWeight:700, fontSize:13, fontFamily:"'Syne',sans-serif", boxShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>
                 {online?"● Online":"○ Offline"}
               </button>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ background:"rgba(15,23,42,0.82)", backdropFilter:"blur(8px)", borderRadius:12, padding:"7px 14px", textAlign:"right" }}>
+                  <div style={{ color:LBLUE, fontSize:10 }}>Driver Dashboard</div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
+                </div>
+                <div style={{ backdropFilter:"blur(4px)", borderRadius:"50%", padding:3 }}>
+                  <LogoAnim size={48} />
+                </div>
+              </div>
             </div>
           </div>
           {/* Bottom panel overlay */}
@@ -1749,7 +1907,7 @@ function DriverApp() {
       )}
 
       {tab==="earnings" && (
-        <MonthlySummaryTab trips={trips} earned={earned} displayName={displayName} />
+        <WeeklyEarningsTab trips={trips} earned={earned} />
       )}
 
       {tab==="docs" && (
