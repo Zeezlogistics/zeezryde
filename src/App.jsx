@@ -303,7 +303,6 @@ function RiderApp() {
   async function saveProfile() {
     if (!editName||!editEmail) { setEditErr("Name and email required"); return; }
     if (profileSaved && !editPass) { setEditErr("Password is required to update your profile"); return; }
-    if (editPass && editPass!==editPc) { setEditErr("Passwords do not match"); return; }
     if (editPass && editPass.length<8) { setEditErr("Password needs 8+ characters"); return; }
     setEditBusy(true); setEditErr(""); setEditSuccess(false);
     try {
@@ -770,7 +769,6 @@ function RiderApp() {
                   Security {profileSaved && <span style={{ color:"#ef4444", fontWeight:800 }}>— Password required to save changes</span>}
                 </div>
                 <Input label={profileSaved ? "Current Password (required) *" : "Password (leave blank to keep)"} value={editPass} onChange={e=>setEditPass(e.target.value)} type="password" placeholder="Min 8 characters" />
-                <Input label="Confirm Password" value={editPc} onChange={e=>setEditPc(e.target.value)} type="password" placeholder="Re-enter password" />
                 {editErr && <Err msg={editErr} />}
                 {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
                 {editBusy ? <Loader /> : <BigBtn onClick={saveProfile}>Save Changes</BigBtn>}
@@ -991,7 +989,6 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
 
   async function saveProfile() {
     if (!editName||!editEmail) { setEditErr("Name and email required"); return; }
-    if (editPass && editPass!==editPc) { setEditErr("Passwords do not match"); return; }
     if (editPass && editPass.length<8) { setEditErr("Password needs 8+ characters"); return; }
     setEditBusy(true); setEditErr(""); setEditSuccess(false);
     try {
@@ -1066,12 +1063,10 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
             <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>
               Security {profileSaved && <span style={{ color:"#ef4444" }}>— Password required *</span>}
             </div>
-            {[[profileSaved?"Current Password *":"New Password (leave blank to keep)",editPass,setEditPass,"Min 8 characters"],["Confirm Password",editPc,setEditPc,"Re-enter"]].map(([label,val,setter,ph])=>(
-              <div key={label} style={{ marginBottom:10 }}>
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
-                <input value={val} onChange={e=>setter(e.target.value)} type="password" placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid "+(profileSaved&&label.includes("Current")&&!editPass?"#ef4444":"#bfdbfe"), background:profileSaved&&label.includes("Current")&&!editPass?"#fef2f2":"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
-              </div>
-            ))}
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{profileSaved?"Current Password *":"New Password (leave blank to keep)"}</div>
+              <input value={editPass} onChange={e=>setEditPass(e.target.value)} type="password" placeholder="Min 8 characters" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid "+(profileSaved&&!editPass?"#ef4444":"#bfdbfe"), background:profileSaved&&!editPass?"#fef2f2":"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+            </div>
             {editErr && <div style={{ color:"#ef4444", fontSize:12, marginBottom:8, textAlign:"center" }}>{editErr}</div>}
             {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
             {editBusy ? (
