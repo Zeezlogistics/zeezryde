@@ -83,7 +83,7 @@ const STYLES = `
 function LogoAnim({ size }) {
   const sz = size || 48;
   return (
-    <img src={LOGO_SRC} alt="ZeezRyde" style={{ width: sz, height: sz, animation: "globeSpin 6s linear infinite", background:"transparent", filter:"brightness(0) invert(1)" }} />
+    <img src={LOGO_SRC} alt="ZeezRyde" style={{ width: sz, height: sz, animation: "globeSpin 6s linear infinite", borderRadius:"50%" }} />
   );
 }
 
@@ -1710,24 +1710,24 @@ export default function App() {
       <div style={{ marginBottom:10, animation:"pulse2 2s ease infinite" }}>
         <LogoAnim size={110} />
       </div>
-      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:42, color:WHITE, letterSpacing:-2, marginTop:8 }}>ZeezRyde</div>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:42, letterSpacing:-2, marginTop:8 }}><span style={{ color:"#60a5fa" }}>Zeez</span><span style={{ color:"#93c5fd" }}>Ryde</span></div>
       <div style={{ color:"rgba(255,255,255,0.7)", fontSize:13, marginTop:4, marginBottom:28 }}>Hamilton and Niagara Region</div>
 
       {/* Role buttons */}
       <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:28 }}>
-        <button onClick={()=>setRole("rider")} style={{ width:152, padding:"22px 14px", borderRadius:22, border:"2px solid rgba(255,255,255,0.35)", background:"rgba(255,255,255,0.12)", color:WHITE, cursor:"pointer", animation:"floatUp 0.6s ease", backdropFilter:"blur(6px)", transition:"transform 0.15s, background 0.15s" }}
-          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.22)";e.currentTarget.style.transform="translateY(-3px)"}}
-          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.12)";e.currentTarget.style.transform="translateY(0)"}}>
+        <button onClick={()=>setRole("rider")} style={{ width:152, padding:"22px 14px", borderRadius:22, border:"2px solid rgba(96,165,250,0.5)", background:"rgba(37,99,235,0.18)", color:WHITE, cursor:"pointer", animation:"floatUp 0.6s ease", backdropFilter:"blur(8px)", transition:"transform 0.18s, background 0.18s, border-color 0.18s, box-shadow 0.18s", boxShadow:"0 4px 20px rgba(37,99,235,0.2)" }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="rgba(59,130,246,0.45)"; e.currentTarget.style.borderColor="rgba(147,197,253,0.9)"; e.currentTarget.style.transform="translateY(-4px) scale(1.03)"; e.currentTarget.style.boxShadow="0 8px 32px rgba(59,130,246,0.5)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="rgba(37,99,235,0.18)"; e.currentTarget.style.borderColor="rgba(96,165,250,0.5)"; e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow="0 4px 20px rgba(37,99,235,0.2)"; }}>
           <div style={{ fontSize:44, marginBottom:8 }}>🙋</div>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18 }}>Rider</div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:4 }}>Book a ride</div>
+          <div style={{ fontSize:12, color:"rgba(147,197,253,0.9)", marginTop:4 }}>Book a ride</div>
         </button>
-        <button onClick={()=>setRole("driver")} style={{ width:152, padding:"22px 14px", borderRadius:22, border:"2px solid rgba(255,255,255,0.35)", background:"rgba(255,255,255,0.12)", color:WHITE, cursor:"pointer", animation:"floatUp 0.6s ease 0.15s both", backdropFilter:"blur(6px)", transition:"transform 0.15s, background 0.15s" }}
-          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.22)";e.currentTarget.style.transform="translateY(-3px)"}}
-          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.12)";e.currentTarget.style.transform="translateY(0)"}}>
+        <button onClick={()=>setRole("driver")} style={{ width:152, padding:"22px 14px", borderRadius:22, border:"2px solid rgba(96,165,250,0.5)", background:"rgba(37,99,235,0.18)", color:WHITE, cursor:"pointer", animation:"floatUp 0.6s ease 0.15s both", backdropFilter:"blur(8px)", transition:"transform 0.18s, background 0.18s, border-color 0.18s, box-shadow 0.18s", boxShadow:"0 4px 20px rgba(37,99,235,0.2)" }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="rgba(59,130,246,0.45)"; e.currentTarget.style.borderColor="rgba(147,197,253,0.9)"; e.currentTarget.style.transform="translateY(-4px) scale(1.03)"; e.currentTarget.style.boxShadow="0 8px 32px rgba(59,130,246,0.5)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="rgba(37,99,235,0.18)"; e.currentTarget.style.borderColor="rgba(96,165,250,0.5)"; e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow="0 4px 20px rgba(37,99,235,0.2)"; }}>
           <div style={{ fontSize:44, marginBottom:8 }}>🚙</div>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18 }}>Driver</div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:4 }}>Start earning</div>
+          <div style={{ fontSize:12, color:"rgba(147,197,253,0.9)", marginTop:4 }}>Start earning</div>
         </button>
       </div>
 
