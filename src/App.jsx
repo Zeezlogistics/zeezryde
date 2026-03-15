@@ -158,48 +158,23 @@ function LoadDots() {
     </div>
   );
 }
-// ─── MAP COMPONENT (OpenStreetMap via Leaflet) ────────────────────────────────
-function MapView({ height, riderMode, finding }) {
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markerRef = useRef(null);
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-    const loadMap = () => {
-      if (!window.L) return;
-      if (mapInstanceRef.current) return;
-      const map = window.L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView([43.2557, -79.8711], 13);
-      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
-      window.L.control.zoom({ position: "bottomright" }).addTo(map);
-      const icon = window.L.divIcon({ className: "", html: `<div style="background:${riderMode?"#2563eb":"#22c55e"};width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`, iconSize:[14,14], iconAnchor:[7,7] });
-      const marker = window.L.marker([43.2557, -79.8711], { icon }).addTo(map);
-      markerRef.current = marker;
-      mapInstanceRef.current = map;
-    };
-    if (window.L) { loadMap(); return; }
-    const link = document.createElement("link");
-    link.rel = "stylesheet"; link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(link);
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.onload = loadMap;
-    document.head.appendChild(script);
-    return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
-  }, []);
-
-  useEffect(() => {
-    if (!mapInstanceRef.current || !markerRef.current) return;
-    if (finding) {
-      const lat = 43.2557 + (Math.random()-0.5)*0.02;
-      const lng = -79.8711 + (Math.random()-0.5)*0.02;
-      markerRef.current.setLatLng([lat, lng]);
-      mapInstanceRef.current.panTo([lat, lng]);
-    }
-  }, [finding]);
-
+// ─── MAP COMPONENT (OpenStreetMap iframe — works everywhere) ─────────────────
+function MapView({ height, riderMode }) {
+  const dot  = riderMode ? "#2563eb" : "#22c55e";
+  const zoom = 14;
+  const lat  = 43.2557;
+  const lng  = -79.8711;
+  const src  = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-0.05},${lat-0.03},${lng+0.05},${lat+0.03}&layer=mapnik&marker=${lat},${lng}`;
   return (
-    <div ref={mapRef} style={{ width:"100%", height: height||200, borderRadius:14, overflow:"hidden", border:"1px solid "+BORDER }} />
+    <div style={{ width:"100%", height: height||200, borderRadius:14, overflow:"hidden", border:"1px solid "+BORDER, position:"relative" }}>
+      <iframe
+        title="map"
+        src={src}
+        style={{ width:"100%", height:"100%", border:"none" }}
+        loading="lazy"
+      />
+      <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-100%)", width:16, height:16, borderRadius:"50%", background:dot, border:"3px solid #fff", boxShadow:"0 2px 8px rgba(0,0,0,0.4)", pointerEvents:"none" }} />
+    </div>
   );
 }
 
@@ -574,6 +549,8 @@ function RiderApp() {
                 </button>
               ))}
             </div>
+            <MapView height={170} riderMode={true} />
+            <div style={{ marginBottom:14 }} />
             <Err msg={err} />
             <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" - CA$"+chosen.fare.toFixed(2)}</BigBtn>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:14 }}>
@@ -669,7 +646,7 @@ function RiderApp() {
             </div>
           </Card>
           <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
-            {[["🚗","My Trips",()=>setTab("trips")],["✈️","Airport Rides",()=>go("airport")],["🚌","Shuttle",()=>setTab("shuttle")],["💳","Payment Methods",()=>{}],["🔔","Notifications",()=>{}]].map(([ic,lb,action])=>(
+            {[["🚗","My Trips",()=>setTab("trips")],["💳","Payment Methods",()=>{}],["⭐","My Ratings",()=>{}]].map(([ic,lb,action])=>(
               <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
                 <span style={{ fontSize:18 }}>{ic}</span>
                 <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>{lb}</span>
@@ -1065,7 +1042,7 @@ function DriverApp() {
             </div>
           </Card>
           <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
-            {[["💳","Subscription",()=>go("subscription")],["📄","Documents",()=>setTab("docs")],["💰","Earnings",()=>setTab("earnings")],["🔔","Notifications",()=>{}]].map(([ic,lb,action])=>(
+            {[["💳","Subscription",()=>go("subscription")],["📄","Documents",()=>setTab("docs")],["💰","Earnings",()=>setTab("earnings")]].map(([ic,lb,action])=>(
               <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
                 <span style={{ fontSize:18 }}>{ic}</span>
                 <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>{lb}</span>
