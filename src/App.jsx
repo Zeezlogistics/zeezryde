@@ -365,16 +365,31 @@ function RiderApp() {
 
   // FINDING DRIVER
   if (scr==="finding") return (
-    <div style={{ ...sc, background:"linear-gradient(160deg,#0f172a,#1e3a5f)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:18, padding:24 }}>
+    <div style={{ ...sc, position:"relative" }}>
       <style>{STYLES}</style>
-      <div className="fade" style={{ textAlign:"center" }}>
-        <div style={{ fontSize:56, animation:"bounce 1s ease infinite", marginBottom:12 }}>🔍</div>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>Finding your driver</div>
-        <div style={{ color:LBLUE, fontSize:13, marginTop:6 }}>To: {dest||"your destination"}</div>
-        <LoadDots />
+      <div style={{ position:"absolute", inset:0, zIndex:0 }}>
+        <MapView height="100vh" riderMode={true} fullscreen />
       </div>
-      <div style={{ width:"100%", marginTop:20 }}>
-        <BigBtn onClick={()=>{ setFinding(false); go("dash"); }} ghost>Cancel Request</BigBtn>
+      <div style={{ position:"absolute", top:20, left:0, right:0, zIndex:10, display:"flex", justifyContent:"center" }}>
+        <div style={{ background:"rgba(15,23,42,0.9)", backdropFilter:"blur(10px)", borderRadius:30, padding:"10px 22px", display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:10, height:10, borderRadius:"50%", background:BLUE, animation:"pulse 1s ease infinite" }} />
+          <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:WHITE }}>Finding your driver...</span>
+        </div>
+      </div>
+      <div style={{ position:"absolute", bottom:0, left:0, right:0, zIndex:10, padding:"0 16px 24px" }}>
+        <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"18px", boxShadow:"0 -4px 30px rgba(0,0,0,0.2)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+            <div style={{ fontSize:36, animation:"bounce 0.8s ease infinite" }}>🔍</div>
+            <div>
+              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:16, color:NAVY }}>Finding your driver</div>
+              <div style={{ color:SLATE, fontSize:13, marginTop:2 }}>To: {dest||"your destination"}</div>
+            </div>
+          </div>
+          <LoadDots />
+          <div style={{ marginTop:14 }}>
+            <BigBtn onClick={()=>{ setFinding(false); go("dash"); }} ghost>Cancel Request</BigBtn>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -521,49 +536,55 @@ function RiderApp() {
       <style>{STYLES}</style>
 
       {tab==="home" && (
-        <div className="fade">
-          <div style={{ background:"linear-gradient(160deg,"+NAVY+","+DARK+")", padding:"20px 20px 28px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-              <div>
-                <div style={{ color:LBLUE, fontSize:12 }}>Good to see you</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:WHITE }}>{displayName}</div>
+        <div className="fade" style={{ position:"relative", height:"100vh" }}>
+          {/* Full-screen map background */}
+          <div style={{ position:"absolute", inset:0, zIndex:0 }}>
+            <MapView height="100%" riderMode={true} />
+          </div>
+          {/* Top header overlay */}
+          <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px 16px 0" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+              <div style={{ background:"rgba(15,23,42,0.82)", backdropFilter:"blur(8px)", borderRadius:12, padding:"8px 14px" }}>
+                <div style={{ color:LBLUE, fontSize:10 }}>Good to see you</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:16, color:WHITE }}>{displayName}</div>
               </div>
-              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                <LogoAnim size={36} />
+              <div style={{ background:"rgba(15,23,42,0.82)", backdropFilter:"blur(8px)", borderRadius:"50%", padding:8 }}>
+                <LogoAnim size={32} />
               </div>
             </div>
-            <div style={{ background:WHITE, borderRadius:14, padding:"12px 14px", display:"flex", alignItems:"center", gap:10, boxShadow:"0 4px 12px rgba(0,0,0,0.1)" }}>
+            {/* Search bar */}
+            <div style={{ background:WHITE, borderRadius:14, padding:"12px 14px", display:"flex", alignItems:"center", gap:10, boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
               <span style={{ fontSize:18 }}>📍</span>
               <input value={dest} onChange={e=>{ setDest(e.target.value); setErr(""); }} placeholder="Where to?"
                 style={{ flex:1, border:"none", outline:"none", fontSize:15, color:NAVY, background:"transparent", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+              {dest && <button onClick={()=>setDest("")} style={{ background:"none", border:"none", cursor:"pointer", color:SLATE, fontSize:18, lineHeight:1 }}>×</button>}
             </div>
           </div>
-          <div style={{ padding:"18px 18px 10px" }}>
-            <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Choose ride</div>
-            <div style={{ display:"flex", gap:10, marginBottom:16 }}>
-              {RIDES.map(r=>(
-                <button key={r.id} onClick={()=>setRide(r.id)} style={{ flex:1, padding:"13px 10px", borderRadius:14, cursor:"pointer", textAlign:"left", border:"2px solid "+(ride===r.id?BLUE:BORDER), background:ride===r.id?VLIGHT:WHITE }}>
-                  <div style={{ fontSize:28, marginBottom:5 }}>{r.icon}</div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, color:NAVY }}>{r.label}</div>
-                  <div style={{ fontSize:11, color:SLATE, marginTop:1 }}>{r.price}</div>
+          {/* Bottom panel overlay */}
+          <div style={{ position:"absolute", bottom:72, left:0, right:0, zIndex:10, padding:"0 16px 16px" }}>
+            <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Choose ride</div>
+              <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+                {RIDES.map(r=>(
+                  <button key={r.id} onClick={()=>setRide(r.id)} style={{ flex:1, padding:"11px 8px", borderRadius:12, cursor:"pointer", textAlign:"left", border:"2px solid "+(ride===r.id?BLUE:BORDER), background:ride===r.id?VLIGHT:WHITE }}>
+                    <div style={{ fontSize:24, marginBottom:4 }}>{r.icon}</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:12, color:NAVY }}>{r.label}</div>
+                    <div style={{ fontSize:10, color:SLATE, marginTop:1 }}>{r.price}</div>
+                  </button>
+                ))}
+              </div>
+              <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                <button onClick={()=>go("airport")} style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:"#f8fafc", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+                  <span style={{ fontSize:16 }}>✈️</span>
+                  <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>Airport</span>
                 </button>
-              ))}
-            </div>
-            <MapView height={170} riderMode={true} />
-            <div style={{ marginBottom:14 }} />
-            <Err msg={err} />
-            <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" - CA$"+chosen.fare.toFixed(2)}</BigBtn>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:14 }}>
-              <button onClick={()=>go("airport")} style={{ padding:"14px 12px", borderRadius:14, border:"1px solid "+BORDER, background:WHITE, cursor:"pointer", textAlign:"left" }}>
-                <div style={{ fontSize:22, marginBottom:5 }}>✈️</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>Airport Rides</div>
-                <div style={{ fontSize:10, color:SLATE, marginTop:1 }}>YYZ YHM YTZ</div>
-              </button>
-              <button onClick={()=>setTab("shuttle")} style={{ padding:"14px 12px", borderRadius:14, border:"1px solid "+BORDER, background:WHITE, cursor:"pointer", textAlign:"left" }}>
-                <div style={{ fontSize:22, marginBottom:5 }}>🚌</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>Shuttle</div>
-                <div style={{ fontSize:10, color:SLATE, marginTop:1 }}>Shared trips</div>
-              </button>
+                <button onClick={()=>setTab("shuttle")} style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:"#f8fafc", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+                  <span style={{ fontSize:16 }}>🚌</span>
+                  <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>Shuttle</span>
+                </button>
+              </div>
+              <Err msg={err} />
+              <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" — CA$"+chosen.fare.toFixed(2)}</BigBtn>
             </div>
           </div>
         </div>
@@ -917,55 +938,70 @@ function DriverApp() {
       <style>{STYLES}</style>
 
       {tab==="home" && (
-        <div className="fade">
-          <div style={{ background:"linear-gradient(160deg,"+NAVY+","+DARK+")", padding:"20px 20px 28px" }}>
+        <div className="fade" style={{ position:"relative", height:"100vh" }}>
+          {/* Full-screen map background */}
+          <div style={{ position:"absolute", inset:0, zIndex:0 }}>
+            <MapView height="100%" riderMode={false} />
+          </div>
+          {/* Top header overlay */}
+          <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div>
-                <div style={{ color:LBLUE, fontSize:12 }}>Driver Dashboard</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:WHITE }}>{displayName}</div>
+              <div style={{ background:"rgba(15,23,42,0.85)", backdropFilter:"blur(8px)", borderRadius:12, padding:"8px 14px" }}>
+                <div style={{ color:LBLUE, fontSize:10 }}>Driver Dashboard</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:16, color:WHITE }}>{displayName}</div>
               </div>
-              <button onClick={toggleOnline} style={{ padding:"8px 18px", borderRadius:20, border:"none", cursor:"pointer", background:online?GREEN:"#334155", color:WHITE, fontWeight:700, fontSize:13, fontFamily:"'Syne',sans-serif" }}>
+              <button onClick={toggleOnline} style={{ padding:"10px 18px", borderRadius:20, border:"none", cursor:"pointer", background:online?GREEN:"rgba(51,65,85,0.9)", backdropFilter:"blur(8px)", color:WHITE, fontWeight:700, fontSize:13, fontFamily:"'Syne',sans-serif", boxShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>
                 {online?"● Online":"○ Offline"}
               </button>
             </div>
-            <div style={{ marginTop:18, background:"rgba(255,255,255,0.06)", borderRadius:14, padding:16 }}>
-              <div style={{ color:LBLUE, fontSize:10, fontWeight:700, letterSpacing:1 }}>THIS WEEK</div>
-              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:36, color:WHITE, marginTop:4 }}>{"CA$"+earned.toFixed(2)}</div>
-              <div style={{ color:"#64748b", fontSize:12, marginTop:3 }}>{trips.length} trip{trips.length!==1?"s":""} completed</div>
-            </div>
           </div>
-          <div style={{ padding:"16px 16px 10px" }}>
-            {err && <Err msg={err} />}
-            <MapView height={160} riderMode={false} finding={online} />
-            <div style={{ marginBottom:14 }} />
-            {!subPaid ? (
-              <div style={{ background:"#fefce8", border:"1.5px solid #fde68a", borderRadius:14, padding:16, marginBottom:14, textAlign:"center" }}>
-                <div style={{ fontSize:28, marginBottom:8 }}>💳</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:"#92400e" }}>Subscription Required</div>
-                <div style={{ fontSize:12, color:"#a16207", marginTop:4, marginBottom:12 }}>Pay CA$25/week to go online</div>
-                <BigBtn onClick={()=>go("subscription")}>Pay Now</BigBtn>
+          {/* Bottom panel overlay */}
+          <div style={{ position:"absolute", bottom:72, left:0, right:0, zIndex:10, padding:"0 16px 16px" }}>
+            {err && <div style={{ marginBottom:8 }}><Err msg={err} /></div>}
+            <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
+              {/* Earnings row */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, paddingBottom:12, borderBottom:"1px solid "+BORDER }}>
+                <div>
+                  <div style={{ fontSize:10, color:SLATE, fontWeight:600, letterSpacing:1, textTransform:"uppercase" }}>This Week</div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:28, color:NAVY }}>{"CA$"+earned.toFixed(2)}</div>
+                  <div style={{ fontSize:11, color:SLATE }}>{trips.length} trip{trips.length!==1?"s":""} completed</div>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                  {[["⭐","5.0"],["📄",approvedDocs+"/"+DOC_TYPES.length]].map(([ic,val])=>(
+                    <div key={ic} style={{ background:"#f8fafc", borderRadius:10, padding:"6px 10px", textAlign:"center", border:"1px solid "+BORDER }}>
+                      <div style={{ fontSize:16 }}>{ic}</div>
+                      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{String(val)}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : online ? (
-              <div style={{ background:"#f0fdf4", border:"1.5px solid #86efac", borderRadius:14, padding:14, textAlign:"center", marginBottom:14 }}>
-                <div style={{ fontSize:28, marginBottom:6, animation:"pulse 1.5s ease infinite" }}>📡</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:"#166534" }}>Waiting for ride requests</div>
-                <div style={{ fontSize:11, color:"#16a34a", marginTop:3 }}>A demo request arrives in a few seconds</div>
-              </div>
-            ) : (
-              <div style={{ background:"#f8fafc", border:"1px solid "+BORDER, borderRadius:14, padding:14, textAlign:"center", marginBottom:14 }}>
-                <div style={{ fontSize:28, marginBottom:6 }}>😴</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:NAVY }}>You are offline</div>
-                <div style={{ fontSize:11, color:SLATE, marginTop:3 }}>Tap Online to start receiving trips</div>
-              </div>
-            )}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              {[["⭐","Rating","5.0"],["🚗","Trips",trips.length],["📄","Docs",approvedDocs+"/"+DOC_TYPES.length],["💳","Sub",subPaid?"Paid":"Unpaid"]].map(([ic,lb,val])=>(
-                <Card key={lb} style={{ textAlign:"center", padding:"12px 8px" }}>
-                  <div style={{ fontSize:20 }}>{ic}</div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:4 }}>{String(val)}</div>
-                  <div style={{ fontSize:10, color:SLATE }}>{lb}</div>
-                </Card>
-              ))}
+              {/* Status */}
+              {!subPaid ? (
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#fefce8", borderRadius:12, padding:"10px 14px" }}>
+                  <span style={{ fontSize:20 }}>💳</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#92400e" }}>Subscription Required</div>
+                    <div style={{ fontSize:11, color:"#a16207" }}>Pay CA$25/week to go online</div>
+                  </div>
+                  <button onClick={()=>go("subscription")} style={{ background:YELLOW, border:"none", borderRadius:8, padding:"6px 12px", color:"#fff", fontWeight:700, fontSize:11, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>Pay</button>
+                </div>
+              ) : online ? (
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#f0fdf4", borderRadius:12, padding:"10px 14px" }}>
+                  <span style={{ fontSize:20, animation:"pulse 1.5s ease infinite" }}>📡</span>
+                  <div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#166534" }}>Waiting for ride requests</div>
+                    <div style={{ fontSize:11, color:"#16a34a" }}>Demo request in a few seconds</div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#f8fafc", borderRadius:12, padding:"10px 14px" }}>
+                  <span style={{ fontSize:20 }}>😴</span>
+                  <div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>You are offline</div>
+                    <div style={{ fontSize:11, color:SLATE }}>Tap Online above to start</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
