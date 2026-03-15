@@ -83,7 +83,7 @@ const STYLES = `
 function LogoAnim({ size }) {
   const sz = size || 48;
   return (
-    <img src={LOGO_SRC} alt="ZeezRyde" style={{ width: sz, height: sz, animation: "globeSpin 6s linear infinite", borderRadius: "50%", background:"transparent", mixBlendMode:"lighten" }} />
+    <img src={LOGO_SRC} alt="ZeezRyde" style={{ width: sz, height: sz, animation: "globeSpin 6s linear infinite", background:"transparent", filter:"brightness(0) invert(1)" }} />
   );
 }
 
@@ -1698,7 +1698,7 @@ export default function App() {
   const [role, setRole] = useState(null);
 
   if (!role) return (
-    <div style={{ minHeight:"100vh", background:"#1d4ed8", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans',sans-serif", overflow:"hidden", position:"relative" }}>
+    <div style={{ minHeight:"100vh", background:"#0a1628", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans',sans-serif", overflow:"hidden", position:"relative" }}>
       <style>{STYLES}</style>
       <style>{ROLE_ANIM_CSS}</style>
 
