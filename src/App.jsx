@@ -789,9 +789,12 @@ function RiderApp() {
               <div style={{ marginTop:2 }}><PillBadge label="Active Rider" color="blue" /></div>
             </div>
           </Card>
-          {/* Personal Info — collapsible */}
-          <div style={{ marginBottom:14 }}>
-            <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(phone||""); setEditPass(""); setEditPc(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:WHITE, border:"1px solid "+BORDER, borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+          {/* All items in one grouped card */}
+          <div style={{ background:WHITE, border:"1px solid "+BORDER, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
+
+          {/* Personal Info row */}
+          <div style={{ borderBottom:"1px solid "+BORDER }}>
+            <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(phone||""); setEditPass(""); setEditPc(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
               <span style={{ fontSize:18 }}>👤</span>
               <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>Personal Information</span>
               <span style={{ color:SLATE, fontSize:14, display:"inline-block", transform:profileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
@@ -813,9 +816,9 @@ function RiderApp() {
               </div>
             )}
           </div>
-          {/* Bank Details — standalone collapsible dropdown */}
-          <div style={{ marginBottom:14 }}>
-            <button onClick={()=>{ setBankOpen(o=>!o); }} style={{ width:"100%", background:WHITE, border:"1px solid "+BORDER, borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+          {/* Bank Details row */}
+          <div style={{ borderBottom:"1px solid "+BORDER }}>
+            <button onClick={()=>{ setBankOpen(o=>!o); }} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
               <span style={{ fontSize:18 }}>🏦</span>
               <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>Bank Details</span>
               <span style={{ fontSize:11, color:bankName?"#22c55e":SLATE, marginRight:4 }}>{bankName?"✓ Saved":"Not set"}</span>
@@ -853,15 +856,17 @@ function RiderApp() {
             )}
           </div>
 
-          <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
-            {[["💳","Payment Methods",()=>setTab("payment")],["🎁","Promo",()=>setTab("promo")]].map(([ic,lb,action])=>(
-              <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
-                <span style={{ fontSize:18 }}>{ic}</span>
-                <span style={{ flex:1, fontSize:13, fontWeight:500, color:NAVY }}>{lb}</span>
-                <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
-              </button>
-            ))}
-          </Card>
+          {/* Payment + Promo rows */}
+          {[["💳","Payment Methods",()=>setTab("payment")],["🎁","Promo",()=>setTab("promo")]].map(([ic,lb,action])=>(
+            <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+              <span style={{ fontSize:18 }}>{ic}</span>
+              <span style={{ flex:1, fontSize:13, fontWeight:500, color:NAVY }}>{lb}</span>
+              <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
+            </button>
+          ))}
+
+          </div>{/* end grouped card */}
+          <div style={{ height:14 }} />
           <BigBtn onClick={doLogout} ghost>Sign Out</BigBtn>
         </div>
       )}
@@ -1394,23 +1399,6 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
               </div>
             ))}
             <div style={{ height:1, background:"#bfdbfe", margin:"10px 0" }} />
-            <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Bank Details (for payouts)</div>
-            {[["Bank Name",bankName,setBankName,"text","e.g. TD Bank, RBC, Scotiabank"],["Account Number",bankAcct,setBankAcct,"text","e.g. 1234567"]].map(([label,val,setter,type,ph])=>(
-              <div key={label} style={{ marginBottom:10 }}>
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
-                <input value={val} onChange={e=>setter(e.target.value)} type={type} placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
-              </div>
-            ))}
-            <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-              {[["Transit No.",bankTransit,setBankTransit,"5 digits"],["Institution No.",bankInst,setBankInst,"3 digits"]].map(([label,val,setter,ph])=>(
-                <div key={label} style={{ flex:1 }}>
-                  <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
-                  <input value={val} onChange={e=>setter(e.target.value)} placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
-                </div>
-              ))}
-            </div>
-            <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#065f46" }}>🔒 Bank details are encrypted and used only for processing payouts.</div>
-            <div style={{ height:1, background:"#bfdbfe", margin:"10px 0" }} />
             <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>
               Security {profileSaved && <span style={{ color:"#ef4444" }}>— Password required *</span>}
             </div>
@@ -1429,9 +1417,9 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
         )}
       </div>
 
-      {/* Bank Details — dropdown */}
-      <div style={{ marginBottom:14 }}>
-        <button onClick={()=>setBankOpen(o=>!o)} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+      {/* Bank Details row */}
+      <div style={{ borderBottom:"1px solid #bfdbfe" }}>
+        <button onClick={()=>setBankOpen(o=>!o)} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>🏦</span>
           <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Bank Details</span>
           <span style={{ fontSize:11, color:dBankName?"#22c55e":"#94a3b8", marginRight:4 }}>{dBankName?"✓ Saved":"Not set"}</span>
@@ -1469,9 +1457,9 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
         )}
       </div>
 
-      {/* Vehicles section */}
-      <div style={{ marginBottom:14 }}>
-        <button onClick={()=>setVehicleOpen(o=>!o)} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+      {/* Vehicles row */}
+      <div style={{ borderBottom:"1px solid #bfdbfe" }}>
+        <button onClick={()=>setVehicleOpen(o=>!o)} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>🚗</span>
           <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>
             My Vehicles{vehicles.length>0&&<span style={{ background:"#eff6ff", color:"#2563eb", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:20, marginLeft:6 }}>{vehicles.length}</span>}
@@ -1537,16 +1525,17 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
         )}
       </div>
 
-      {/* Menu */}
-      <div style={{ background:"#fff", borderRadius:14, overflow:"hidden", border:"1px solid #bfdbfe", marginBottom:14 }}>
-        {[["💳","Subscription",onSubscription],["📊","Monthly Summary",onSummary]].map(([ic,lb,action])=>(
-          <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid #bfdbfe", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
-            <span style={{ fontSize:18 }}>{ic}</span>
-            <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{lb}</span>
-            <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
-          </button>
-        ))}
-      </div>
+      {/* Subscription + Summary rows */}
+      {[["💳","Subscription",onSubscription],["📊","Monthly Summary",onSummary]].map(([ic,lb,action])=>(
+        <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid #bfdbfe", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+          <span style={{ fontSize:18 }}>{ic}</span>
+          <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>{lb}</span>
+          <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
+        </button>
+      ))}
+
+      </div>{/* end grouped card */}
+      <div style={{ height:14 }} />
       <button onClick={onLogout} style={{ width:"100%", padding:"14px", borderRadius:12, border:"1.5px solid #bfdbfe", background:"transparent", color:"#2563eb", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:15, cursor:"pointer" }}>Sign Out</button>
     </div>
   );
