@@ -224,15 +224,20 @@ function RiderApp() {
   const [otpSent, setOtpSent]     = useState(false);
   const [otpValue, setOtpValue]   = useState("");
   const [otpError, setOtpError]   = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [editName, setEditName]   = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editPass, setEditPass]   = useState("");
-  const [editPc, setEditPc]       = useState("");
-  const [editBusy, setEditBusy]   = useState(false);
-  const [editErr, setEditErr]     = useState("");
-  const [editSuccess, setEditSuccess] = useState(false);
+  const [profileOpen, setProfileOpen]   = useState(false);
+  const [editName, setEditName]         = useState("");
+  const [editEmail, setEditEmail]       = useState("");
+  const [editPhone, setEditPhone]       = useState("");
+  const [editPass, setEditPass]         = useState("");
+  const [editPc, setEditPc]             = useState("");
+  const [editBusy, setEditBusy]         = useState(false);
+  const [editErr, setEditErr]           = useState("");
+  const [editSuccess, setEditSuccess]   = useState(false);
+  const [bankName, setBankName]         = useState("");
+  const [bankAcct, setBankAcct]         = useState("");
+  const [bankTransit, setBankTransit]   = useState("");
+  const [bankInst, setBankInst]         = useState("");
+  const [profileSaved, setProfileSaved] = useState(false);
   const [ride, setRide]     = useState("family");
   const [dest, setDest]     = useState("");
   const [finding, setFinding] = useState(false);
@@ -297,6 +302,7 @@ function RiderApp() {
 
   async function saveProfile() {
     if (!editName||!editEmail) { setEditErr("Name and email required"); return; }
+    if (profileSaved && !editPass) { setEditErr("Password is required to update your profile"); return; }
     if (editPass && editPass!==editPc) { setEditErr("Passwords do not match"); return; }
     if (editPass && editPass.length<8) { setEditErr("Password needs 8+ characters"); return; }
     setEditBusy(true); setEditErr(""); setEditSuccess(false);
@@ -305,8 +311,12 @@ function RiderApp() {
       if (editEmail !== user?.email) updates.email = editEmail;
       if (editPass) updates.password = editPass;
       await db.auth.updateUser(updates);
-      await db.from("riders").update({ name:editName, email:editEmail, phone:editPhone||null }).eq("id", user.id);
-      setName(editName); setEditSuccess(true);
+      await db.from("riders").update({
+        name:editName, email:editEmail, phone:editPhone||null,
+        bank_name:bankName||null, bank_acct:bankAcct||null,
+        bank_transit:bankTransit||null, bank_inst:bankInst||null
+      }).eq("id", user.id);
+      setName(editName); setProfileSaved(true); setEditSuccess(true);
       setTimeout(()=>{ setEditSuccess(false); setProfileOpen(false); }, 1500);
     } catch(e) { setEditErr(e.message||"Update failed"); }
     finally { setEditBusy(false); }
@@ -742,13 +752,27 @@ function RiderApp() {
             </button>
             {profileOpen && (
               <div style={{ background:"#f8fafc", border:"1px solid "+BORDER, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
+                <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Personal Details</div>
                 <Input label="Full Name" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Your name" />
                 <Input label="Email Address" value={editEmail} onChange={e=>setEditEmail(e.target.value)} type="email" placeholder="your@email.com" />
                 <Input label="Phone Number" value={editPhone} onChange={e=>setEditPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
-                <Input label="New Password (leave blank to keep)" value={editPass} onChange={e=>setEditPass(e.target.value)} type="password" placeholder="Min 8 characters" />
-                <Input label="Confirm New Password" value={editPc} onChange={e=>setEditPc(e.target.value)} type="password" placeholder="Re-enter password" />
+                <div style={{ height:1, background:BORDER, margin:"12px 0" }} />
+                <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Bank Details (for payments)</div>
+                <Input label="Bank Name" value={bankName} onChange={e=>setBankName(e.target.value)} placeholder="e.g. TD Bank, RBC, Scotiabank" />
+                <Input label="Account Number" value={bankAcct} onChange={e=>setBankAcct(e.target.value)} placeholder="e.g. 1234567" />
+                <div style={{ display:"flex", gap:8 }}>
+                  <div style={{ flex:1 }}><Input label="Transit No." value={bankTransit} onChange={e=>setBankTransit(e.target.value)} placeholder="5 digits" /></div>
+                  <div style={{ flex:1 }}><Input label="Institution No." value={bankInst} onChange={e=>setBankInst(e.target.value)} placeholder="3 digits" /></div>
+                </div>
+                <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#92400e" }}>🔒 Bank details are encrypted and used only for processing payments.</div>
+                <div style={{ height:1, background:BORDER, margin:"12px 0" }} />
+                <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>
+                  Security {profileSaved && <span style={{ color:"#ef4444", fontWeight:800 }}>— Password required to save changes</span>}
+                </div>
+                <Input label={profileSaved ? "Current Password (required) *" : "Password (leave blank to keep)"} value={editPass} onChange={e=>setEditPass(e.target.value)} type="password" placeholder="Min 8 characters" />
+                <Input label="Confirm Password" value={editPc} onChange={e=>setEditPc(e.target.value)} type="password" placeholder="Re-enter password" />
                 {editErr && <Err msg={editErr} />}
-                {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>Profile updated!</div>}
+                {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
                 {editBusy ? <Loader /> : <BigBtn onClick={saveProfile}>Save Changes</BigBtn>}
               </div>
             )}
@@ -1014,14 +1038,42 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, onSubscr
         </button>
         {profileOpen && (
           <div style={{ background:"#f8fafc", border:"1px solid #bfdbfe", borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
-            {[["Full Name",editName,setEditName,"text","Your name"],["Email Address",editEmail,setEditEmail,"email","your@email.com"],["Phone Number",editPhone,setEditPhone,"tel","+1 905 000 0000"],["New Password (leave blank to keep)",editPass,setEditPass,"password","Min 8 characters"],["Confirm New Password",editPc,setEditPc,"password","Re-enter"]].map(([label,val,setter,type,ph])=>(
+            <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Personal Details</div>
+            {[["Full Name",editName,setEditName,"text","Your name"],["Email Address",editEmail,setEditEmail,"email","your@email.com"],["Phone Number",editPhone,setEditPhone,"tel","+1 905 000 0000"]].map(([label,val,setter,type,ph])=>(
               <div key={label} style={{ marginBottom:10 }}>
                 <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
                 <input value={val} onChange={e=>setter(e.target.value)} type={type} placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
               </div>
             ))}
+            <div style={{ height:1, background:"#bfdbfe", margin:"10px 0" }} />
+            <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Bank Details (for payouts)</div>
+            {[["Bank Name",bankName,setBankName,"text","e.g. TD Bank, RBC, Scotiabank"],["Account Number",bankAcct,setBankAcct,"text","e.g. 1234567"]].map(([label,val,setter,type,ph])=>(
+              <div key={label} style={{ marginBottom:10 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                <input value={val} onChange={e=>setter(e.target.value)} type={type} placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+              </div>
+            ))}
+            <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+              {[["Transit No.",bankTransit,setBankTransit,"5 digits"],["Institution No.",bankInst,setBankInst,"3 digits"]].map(([label,val,setter,ph])=>(
+                <div key={label} style={{ flex:1 }}>
+                  <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                  <input value={val} onChange={e=>setter(e.target.value)} placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#065f46" }}>🔒 Bank details are encrypted and used only for processing payouts.</div>
+            <div style={{ height:1, background:"#bfdbfe", margin:"10px 0" }} />
+            <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>
+              Security {profileSaved && <span style={{ color:"#ef4444" }}>— Password required *</span>}
+            </div>
+            {[[profileSaved?"Current Password *":"New Password (leave blank to keep)",editPass,setEditPass,"Min 8 characters"],["Confirm Password",editPc,setEditPc,"Re-enter"]].map(([label,val,setter,ph])=>(
+              <div key={label} style={{ marginBottom:10 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                <input value={val} onChange={e=>setter(e.target.value)} type="password" placeholder={ph} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid "+(profileSaved&&label.includes("Current")&&!editPass?"#ef4444":"#bfdbfe"), background:profileSaved&&label.includes("Current")&&!editPass?"#fef2f2":"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+              </div>
+            ))}
             {editErr && <div style={{ color:"#ef4444", fontSize:12, marginBottom:8, textAlign:"center" }}>{editErr}</div>}
-            {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>Profile updated!</div>}
+            {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
             {editBusy ? (
               <div style={{ textAlign:"center" }}><div style={{ width:22, height:22, border:"3px solid #86efac", borderTopColor:"#22c55e", borderRadius:"50%", animation:"spin 0.75s linear infinite", margin:"0 auto" }} /></div>
             ) : (
