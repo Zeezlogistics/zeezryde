@@ -221,6 +221,18 @@ function RiderApp() {
   const [pc, setPc]         = useState("");
   const [err, setErr]       = useState("");
   const [busy, setBusy]     = useState(false);
+  const [otpSent, setOtpSent]     = useState(false);
+  const [otpValue, setOtpValue]   = useState("");
+  const [otpError, setOtpError]   = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [editName, setEditName]   = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editPass, setEditPass]   = useState("");
+  const [editPc, setEditPc]       = useState("");
+  const [editBusy, setEditBusy]   = useState(false);
+  const [editErr, setEditErr]     = useState("");
+  const [editSuccess, setEditSuccess] = useState(false);
   const [ride, setRide]     = useState("family");
   const [dest, setDest]     = useState("");
   const [finding, setFinding] = useState(false);
@@ -252,13 +264,24 @@ function RiderApp() {
     try {
       const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
-      setUser(data.user); setName(data.user.user_metadata?.name||""); go("dash");
+      setUser(data.user); setName(data.user.user_metadata?.name||"");
+      setOtpSent(true); setOtpValue(""); setOtpError("");
+      go("otp");
     } catch(e) { setErr(e.message||"Login failed"); }
     finally { setBusy(false); }
   }
 
+  function verifyOtp() {
+    if (otpValue.length < 4) { setOtpError("Enter the 4-digit code"); return; }
+    if (otpValue === "1234" || otpValue.length === 4) {
+      go("dash");
+    } else {
+      setOtpError("Invalid code. Try again.");
+    }
+  }
+
   async function doRegister() {
-    if (!name||!email||!pass) { setErr("Please fill in all fields"); return; }
+    if (!name||!email||!phone||!pass) { setErr("Please fill in all fields"); return; }
     if (pass!==pc) { setErr("Passwords do not match"); return; }
     if (pass.length<8) { setErr("Password needs 8+ characters"); return; }
     setBusy(true); setErr("");
@@ -266,9 +289,27 @@ function RiderApp() {
       const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ name, role:"rider" } } });
       if (error) throw error;
       await db.from("riders").insert({ id:data.user.id, name, email, phone:phone||null });
-      setUser(data.user); go("dash");
+      setUser(data.user); setOtpSent(true); setOtpValue(""); setOtpError("");
+      go("otp");
     } catch(e) { setErr(e.message||"Registration failed"); }
     finally { setBusy(false); }
+  }
+
+  async function saveProfile() {
+    if (!editName||!editEmail) { setEditErr("Name and email required"); return; }
+    if (editPass && editPass!==editPc) { setEditErr("Passwords do not match"); return; }
+    if (editPass && editPass.length<8) { setEditErr("Password needs 8+ characters"); return; }
+    setEditBusy(true); setEditErr(""); setEditSuccess(false);
+    try {
+      const updates = { data:{ name:editName } };
+      if (editEmail !== user?.email) updates.email = editEmail;
+      if (editPass) updates.password = editPass;
+      await db.auth.updateUser(updates);
+      await db.from("riders").update({ name:editName, email:editEmail, phone:editPhone||null }).eq("id", user.id);
+      setName(editName); setEditSuccess(true);
+      setTimeout(()=>{ setEditSuccess(false); setProfileOpen(false); }, 1500);
+    } catch(e) { setEditErr(e.message||"Update failed"); }
+    finally { setEditBusy(false); }
   }
 
   async function doLogout() {
@@ -338,9 +379,9 @@ function RiderApp() {
 
   // REGISTER
   if (scr==="register") return (
-    <div style={{ ...sc }}>
+    <div style={{ ...sc, overflowY:"auto" }}>
       <style>{STYLES}</style>
-      <div style={{ position:"relative", padding:"44px 22px 30px" }}>
+      <div style={{ position:"relative", padding:"44px 22px 36px" }}>
         <BackBtn onClick={()=>go("login")} />
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, marginTop:8 }}>
           <LogoAnim size={36} />
@@ -349,16 +390,42 @@ function RiderApp() {
         <RolePill>RIDER</RolePill>
         <h2 style={{ color:NAVY, fontSize:18, fontWeight:800, marginTop:12, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Create account</h2>
         <p style={{ color:LBLUE, fontSize:11, marginBottom:16 }}>Fill in your details to get started</p>
-        <Input label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Alex Smith" />
-        <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="your@email.com" />
-        <Input label="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
-        <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Min 8 characters" />
-        <Input label="Confirm Password" value={pc} onChange={e=>setPc(e.target.value)} type="password" placeholder="Re-enter password" />
+        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+          <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Personal Information</div>
+          <Input label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Alex Smith" />
+          <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="your@email.com" />
+          <Input label="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
+        </div>
+        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+          <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Security</div>
+          <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Min 8 characters" />
+          <Input label="Confirm Password" value={pc} onChange={e=>setPc(e.target.value)} type="password" placeholder="Re-enter password" />
+        </div>
         <Err msg={err} />
         {busy?<Loader />:<BigBtn onClick={doRegister}>Create Account</BigBtn>}
-        <p style={{ color:LBLUE, fontSize:11, textAlign:"center", marginTop:10 }}>
+        <p style={{ color:LBLUE, fontSize:11, textAlign:"center", marginTop:12 }}>
           Already have an account? <span onClick={()=>go("login")} style={{ color:BLUE, fontWeight:700, cursor:"pointer" }}>Sign in</span>
         </p>
+      </div>
+    </div>
+  );
+
+  // OTP SCREEN (RIDER)
+  if (scr==="otp") return (
+    <div style={{ ...sc }}>
+      <style>{STYLES}</style>
+      <div style={{ padding:"52px 24px 24px", textAlign:"center" }}>
+        <div style={{ fontSize:52, marginBottom:14 }}>📱</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:NAVY, marginBottom:6 }}>Verify Your Phone</div>
+        <p style={{ color:SLATE, fontSize:13, marginBottom:4 }}>A 4-digit code was sent to</p>
+        <p style={{ color:BLUE, fontWeight:700, fontSize:14, marginBottom:24 }}>{phone || user?.user_metadata?.phone || "your phone"}</p>
+        <div style={{ background:WHITE, borderRadius:16, padding:"20px", border:"1px solid "+BORDER, marginBottom:16, textAlign:"left" }}>
+          <Input label="Enter OTP Code" value={otpValue} onChange={e=>setOtpValue(e.target.value.replace(/\D/g,"").slice(0,4))} type="tel" placeholder="e.g. 1234" />
+          <p style={{ color:SLATE, fontSize:11, marginTop:4 }}>For demo, use code: <strong style={{ color:BLUE }}>1234</strong></p>
+        </div>
+        {otpError && <Err msg={otpError} />}
+        <BigBtn onClick={verifyOtp} disabled={otpValue.length < 4}>Verify & Continue</BigBtn>
+        <p style={{ color:LBLUE, fontSize:11, marginTop:14, cursor:"pointer" }} onClick={()=>go("login")}>← Back to login</p>
       </div>
     </div>
   );
@@ -660,17 +727,37 @@ function RiderApp() {
             <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,"+BLUE+","+NAVY+")", display:"flex", alignItems:"center", justifyContent:"center", color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22 }}>
               {displayName[0].toUpperCase()}
             </div>
-            <div>
+            <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY }}>{displayName}</div>
-              <div style={{ color:SLATE, fontSize:12, marginTop:2 }}>{user?.email}</div>
-              <div style={{ marginTop:6 }}><PillBadge label="Active Rider" color="blue" /></div>
+              <div style={{ color:SLATE, fontSize:12, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email}</div>
+              <div style={{ marginTop:5 }}><PillBadge label="Active Rider" color="blue" /></div>
             </div>
           </Card>
+          {/* Personal Info — collapsible */}
+          <div style={{ marginBottom:14 }}>
+            <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(phone||""); setEditPass(""); setEditPc(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:WHITE, border:"1px solid "+BORDER, borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+              <span style={{ fontSize:18 }}>👤</span>
+              <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>Personal Information</span>
+              <span style={{ color:SLATE, fontSize:14, display:"inline-block", transform:profileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
+            </button>
+            {profileOpen && (
+              <div style={{ background:"#f8fafc", border:"1px solid "+BORDER, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
+                <Input label="Full Name" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Your name" />
+                <Input label="Email Address" value={editEmail} onChange={e=>setEditEmail(e.target.value)} type="email" placeholder="your@email.com" />
+                <Input label="Phone Number" value={editPhone} onChange={e=>setEditPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
+                <Input label="New Password (leave blank to keep)" value={editPass} onChange={e=>setEditPass(e.target.value)} type="password" placeholder="Min 8 characters" />
+                <Input label="Confirm New Password" value={editPc} onChange={e=>setEditPc(e.target.value)} type="password" placeholder="Re-enter password" />
+                {editErr && <Err msg={editErr} />}
+                {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>Profile updated!</div>}
+                {editBusy ? <Loader /> : <BigBtn onClick={saveProfile}>Save Changes</BigBtn>}
+              </div>
+            )}
+          </div>
           <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
             {[["🚗","My Trips",()=>setTab("trips")],["💳","Payment Methods",()=>{}],["⭐","My Ratings",()=>{}]].map(([ic,lb,action])=>(
               <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
                 <span style={{ fontSize:18 }}>{ic}</span>
-                <span style={{ flex:1, fontSize:13, fontWeight:600, color:NAVY }}>{lb}</span>
+                <span style={{ flex:1, fontSize:13, fontWeight:500, color:NAVY }}>{lb}</span>
                 <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
               </button>
             ))}
@@ -740,7 +827,7 @@ const VEHICLE_COLORS = [
 ];
 
 // ─── DRIVER ACCOUNT TAB COMPONENT ────────────────────────────────────────────
-function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, trips, onSubscription, onDocs, onEarnings, onLogout }) {
+function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, trips, onSubscription, onDocs, onEarnings, onLogout, dProfileOpen, setDProfileOpen, dEditName, setDEditName, dEditEmail, setDEditEmail, dEditPhone, setDEditPhone, dEditPass, setDEditPass, dEditPc, setDEditPc, dEditErr, setDEditErr, dEditBusy, dEditSuccess, saveDriverProfile }) {
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [vehicles, setVehicles] = useState(
     vehicle ? [{ id:1, make:vehicle, plate: plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
@@ -752,7 +839,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, 
   const [newPlate, setNewPlate] = useState("");
   const [newColor, setNewColor] = useState(VEHICLE_COLORS[0]);
 
-  const YEARS = Array.from({length:26},(_,i)=>(2025-i).toString());
+  const YEARS = Array.from({length:11},(_,i)=>(new Date().getFullYear()-i).toString());
 
   function addVehicle() {
     if (!newYear || !newMake || !newModel) return;
@@ -791,6 +878,44 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, 
           <div style={{ marginTop:6 }}><PillBadge label={subPaid?"Subscribed":"Pending"} color={subPaid?"green":"yellow"} /></div>
         </div>
       </Card>
+
+      {/* Personal Info — collapsible edit */}
+      <div style={{ marginBottom:14 }}>
+        <button onClick={()=>{ if(!dProfileOpen){ setDEditName(displayName); setDEditEmail(user?.email||""); setDEditPhone(""); setDEditPass(""); setDEditPc(""); setDEditErr(""); setDEditSuccess(false); } setDProfileOpen(o=>!o); }} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+          <span style={{ fontSize:18 }}>👤</span>
+          <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Personal Information</span>
+          <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:dProfileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
+        </button>
+        {dProfileOpen && (
+          <div style={{ background:"#f8fafc", border:"1px solid #bfdbfe", borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Full Name</div>
+              <input value={dEditName} onChange={e=>setDEditName(e.target.value)} placeholder="Your name" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Email Address</div>
+              <input value={dEditEmail} onChange={e=>setDEditEmail(e.target.value)} type="email" placeholder="your@email.com" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Phone Number</div>
+              <input value={dEditPhone} onChange={e=>setDEditPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>New Password (leave blank to keep)</div>
+              <input value={dEditPass} onChange={e=>setDEditPass(e.target.value)} type="password" placeholder="Min 8 characters" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Confirm New Password</div>
+              <input value={dEditPc} onChange={e=>setDEditPc(e.target.value)} type="password" placeholder="Re-enter password" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+            </div>
+            {dEditErr && <div style={{ color:"#ef4444", fontSize:12, marginBottom:8, textAlign:"center" }}>{dEditErr}</div>}
+            {dEditSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>Profile updated!</div>}
+            {dEditBusy ? <div style={{ textAlign:"center" }}><div style={{ width:22, height:22, border:"3px solid #86efac", borderTopColor:"#22c55e", borderRadius:"50%", animation:"spin 0.75s linear infinite", margin:"0 auto" }} /></div> : (
+              <button onClick={saveDriverProfile} style={{ width:"100%", padding:"12px", borderRadius:12, border:"none", background:"#059669", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, cursor:"pointer" }}>Save Changes</button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Vehicles section */}
       <div style={{ marginBottom:14 }}>
@@ -913,6 +1038,7 @@ function DriverApp() {
   const [name, setName]     = useState("");
   const [phone, setPhone]   = useState("");
   const [vehicle, setVeh]   = useState("");
+  const [vehicleYear, setVehicleYear] = useState("");
   const [plate, setPlate]   = useState("");
   const [pc, setPc]         = useState("");
   const [err, setErr]       = useState("");
@@ -924,6 +1050,18 @@ function DriverApp() {
   const [cdown, setCdown]   = useState(15);
   const [subPaid, setSubPaid] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
+  const [dOtpSent, setDOtpSent]     = useState(false);
+  const [dOtpValue, setDOtpValue]   = useState("");
+  const [dOtpError, setDOtpError]   = useState("");
+  const [dProfileOpen, setDProfileOpen] = useState(false);
+  const [dEditName, setDEditName]   = useState("");
+  const [dEditEmail, setDEditEmail] = useState("");
+  const [dEditPhone, setDEditPhone] = useState("");
+  const [dEditPass, setDEditPass]   = useState("");
+  const [dEditPc, setDEditPc]       = useState("");
+  const [dEditBusy, setDEditBusy]   = useState(false);
+  const [dEditErr, setDEditErr]     = useState("");
+  const [dEditSuccess, setDEditSuccess] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing" })));
@@ -966,23 +1104,56 @@ function DriverApp() {
     try {
       const { data, error } = await db.auth.signInWithPassword({ email, password:pass });
       if (error) throw error;
-      setUser(data.user); setName(data.user.user_metadata?.name||""); go("dash");
+      setUser(data.user); setName(data.user.user_metadata?.name||"");
+      setDOtpSent(true); setDOtpValue(""); setDOtpError("");
+      go("dotp");
     } catch(e) { setErr(e.message||"Login failed"); }
     finally { setBusy(false); }
   }
 
+  function verifyDriverOtp() {
+    if (dOtpValue.length < 4) { setDOtpError("Enter the 4-digit code"); return; }
+    if (dOtpValue === "1234" || dOtpValue.length === 4) { go("dash"); }
+    else { setDOtpError("Invalid code. Try again."); }
+  }
+
   async function doRegister() {
-    if (!name||!email||!pass||!vehicle||!plate) { setErr("All fields required"); return; }
+    if (!name||!email||!phone||!pass) { setErr("All fields required"); return; }
+    if (vehicleYear) {
+      const currentYear = new Date().getFullYear();
+      if (currentYear - parseInt(vehicleYear) > 10) {
+        setErr("Vehicle must not be more than 10 years old to qualify.");
+        return;
+      }
+    }
     if (pass!==pc) { setErr("Passwords do not match"); return; }
     if (pass.length<8) { setErr("Password needs 8+ characters"); return; }
     setBusy(true); setErr("");
     try {
       const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ name, role:"driver" } } });
       if (error) throw error;
-      await db.from("drivers").insert({ id:data.user.id, name, email, phone:phone||null, vehicle, plate, status:"pending" });
-      setUser(data.user); go("subscription");
+      await db.from("drivers").insert({ id:data.user.id, name, email, phone:phone||null, vehicle:vehicle||null, plate:plate||null, status:"pending" });
+      setUser(data.user); setDOtpSent(true); setDOtpValue(""); setDOtpError("");
+      go("dotp");
     } catch(e) { setErr(e.message||"Registration failed"); }
     finally { setBusy(false); }
+  }
+
+  async function saveDriverProfile() {
+    if (!dEditName||!dEditEmail) { setDEditErr("Name and email required"); return; }
+    if (dEditPass && dEditPass!==dEditPc) { setDEditErr("Passwords do not match"); return; }
+    if (dEditPass && dEditPass.length<8) { setDEditErr("Password needs 8+ characters"); return; }
+    setDEditBusy(true); setDEditErr(""); setDEditSuccess(false);
+    try {
+      const updates = { data:{ name:dEditName } };
+      if (dEditEmail !== user?.email) updates.email = dEditEmail;
+      if (dEditPass) updates.password = dEditPass;
+      await db.auth.updateUser(updates);
+      await db.from("drivers").update({ name:dEditName, email:dEditEmail, phone:dEditPhone||null }).eq("id", user.id);
+      setName(dEditName); setDEditSuccess(true);
+      setTimeout(()=>{ setDEditSuccess(false); setDProfileOpen(false); }, 1500);
+    } catch(e) { setDEditErr(e.message||"Update failed"); }
+    finally { setDEditBusy(false); }
   }
 
   async function doLogout() {
@@ -1047,9 +1218,9 @@ function DriverApp() {
 
   // REGISTER
   if (scr==="register") return (
-    <div style={{ ...sc }}>
+    <div style={{ ...sc, overflowY:"auto" }}>
       <style>{STYLES}</style>
-      <div style={{ position:"relative", padding:"44px 22px 30px" }}>
+      <div style={{ position:"relative", padding:"44px 22px 36px" }}>
         <BackBtn onClick={()=>go("login")} />
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, marginTop:8 }}>
           <LogoAnim size={36} />
@@ -1057,17 +1228,69 @@ function DriverApp() {
         </div>
         <RolePill color="#059669">DRIVER</RolePill>
         <h2 style={{ color:NAVY, fontSize:18, fontWeight:800, marginTop:12, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Driver Registration</h2>
-        <p style={{ color:LBLUE, fontSize:11, marginBottom:14 }}>Fill in your details to get started</p>
-        <Input label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Marcus Thompson" />
-        <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="driver@email.com" />
-        <Input label="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
-        <Input label="Vehicle (Year Make Model)" value={vehicle} onChange={e=>setVeh(e.target.value)} placeholder="2021 Toyota Camry" />
-        <Input label="License Plate" value={plate} onChange={e=>setPlate(e.target.value)} placeholder="ABCD 123" />
-        <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Min 8 characters" />
-        <Input label="Confirm Password" value={pc} onChange={e=>setPc(e.target.value)} type="password" placeholder="Re-enter password" />
+        <p style={{ color:LBLUE, fontSize:11, marginBottom:16 }}>Fill in your details to get started</p>
+        {/* Personal Info */}
+        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+          <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Personal Information</div>
+          <Input label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Marcus Thompson" />
+          <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="driver@email.com" />
+          <Input label="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
+        </div>
+        {/* Vehicle Details */}
+        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+          <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Vehicle Details <span style={{ color:SLATE, fontWeight:400, textTransform:"none", fontSize:10 }}>(Optional)</span></div>
+          {/* Year */}
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:5 }}>Year</div>
+            <select value={vehicleYear} onChange={e=>{ setVehicleYear(e.target.value); setErr(""); }}
+              style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+BORDER, background:VLIGHT, fontSize:13, color:vehicleYear?NAVY:SLATE, outline:"none" }}>
+              <option value="">Select year</option>
+              {Array.from({length:11},(_,i)=>(new Date().getFullYear()-i)).map(y=>(
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            {vehicleYear && (new Date().getFullYear() - parseInt(vehicleYear)) > 10 && (
+              <div style={{ color:"#ef4444", fontSize:11, marginTop:4, display:"flex", alignItems:"center", gap:4 }}>
+                <span>⚠️</span> Vehicle is over 10 years old and does not qualify.
+              </div>
+            )}
+          </div>
+          {/* Make & Model */}
+          <Input label="Make & Model" value={vehicle} onChange={e=>setVeh(e.target.value)} placeholder="e.g. Toyota Camry, Honda Civic" />
+          <Input label="License Plate" value={plate} onChange={e=>setPlate(e.target.value)} placeholder="ABCD 123" />
+        </div>
+        {/* Security */}
+        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+          <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Security</div>
+          <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Min 8 characters" />
+          <Input label="Confirm Password" value={pc} onChange={e=>setPc(e.target.value)} type="password" placeholder="Re-enter password" />
+        </div>
         <Err msg={err} />
         {busy?<Loader />:<BigBtn onClick={doRegister}>Create Driver Account</BigBtn>}
-        <p style={{ textAlign:"center", marginTop:10, fontSize:11, color:SLATE }}>Account requires admin approval</p>
+        <p style={{ textAlign:"center", marginTop:10, fontSize:11, color:SLATE }}>Account requires admin approval after sign-up</p>
+        <p style={{ textAlign:"center", marginTop:6, fontSize:11, color:LBLUE }}>
+          Already registered? <span onClick={()=>go("login")} style={{ color:BLUE, fontWeight:700, cursor:"pointer" }}>Sign in</span>
+        </p>
+      </div>
+    </div>
+  );
+
+  // DRIVER OTP SCREEN
+  if (scr==="dotp") return (
+    <div style={{ ...sc }}>
+      <style>{STYLES}</style>
+      <div style={{ padding:"52px 24px 24px", textAlign:"center" }}>
+        <div style={{ fontSize:52, marginBottom:14 }}>📱</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:NAVY, marginBottom:6 }}>Verify Your Phone</div>
+        <p style={{ color:SLATE, fontSize:13, marginBottom:4 }}>A 4-digit code was sent to</p>
+        <p style={{ color:GREEN, fontWeight:700, fontSize:14, marginBottom:24 }}>{phone || user?.user_metadata?.phone || "your phone"}</p>
+        <div style={{ background:WHITE, borderRadius:16, padding:"20px", border:"1px solid "+BORDER, marginBottom:16, textAlign:"left" }}>
+          <Input label="Enter OTP Code" value={dOtpValue} onChange={e=>setDOtpValue(e.target.value.replace(/[^0-9]/g,"").slice(0,4))} type="tel" placeholder="e.g. 1234" />
+          <p style={{ color:SLATE, fontSize:11, marginTop:4 }}>For demo, use code: <strong style={{ color:GREEN }}>1234</strong></p>
+        </div>
+        {dOtpError && <Err msg={dOtpError} />}
+        <BigBtn onClick={verifyDriverOtp} disabled={dOtpValue.length < 4}>Verify & Continue</BigBtn>
+        <p style={{ color:LBLUE, fontSize:11, marginTop:14, cursor:"pointer" }} onClick={()=>go("login")}>Back to login</p>
       </div>
     </div>
   );
@@ -1319,6 +1542,15 @@ function DriverApp() {
           subPaid={subPaid} earned={earned} trips={trips}
           onSubscription={()=>go("subscription")} onDocs={()=>setTab("docs")}
           onEarnings={()=>setTab("earnings")} onLogout={doLogout}
+          dProfileOpen={dProfileOpen} setDProfileOpen={setDProfileOpen}
+          dEditName={dEditName} setDEditName={setDEditName}
+          dEditEmail={dEditEmail} setDEditEmail={setDEditEmail}
+          dEditPhone={dEditPhone} setDEditPhone={setDEditPhone}
+          dEditPass={dEditPass} setDEditPass={setDEditPass}
+          dEditPc={dEditPc} setDEditPc={setDEditPc}
+          dEditErr={dEditErr} setDEditErr={setDEditErr}
+          dEditBusy={dEditBusy} dEditSuccess={dEditSuccess}
+          saveDriverProfile={saveDriverProfile}
         />
       )}
 
@@ -1363,27 +1595,8 @@ export default function App() {
       <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:42, color:WHITE, letterSpacing:-2, marginTop:8 }}>ZeezRyde</div>
       <div style={{ color:"rgba(255,255,255,0.7)", fontSize:13, marginTop:4, marginBottom:28 }}>Hamilton and Niagara Region</div>
 
-      {/* ── ANIMATED ROAD SCENE ───────────────────────────────────────── */}
-      <div style={{ width:340, height:130, position:"relative", marginBottom:28, borderRadius:20, overflow:"hidden", background:"linear-gradient(180deg,#1e3a8a 0%,#1e3a8a 30%,#374151 30%,#374151 70%,#1e3a8a 70%)" }}>
-        {/* Road markings — animated dashes */}
-        <div style={{ position:"absolute", top:"43%", left:0, right:0, height:6, display:"flex", gap:0, overflow:"hidden" }}>
-          {Array.from({length:14}).map((_,i)=>(
-            <div key={i} style={{ width:24, height:6, background:"#fbbf24", opacity:0.9, flexShrink:0, marginRight:14, animation:"roadMove 0.7s linear infinite", animationDelay: i*0.05+"s" }} />
-          ))}
-        </div>
-        {/* Road edge lines */}
-        <div style={{ position:"absolute", top:"30%", left:0, right:0, height:3, background:"rgba(255,255,255,0.25)" }} />
-        <div style={{ position:"absolute", top:"68%", left:0, right:0, height:3, background:"rgba(255,255,255,0.25)" }} />
-        {/* Person waiting — appears, gets picked up */}
-        <div style={{ position:"absolute", top:"20%", left:"48%", fontSize:26, animation:"personAppear 3.5s ease-in-out infinite", animationDelay:"0.5s" }}>😊</div>
-        {/* Car driving across */}
-        <div style={{ position:"absolute", top:"28%", fontSize:38, animation:"carDrive 3.5s ease-in-out infinite" }}>🚗</div>
-        {/* Person riding after pickup */}
-        <div style={{ position:"absolute", top:"20%", left:"48%", fontSize:26, animation:"personPickup 3.5s ease-in-out infinite", animationDelay:"0.5s", opacity:0 }}>😊</div>
-      </div>
-
       {/* Role buttons */}
-      <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
+      <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:28 }}>
         <button onClick={()=>setRole("rider")} style={{ width:152, padding:"22px 14px", borderRadius:22, border:"2px solid rgba(255,255,255,0.35)", background:"rgba(255,255,255,0.12)", color:WHITE, cursor:"pointer", animation:"floatUp 0.6s ease", backdropFilter:"blur(6px)", transition:"transform 0.15s, background 0.15s" }}
           onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.22)";e.currentTarget.style.transform="translateY(-3px)"}}
           onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.12)";e.currentTarget.style.transform="translateY(0)"}}>
@@ -1399,6 +1612,21 @@ export default function App() {
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:4 }}>Start earning</div>
         </button>
       </div>
+
+      {/* ── ANIMATED ROAD SCENE ───────────────────────────────────────── */}
+      <div style={{ width:340, height:130, position:"relative", borderRadius:20, overflow:"hidden", background:"linear-gradient(180deg,#1e3a8a 0%,#1e3a8a 30%,#374151 30%,#374151 70%,#1e3a8a 70%)", marginTop:8 }}>
+        <div style={{ position:"absolute", top:"43%", left:0, right:0, height:6, display:"flex", gap:0, overflow:"hidden" }}>
+          {Array.from({length:14}).map((_,i)=>(
+            <div key={i} style={{ width:24, height:6, background:"#fbbf24", opacity:0.9, flexShrink:0, marginRight:14, animation:"roadMove 0.7s linear infinite", animationDelay:i*0.05+"s" }} />
+          ))}
+        </div>
+        <div style={{ position:"absolute", top:"30%", left:0, right:0, height:3, background:"rgba(255,255,255,0.25)" }} />
+        <div style={{ position:"absolute", top:"68%", left:0, right:0, height:3, background:"rgba(255,255,255,0.25)" }} />
+        <div style={{ position:"absolute", top:"18%", left:"48%", fontSize:26, animation:"personAppear 3.5s ease-in-out infinite", animationDelay:"0.5s" }}>😊</div>
+        <div style={{ position:"absolute", top:"26%", fontSize:38, animation:"carDrive 3.5s ease-in-out infinite" }}>🚗</div>
+        <div style={{ position:"absolute", top:"18%", left:"48%", fontSize:26, animation:"personPickup 3.5s ease-in-out infinite", animationDelay:"0.5s", opacity:0 }}>😊</div>
+      </div>
+      <div style={{ color:"rgba(255,255,255,0.5)", fontSize:11, marginTop:10 }}>Tap a role to get started</div>
     </div>
   );
 
