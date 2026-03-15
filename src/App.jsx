@@ -687,6 +687,42 @@ function RiderApp() {
 }
 
 
+// ─── CAR MAKES & MODELS ──────────────────────────────────────────────────────
+const CAR_MAKES = [
+  { make:"Acura",       models:["ILX","MDX","RDX","TLX","RLX","NSX","Integra"] },
+  { make:"Audi",        models:["A3","A4","A5","A6","A7","A8","Q3","Q5","Q7","Q8","e-tron","TT","R8"] },
+  { make:"BMW",         models:["1 Series","2 Series","3 Series","4 Series","5 Series","7 Series","8 Series","X1","X2","X3","X4","X5","X6","X7","Z4","i3","i4","iX"] },
+  { make:"Buick",       models:["Encore","Encore GX","Envision","Enclave"] },
+  { make:"Cadillac",    models:["CT4","CT5","XT4","XT5","XT6","Escalade","LYRIQ"] },
+  { make:"Chevrolet",   models:["Spark","Sonic","Cruze","Malibu","Camaro","Corvette","Equinox","Trax","Blazer","Traverse","Tahoe","Suburban","Colorado","Silverado 1500","Silverado 2500","Bolt EV","Trailblazer"] },
+  { make:"Chrysler",    models:["300","Pacifica","Voyager"] },
+  { make:"Dodge",       models:["Charger","Challenger","Durango","Hornet","Grand Caravan"] },
+  { make:"Ford",        models:["Fiesta","Focus","Fusion","Mustang","EcoSport","Escape","Edge","Explorer","Expedition","Ranger","F-150","F-250","F-350","Bronco","Bronco Sport","Maverick","Mach-E","Transit"] },
+  { make:"Genesis",     models:["G70","G80","G90","GV70","GV80","GV60"] },
+  { make:"GMC",         models:["Terrain","Acadia","Yukon","Yukon XL","Canyon","Sierra 1500","Sierra 2500","Sierra 3500"] },
+  { make:"Honda",       models:["Fit","Civic","Accord","Insight","HR-V","CR-V","Pilot","Passport","Ridgeline","Odyssey"] },
+  { make:"Hyundai",     models:["Accent","Elantra","Sonata","Venue","Kona","Tucson","Santa Fe","Palisade","IONIQ 5","IONIQ 6","Santa Cruz","Veloster"] },
+  { make:"Infiniti",    models:["Q50","Q60","QX50","QX55","QX60","QX80"] },
+  { make:"Jaguar",      models:["XE","XF","XJ","F-Type","E-Pace","F-Pace","I-Pace"] },
+  { make:"Jeep",        models:["Renegade","Compass","Cherokee","Grand Cherokee","Wrangler","Gladiator","Wagoneer"] },
+  { make:"Kia",         models:["Rio","Forte","K5","Stinger","Soul","Seltos","Sportage","Sorento","Telluride","Carnival","EV6","Niro"] },
+  { make:"Land Rover",  models:["Defender","Discovery","Discovery Sport","Range Rover","Range Rover Sport","Range Rover Velar","Range Rover Evoque"] },
+  { make:"Lexus",       models:["IS","ES","GS","LS","RC","LC","UX","NX","RX","GX","LX","RZ"] },
+  { make:"Lincoln",     models:["Corsair","Nautilus","Aviator","Navigator","Continental"] },
+  { make:"Mazda",       models:["Mazda3","Mazda6","CX-30","CX-5","CX-50","CX-9","MX-5 Miata","MX-30"] },
+  { make:"Mercedes-Benz",models:["A-Class","C-Class","E-Class","S-Class","CLA","CLS","GLA","GLB","GLC","GLE","GLS","G-Class","EQA","EQB","EQC","EQE","EQS"] },
+  { make:"Mitsubishi",  models:["Mirage","Eclipse Cross","Outlander","Outlander Sport"] },
+  { make:"Nissan",      models:["Versa","Sentra","Altima","Maxima","370Z","GT-R","Kicks","Rogue Sport","Rogue","Murano","Pathfinder","Armada","Frontier","Titan","LEAF","Ariya"] },
+  { make:"Porsche",     models:["718 Boxster","718 Cayman","911","Panamera","Macan","Cayenne","Taycan"] },
+  { make:"Ram",         models:["1500","2500","3500","ProMaster","ProMaster City"] },
+  { make:"Subaru",      models:["Impreza","Legacy","Outback","Forester","Crosstrek","Ascent","BRZ","WRX","Solterra"] },
+  { make:"Tesla",       models:["Model 3","Model S","Model X","Model Y","Cybertruck","Roadster"] },
+  { make:"Toyota",      models:["Yaris","Corolla","Camry","Avalon","GR86","Supra","C-HR","RAV4","RAV4 Prime","Venza","Highlander","4Runner","Sequoia","Tacoma","Tundra","Prius","Prius Prime","bZ4X","Sienna"] },
+  { make:"Volkswagen",  models:["Golf","Jetta","Passat","Arteon","Tiguan","Atlas","ID.4","Taos"] },
+  { make:"Volvo",       models:["S60","S90","V60","V90","XC40","XC60","XC90","C40 Recharge"] },
+  { make:"Other",       models:["Other / Not Listed"] },
+];
+
 // ─── VEHICLE COLORS ─────────────────────────────────────────────────────────
 const VEHICLE_COLORS = [
   { name:"White",   hex:"#ffffff", border:"#cbd5e1" },
@@ -719,7 +755,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, 
   const YEARS = Array.from({length:26},(_,i)=>(2025-i).toString());
 
   function addVehicle() {
-    if (!newYear || !newMake.trim() || !newModel.trim()) return;
+    if (!newYear || !newMake || !newModel) return;
     const label = newYear + " " + newMake + " " + newModel.trim();
     setVehicles(v => [
       ...v.map(x => ({ ...x, active:false })),
@@ -842,7 +878,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, earned, 
                 <div style={{ fontSize:12, color:"#64748b", marginBottom:12 }}>Selected: <strong style={{ color:"#1e3a5f" }}>{newColor.name}</strong></div>
                 <div style={{ display:"flex", gap:8 }}>
                   <button onClick={()=>setAddOpen(false)} style={{ flex:1, padding:"9px", borderRadius:10, border:"1.5px solid #bfdbfe", background:"transparent", color:"#64748b", fontWeight:600, fontSize:13, cursor:"pointer" }}>Cancel</button>
-                  <button onClick={addVehicle} disabled={!newYear||!newMake||!newModel.trim()} style={{ flex:2, padding:"9px", borderRadius:10, border:"none", background:(newYear&&newMake&&newModel.trim())?"#2563eb":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(newYear&&newMake&&newModel.trim())?"pointer":"not-allowed" }}>Add Vehicle</button>
+                  <button onClick={addVehicle} disabled={!newYear||!newMake||!newModel} style={{ flex:2, padding:"9px", borderRadius:10, border:"none", background:(newYear&&newMake&&newModel)?"#2563eb":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(newYear&&newMake&&newModel)?"pointer":"not-allowed" }}>Add Vehicle</button>
                 </div>
               </div>
             )}
@@ -1296,30 +1332,72 @@ function DriverApp() {
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT — ROLE SELECTOR
 // ─────────────────────────────────────────────────────────────────────────────
+// ─── ROLE SELECTOR ANIMATION CSS ─────────────────────────────────────────────
+const ROLE_ANIM_CSS = `
+  @keyframes roadSlide { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+  @keyframes carDrive  { 0%{left:110%} 45%{left:52%} 55%{left:48%} 100%{left:-20%} }
+  @keyframes personAppear { 0%,44%{opacity:0;transform:scale(0)} 45%,54%{opacity:1;transform:scale(1.3)} 55%{opacity:1;transform:scale(1)} 80%{opacity:1} 100%{opacity:0;transform:scale(0)} }
+  @keyframes personPickup { 0%,54%{transform:translateY(0)} 60%{transform:translateY(-30px)} 100%{transform:translateY(-80px);opacity:0} }
+  @keyframes floatUp     { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:1;transform:translateY(0)} }
+  @keyframes pulse2      { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  @keyframes dashLine    { from{stroke-dashoffset:200} to{stroke-dashoffset:0} }
+  @keyframes roadMove    { from{background-position:0 0} to{background-position:-200px 0} }
+`;
+
 export default function App() {
   const [role, setRole] = useState(null);
 
   if (!role) return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#1d4ed8", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans',sans-serif", overflow:"hidden", position:"relative" }}>
       <style>{STYLES}</style>
-      <div className="fade" style={{ textAlign:"center", padding:24 }}>
-        <div style={{ marginBottom:8 }}>
-          <LogoAnim size={72} />
+      <style>{ROLE_ANIM_CSS}</style>
+
+      {/* Subtle bg circles */}
+      <div style={{ position:"absolute", top:-80, right:-80, width:300, height:300, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
+      <div style={{ position:"absolute", bottom:-100, left:-100, width:400, height:400, borderRadius:"50%", background:"rgba(255,255,255,0.04)" }} />
+
+      {/* Big spinning logo */}
+      <div style={{ marginBottom:10, animation:"pulse2 2s ease infinite" }}>
+        <LogoAnim size={110} />
+      </div>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:42, color:WHITE, letterSpacing:-2, marginTop:8 }}>ZeezRyde</div>
+      <div style={{ color:"rgba(255,255,255,0.7)", fontSize:13, marginTop:4, marginBottom:28 }}>Hamilton and Niagara Region</div>
+
+      {/* ── ANIMATED ROAD SCENE ───────────────────────────────────────── */}
+      <div style={{ width:340, height:130, position:"relative", marginBottom:28, borderRadius:20, overflow:"hidden", background:"linear-gradient(180deg,#1e3a8a 0%,#1e3a8a 30%,#374151 30%,#374151 70%,#1e3a8a 70%)" }}>
+        {/* Road markings — animated dashes */}
+        <div style={{ position:"absolute", top:"43%", left:0, right:0, height:6, display:"flex", gap:0, overflow:"hidden" }}>
+          {Array.from({length:14}).map((_,i)=>(
+            <div key={i} style={{ width:24, height:6, background:"#fbbf24", opacity:0.9, flexShrink:0, marginRight:14, animation:"roadMove 0.7s linear infinite", animationDelay: i*0.05+"s" }} />
+          ))}
         </div>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:40, color:WHITE, letterSpacing:-2, marginTop:12 }}>ZeezRyde</div>
-        <div style={{ color:LBLUE, fontSize:13, marginTop:4, marginBottom:36 }}>Hamilton and Niagara Region</div>
-        <div style={{ display:"flex", gap:14, justifyContent:"center" }}>
-          <button onClick={()=>setRole("rider")} style={{ width:148, padding:"24px 14px", borderRadius:20, border:"1.5px solid rgba(96,165,250,0.3)", background:"rgba(37,99,235,0.12)", color:WHITE, cursor:"pointer" }}>
-            <div style={{ fontSize:40, marginBottom:10 }}>🚗</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17 }}>Rider</div>
-            <div style={{ fontSize:12, color:LBLUE, marginTop:4 }}>Book a ride</div>
-          </button>
-          <button onClick={()=>setRole("driver")} style={{ width:148, padding:"24px 14px", borderRadius:20, border:"1.5px solid rgba(52,211,153,0.3)", background:"rgba(16,185,129,0.12)", color:WHITE, cursor:"pointer" }}>
-            <div style={{ fontSize:40, marginBottom:10 }}>🚙</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17 }}>Driver</div>
-            <div style={{ fontSize:12, color:"#6ee7b7", marginTop:4 }}>Start earning</div>
-          </button>
-        </div>
+        {/* Road edge lines */}
+        <div style={{ position:"absolute", top:"30%", left:0, right:0, height:3, background:"rgba(255,255,255,0.25)" }} />
+        <div style={{ position:"absolute", top:"68%", left:0, right:0, height:3, background:"rgba(255,255,255,0.25)" }} />
+        {/* Person waiting — appears, gets picked up */}
+        <div style={{ position:"absolute", top:"20%", left:"48%", fontSize:26, animation:"personAppear 3.5s ease-in-out infinite", animationDelay:"0.5s" }}>😊</div>
+        {/* Car driving across */}
+        <div style={{ position:"absolute", top:"28%", fontSize:38, animation:"carDrive 3.5s ease-in-out infinite" }}>🚗</div>
+        {/* Person riding after pickup */}
+        <div style={{ position:"absolute", top:"20%", left:"48%", fontSize:26, animation:"personPickup 3.5s ease-in-out infinite", animationDelay:"0.5s", opacity:0 }}>😊</div>
+      </div>
+
+      {/* Role buttons */}
+      <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
+        <button onClick={()=>setRole("rider")} style={{ width:152, padding:"22px 14px", borderRadius:22, border:"2px solid rgba(255,255,255,0.35)", background:"rgba(255,255,255,0.12)", color:WHITE, cursor:"pointer", animation:"floatUp 0.6s ease", backdropFilter:"blur(6px)", transition:"transform 0.15s, background 0.15s" }}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.22)";e.currentTarget.style.transform="translateY(-3px)"}}
+          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.12)";e.currentTarget.style.transform="translateY(0)"}}>
+          <div style={{ fontSize:44, marginBottom:8 }}>🙋</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18 }}>Rider</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:4 }}>Book a ride</div>
+        </button>
+        <button onClick={()=>setRole("driver")} style={{ width:152, padding:"22px 14px", borderRadius:22, border:"2px solid rgba(255,255,255,0.35)", background:"rgba(255,255,255,0.12)", color:WHITE, cursor:"pointer", animation:"floatUp 0.6s ease 0.15s both", backdropFilter:"blur(6px)", transition:"transform 0.15s, background 0.15s" }}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.22)";e.currentTarget.style.transform="translateY(-3px)"}}
+          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.12)";e.currentTarget.style.transform="translateY(0)"}}>
+          <div style={{ fontSize:44, marginBottom:8 }}>🚙</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18 }}>Driver</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:4 }}>Start earning</div>
+        </button>
       </div>
     </div>
   );
