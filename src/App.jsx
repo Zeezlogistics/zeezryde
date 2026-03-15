@@ -12,7 +12,7 @@ const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const RIDES = [
   { id: "family",  label: "Family",  icon: "🚗", seats: "1-4", price: "CA$8-11",  fare: 9.40  },
-  { id: "friends", label: "Friends", icon: "🚐", seats: "5-8", price: "CA$18-24", fare: 21.50 },
+  { id: "friends", label: "Friends", icon: "🚐", seats: "7", price: "CA$18-24", fare: 21.50 },
 ];
 const AIRPORTS = [
   { code: "yyz", name: "Pearson International (YYZ)", fare: 55 },
@@ -83,7 +83,7 @@ const STYLES = `
 function LogoAnim({ size }) {
   const sz = size || 48;
   return (
-    <img src={LOGO_SRC} alt="ZeezRyde" style={{ width: sz, height: sz, animation: "globeSpin 6s linear infinite", borderRadius: "50%" }} />
+    <img src={LOGO_SRC} alt="ZeezRyde" style={{ width: sz, height: sz, animation: "globeSpin 6s linear infinite", borderRadius: "50%", background:"transparent", mixBlendMode:"lighten" }} />
   );
 }
 
@@ -253,6 +253,8 @@ function RiderApp() {
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
+  const [promoCode, setPromoCode]   = useState("");
+  const [promoApplied, setPromoApplied] = useState(false);
 
   const go = (s) => { setErr(""); setScr(s); };
 
@@ -483,7 +485,7 @@ function RiderApp() {
             <p style={{ color:LBLUE, fontSize:12, marginBottom:12, fontWeight:600 }}>Rate your driver</p>
             <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:16 }}>
               {[1,2,3,4,5].map(s=>(
-                <button key={s} onClick={()=>setRating(s)} style={{ fontSize:30, background:"none", border:"none", cursor:"pointer", opacity:s<=rating?1:0.3, transition:"opacity 0.15s" }}>{"★"}</button>
+                <button key={s} onClick={()=>setRating(s)} style={{ fontSize:38, background:"none", border:"none", cursor:"pointer", transition:"transform 0.15s, filter 0.15s", transform:s<=rating?"scale(1.25)":"scale(1)", filter:s<=rating?"drop-shadow(0 2px 4px rgba(234,179,8,0.8)) drop-shadow(0 0 8px rgba(234,179,8,0.5))":"drop-shadow(0 1px 2px rgba(0,0,0,0.2))", color:s<=rating?"#f59e0b":"#d1d5db", textShadow:s<=rating?"0 1px 0 #92400e, 0 -1px 0 #fef08a, 1px 0 0 #b45309, -1px 0 0 #fde68a":"none" }}>{"★"}</button>
               ))}
             </div>
             <BigBtn onClick={()=>{ setPendingRate(false); setRating(0); go("dash"); }} disabled={rating===0}>Submit Rating</BigBtn>
@@ -619,13 +621,13 @@ function RiderApp() {
           </div>
           {/* Top header overlay */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px 16px 0" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-              <div style={{ background:"rgba(15,23,42,0.82)", backdropFilter:"blur(8px)", borderRadius:12, padding:"8px 14px" }}>
+            <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", marginBottom:10, gap:12 }}>
+              <div style={{ background:"rgba(15,23,42,0.75)", backdropFilter:"blur(8px)", borderRadius:12, padding:"7px 14px", textAlign:"right" }}>
                 <div style={{ color:LBLUE, fontSize:10 }}>Good to see you</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:16, color:WHITE }}>{displayName}</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
               </div>
-              <div style={{ background:"rgba(15,23,42,0.82)", backdropFilter:"blur(8px)", borderRadius:"50%", padding:8 }}>
-                <LogoAnim size={32} />
+              <div style={{ backdropFilter:"blur(4px)", borderRadius:"50%", padding:3 }}>
+                <LogoAnim size={52} />
               </div>
             </div>
             {/* Search bar */}
@@ -733,13 +735,19 @@ function RiderApp() {
       {tab==="account" && (
         <div className="fade" style={{ padding:"20px 20px 10px" }}>
           <Card style={{ marginBottom:14, display:"flex", gap:14, alignItems:"center" }}>
-            <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,"+BLUE+","+NAVY+")", display:"flex", alignItems:"center", justifyContent:"center", color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22 }}>
+            <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,"+BLUE+","+NAVY+")", display:"flex", alignItems:"center", justifyContent:"center", color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, flexShrink:0 }}>
               {displayName[0].toUpperCase()}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY }}>{displayName}</div>
               <div style={{ color:SLATE, fontSize:12, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user?.email}</div>
-              <div style={{ marginTop:5 }}><PillBadge label="Active Rider" color="blue" /></div>
+              <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4, marginBottom:4 }}>
+                {[1,2,3,4,5].map(s=>(
+                  <span key={s} style={{ fontSize:14, color:"#f59e0b", filter:"drop-shadow(0 1px 2px rgba(234,179,8,0.7))", textShadow:"0 1px 0 #92400e, 0 -1px 0 #fef08a" }}>★</span>
+                ))}
+                <span style={{ fontSize:12, fontWeight:700, color:NAVY, marginLeft:4 }}>5.0</span>
+              </div>
+              <div style={{ marginTop:2 }}><PillBadge label="Active Rider" color="blue" /></div>
             </div>
           </Card>
           {/* Personal Info — collapsible */}
@@ -776,7 +784,7 @@ function RiderApp() {
             )}
           </div>
           <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
-            {[["🚗","My Trips",()=>setTab("trips")],["💳","Payment Methods",()=>{}],["⭐","My Ratings",()=>{}]].map(([ic,lb,action])=>(
+            {[["💳","Payment Methods",()=>setTab("payment")],["🎁","Promo",()=>setTab("promo")]].map(([ic,lb,action])=>(
               <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
                 <span style={{ fontSize:18 }}>{ic}</span>
                 <span style={{ flex:1, fontSize:13, fontWeight:500, color:NAVY }}>{lb}</span>
@@ -785,6 +793,62 @@ function RiderApp() {
             ))}
           </Card>
           <BigBtn onClick={doLogout} ghost>Sign Out</BigBtn>
+        </div>
+      )}
+
+      {tab==="payment" && (
+        <div className="fade" style={{ padding:"20px 20px 10px" }}>
+          <SectionHeader title="Payment Methods" sub="Manage how you pay for rides" />
+          <div style={{ background:"linear-gradient(135deg,"+NAVY+","+BLUE+")", borderRadius:16, padding:"18px", marginBottom:16, boxShadow:"0 4px 20px rgba(37,99,235,0.25)" }}>
+            <div style={{ color:"rgba(255,255,255,0.7)", fontSize:11, fontWeight:600 }}>Default Card</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:WHITE, marginTop:6, letterSpacing:2 }}>•••• •••• •••• 4242</div>
+            <div style={{ color:"rgba(255,255,255,0.6)", fontSize:12, marginTop:4 }}>VISA  ·  Expires 12/27</div>
+          </div>
+          <Card style={{ overflow:"hidden", padding:0, marginBottom:14 }}>
+            {[["💳","Add Credit / Debit Card",()=>{}],["🏦","Link Bank Account",()=>{}],["📱","Apple Pay / Google Pay",()=>{}]].map(([ic,lb,action])=>(
+              <button key={lb} onClick={action} style={{ width:"100%", padding:"13px 16px", background:"none", border:"none", borderBottom:"1px solid "+BORDER, display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+                <span style={{ fontSize:18 }}>{ic}</span>
+                <span style={{ flex:1, fontSize:13, fontWeight:500, color:NAVY }}>{lb}</span>
+                <span style={{ color:"#cbd5e1", fontSize:18 }}>{">"}</span>
+              </button>
+            ))}
+          </Card>
+          <div style={{ background:VLIGHT, borderRadius:12, padding:"12px 16px", fontSize:12, color:SLATE, display:"flex", gap:10 }}>
+            <span style={{ fontSize:16 }}>🔒</span>
+            <span>Payments are secured and encrypted. ZeezRyde never stores your full card details.</span>
+          </div>
+        </div>
+      )}
+
+      {tab==="promo" && (
+        <div className="fade" style={{ padding:"20px 20px 10px" }}>
+          <SectionHeader title="Promo Codes" sub="Enter a code to save on your next ride" />
+          <div style={{ background:WHITE, borderRadius:14, border:"1px solid "+BORDER, padding:"14px", marginBottom:14 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Enter Promo Code</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. ZEEZ10" style={{ flex:1, padding:"10px 14px", borderRadius:10, border:"1.5px solid "+BORDER, fontSize:14, fontFamily:"'Syne',sans-serif", fontWeight:700, letterSpacing:2, color:NAVY, outline:"none", background:VLIGHT }} />
+              <button onClick={()=>{ if(promoCode.trim()){ setPromoApplied(true); } }} style={{ padding:"10px 18px", borderRadius:10, border:"none", background:BLUE, color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:"pointer" }}>Apply</button>
+            </div>
+            {promoApplied && (
+              <div style={{ marginTop:10, background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", color:"#16a34a", fontSize:12, fontWeight:600 }}>🎉 Promo code <strong>{promoCode}</strong> applied! You saved CA$5.00 on your next ride.</div>
+            )}
+          </div>
+          <div style={{ fontSize:12, fontWeight:700, color:SLATE, marginBottom:8 }}>Active Promos</div>
+          {promoApplied ? (
+            <Card style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{promoCode}</div>
+                <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>CA$5.00 off your next ride</div>
+              </div>
+              <PillBadge label="Active" color="green" />
+            </Card>
+          ) : (
+            <div style={{ textAlign:"center", paddingTop:30, color:SLATE }}>
+              <div style={{ fontSize:32, marginBottom:8 }}>🎁</div>
+              <div style={{ fontWeight:600 }}>No active promos</div>
+              <div style={{ fontSize:12, marginTop:4 }}>Enter a code above to get started</div>
+            </div>
+          )}
         </div>
       )}
 
