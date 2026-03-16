@@ -688,6 +688,7 @@ function RiderApp() {
         </div>
       </div>
     </div>
+    </div>
     );
   }
 
