@@ -44,7 +44,7 @@ const LBLUE  = "#60a5fa";
 const VLIGHT = "#dbeafe";
 const WHITE  = "#ffffff";
 const DARK   = "#0f172a";
-const GREEN  = "#22c55e";
+const GREEN  = "#3b82f6";
 const YELLOW = "#f59e0b";
 const RED    = "#ef4444";
 const SLATE  = "#94a3b8";
@@ -155,7 +155,7 @@ function Loader() {
 }
 
 function PillBadge({ label, color }) {
-  const map = { green:["#f0fdf4","#16a34a"], yellow:["#fefce8","#a16207"], red:["#fef2f2","#dc2626"], blue:[VLIGHT,BLUE], gray:["#f8fafc","#64748b"] };
+  const map = { green:["#eff6ff","#2563eb"], yellow:["#fefce8","#a16207"], red:["#fef2f2","#dc2626"], blue:[VLIGHT,BLUE], gray:["#f8fafc","#64748b"] };
   const [bg,fg] = map[color]||map.gray;
   return <span style={{ background:bg, color:fg, fontSize:10, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>{label}</span>;
 }
@@ -184,7 +184,7 @@ function LoadDots() {
 }
 // ─── MAP COMPONENT (OpenStreetMap iframe — works everywhere) ─────────────────
 function MapView({ height, riderMode }) {
-  const dot  = riderMode ? "#2563eb" : "#22c55e";
+  const dot  = riderMode ? "#2563eb" : "#3b82f6";
   const zoom = 14;
   const lat  = 43.2557;
   const lng  = -79.8711;
@@ -817,7 +817,7 @@ function RiderApp() {
                 </div>
                 <Input label={profileSaved ? "Current Password (required) *" : "Password (leave blank to keep)"} value={editPass} onChange={e=>setEditPass(e.target.value)} type="password" placeholder="Min 8 characters" />
                 {editErr && <Err msg={editErr} />}
-                {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
+                {editSuccess && <div style={{ color:"#2563eb", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
                 {editBusy ? <Loader /> : <BigBtn onClick={saveProfile}>Save Changes</BigBtn>}
               </div>
             )}
@@ -853,7 +853,7 @@ function RiderApp() {
             </div>
           )}
           {savedBanks.length > 0 && (
-            <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:16, padding:"16px 18px", marginBottom:12, boxShadow:"0 4px 20px rgba(5,150,105,0.2)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ background:"linear-gradient(135deg,#1e3a5f,#1d4ed8)", borderRadius:16, padding:"16px 18px", marginBottom:12, boxShadow:"0 4px 20px rgba(37,99,235,0.2)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, fontWeight:600 }}>ACTIVE PAYMENT · BANK</div>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:WHITE, marginTop:4 }}>{savedBanks[0].name}</div>
@@ -897,7 +897,7 @@ function RiderApp() {
             </div>
           )}
           {(savedCards.length>0 || savedBanks.length>0) && (
-            <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:10, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#16a34a", display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ background:"#eff6ff", border:"1px solid #86efac", borderRadius:10, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#2563eb", display:"flex", alignItems:"center", gap:6 }}>
               <span>✅</span><span>Active payment method set. Remove it first to add a different one.</span>
             </div>
           )}
@@ -926,7 +926,7 @@ function RiderApp() {
                     <div style={{ flex:1 }}><Input label="CVV" value={cardCvv} onChange={e=>setCardCvv(e.target.value.replace(/[^0-9]/g,"").slice(0,4))} placeholder="123" /></div>
                   </div>
                   {cardErr && <Err msg={cardErr} />}
-                  {cardSaved && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Card added!</div>}
+                  {cardSaved && <div style={{ color:"#2563eb", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Card added!</div>}
                   <BigBtn onClick={()=>{
                     if (!cardName||!cardNum||!cardExp||!cardCvv) { setCardErr("All fields required"); return; }
                     if (cardNum.replace(/\s/g,"").length<16) { setCardErr("Enter a valid 16-digit number"); return; }
@@ -964,7 +964,7 @@ function RiderApp() {
                   </div>
                   <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#92400e" }}>🔒 Your banking details are encrypted and never shared.</div>
                   {bankErr && <Err msg={bankErr} />}
-                  {bankSavedMsg && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Bank account linked!</div>}
+                  {bankSavedMsg && <div style={{ color:"#2563eb", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Bank account linked!</div>}
                   <BigBtn onClick={()=>{
                     if (!bankFormName||!bankFormAcct||!bankFormTransit||!bankFormInst) { setBankErr("All fields required"); return; }
                     if (bankFormTransit.length!==5) { setBankErr("Transit No. must be 5 digits"); return; }
@@ -1021,7 +1021,7 @@ function RiderApp() {
               <button onClick={()=>{ if(promoCode.trim()){ setPromoApplied(true); } }} style={{ padding:"10px 18px", borderRadius:10, border:"none", background:BLUE, color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:"pointer" }}>Apply</button>
             </div>
             {promoApplied && (
-              <div style={{ marginTop:10, background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", color:"#16a34a", fontSize:12, fontWeight:600 }}>🎉 Promo code <strong>{promoCode}</strong> applied! You saved CA$5.00 on your next ride.</div>
+              <div style={{ marginTop:10, background:"#eff6ff", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", color:"#2563eb", fontSize:12, fontWeight:600 }}>🎉 Promo code <strong>{promoCode}</strong> applied! You saved CA$5.00 on your next ride.</div>
             )}
           </div>
           <div style={{ fontSize:12, fontWeight:700, color:SLATE, marginBottom:8 }}>Active Promos</div>
@@ -1161,12 +1161,12 @@ function WeeklyEarningsTab({ trips, earned }) {
         </div>
 
         {/* Cash out card */}
-        <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:14, padding:"14px 16px", marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center", boxShadow:"0 4px 14px rgba(5,150,105,0.3)" }}>
+        <div style={{ background:"linear-gradient(135deg,#1e3a5f,#1d4ed8)", borderRadius:14, padding:"14px 16px", marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center", boxShadow:"0 4px 14px rgba(37,99,235,0.3)" }}>
           <div>
             <div style={{ color:"rgba(255,255,255,0.7)", fontSize:10, fontWeight:600 }}>Available to Cash Out</div>
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>{"CA$"+weekTotal.toFixed(2)}</div>
           </div>
-          <button style={{ background:WHITE, border:"none", borderRadius:10, padding:"9px 16px", color:"#059669", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, cursor:weekTotal>0?"pointer":"not-allowed", opacity:weekTotal>0?1:0.5, boxShadow:"0 2px 8px rgba(0,0,0,0.12)" }}>
+          <button style={{ background:WHITE, border:"none", borderRadius:10, padding:"9px 16px", color:"#2563eb", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, cursor:weekTotal>0?"pointer":"not-allowed", opacity:weekTotal>0?1:0.5, boxShadow:"0 2px 8px rgba(0,0,0,0.12)" }}>
             Cash Out
           </button>
         </div>
@@ -1250,11 +1250,11 @@ function MonthlySummaryTab({ trips, earned, displayName }) {
 
       <div style={{ padding:"16px 16px 0" }}>
         {/* Summary card */}
-        <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:16, padding:"18px", marginBottom:14, boxShadow:"0 4px 20px rgba(5,150,105,0.25)" }}>
+        <div style={{ background:"linear-gradient(135deg,#1e3a5f,#1d4ed8)", borderRadius:16, padding:"18px", marginBottom:14, boxShadow:"0 4px 20px rgba(37,99,235,0.25)" }}>
           <div style={{ color:"rgba(255,255,255,0.7)", fontSize:10, fontWeight:700, letterSpacing:1, textTransform:"uppercase" }}>Net Payout — {MONTHS[selMonth]} {selYear}</div>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:44, color:WHITE, marginTop:4 }}>{"CA$"+netPayout.toFixed(2)}</div>
           <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:4 }}>After platform fee & subscription</div>
-          <button style={{ marginTop:14, background:WHITE, border:"none", borderRadius:10, padding:"10px 22px", color:"#059669", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, cursor: netPayout > 0 ? "pointer" : "not-allowed", opacity: netPayout > 0 ? 1 : 0.5, boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
+          <button style={{ marginTop:14, background:WHITE, border:"none", borderRadius:10, padding:"10px 22px", color:"#2563eb", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, cursor: netPayout > 0 ? "pointer" : "not-allowed", opacity: netPayout > 0 ? 1 : 0.5, boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
             {netPayout > 0 ? "Cash Out CA$"+netPayout.toFixed(2) : "Nothing to cash out"}
           </button>
         </div>
@@ -1268,7 +1268,7 @@ function MonthlySummaryTab({ trips, earned, displayName }) {
             ["Weekly Sub × 4",   "- CA$"+subFee.toFixed(2),     "#f59e0b", "💳"],
             ["Net Payout",        "CA$"+netPayout.toFixed(2),    GREEN,  "✅"],
           ].map(([label, val, color, ic], i, arr) => (
-            <div key={label} style={{ padding:"13px 16px", borderBottom: i<arr.length-1?"1px solid "+BORDER:"none", display:"flex", alignItems:"center", gap:12, background: i===arr.length-1?"#f0fdf4":"transparent" }}>
+            <div key={label} style={{ padding:"13px 16px", borderBottom: i<arr.length-1?"1px solid "+BORDER:"none", display:"flex", alignItems:"center", gap:12, background: i===arr.length-1?"#eff6ff":"transparent" }}>
               <span style={{ fontSize:18 }}>{ic}</span>
               <span style={{ flex:1, fontSize:13, fontWeight: i===arr.length-1?700:500, color:NAVY }}>{label}</span>
               <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:14, color }}>{val}</span>
@@ -1320,7 +1320,7 @@ const VEHICLE_COLORS = [
   { name:"Red",     hex:"#ef4444", border:"#ef4444" },
   { name:"Blue",    hex:"#3b82f6", border:"#3b82f6" },
   { name:"Navy",    hex:"#1e3a5f", border:"#1e3a5f" },
-  { name:"Green",   hex:"#22c55e", border:"#22c55e" },
+  { name:"Green",   hex:"#3b82f6", border:"#3b82f6" },
   { name:"Yellow",  hex:"#eab308", border:"#eab308" },
   { name:"Orange",  hex:"#f97316", border:"#f97316" },
   { name:"Brown",   hex:"#92400e", border:"#92400e" },
@@ -1394,7 +1394,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
     <div className="fade" style={{ padding:"20px 20px 10px" }}>
       {/* Profile card */}
       <div style={{ background:"#fff", borderRadius:14, border:"1px solid #bfdbfe", padding:16, marginBottom:14, display:"flex", gap:14, alignItems:"center" }}>
-        <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#059669,#065f46)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, flexShrink:0 }}>
+        <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,#1d4ed8,#1e3a5f)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, flexShrink:0 }}>
           {displayName[0].toUpperCase()}
         </div>
         <div style={{ flex:1, minWidth:0 }}>
@@ -1435,11 +1435,11 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
               <input value={editPass} onChange={e=>setEditPass(e.target.value)} type="password" placeholder="Min 8 characters" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid "+(profileSaved&&!editPass?"#ef4444":"#bfdbfe"), background:profileSaved&&!editPass?"#fef2f2":"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
             </div>
             {editErr && <div style={{ color:"#ef4444", fontSize:12, marginBottom:8, textAlign:"center" }}>{editErr}</div>}
-            {editSuccess && <div style={{ color:"#16a34a", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
+            {editSuccess && <div style={{ color:"#2563eb", fontSize:12, textAlign:"center", marginBottom:8, fontWeight:600 }}>✓ Profile updated!</div>}
             {editBusy ? (
-              <div style={{ textAlign:"center" }}><div style={{ width:22, height:22, border:"3px solid #86efac", borderTopColor:"#22c55e", borderRadius:"50%", animation:"spin 0.75s linear infinite", margin:"0 auto" }} /></div>
+              <div style={{ textAlign:"center" }}><div style={{ width:22, height:22, border:"3px solid #86efac", borderTopColor:"#3b82f6", borderRadius:"50%", animation:"spin 0.75s linear infinite", margin:"0 auto" }} /></div>
             ) : (
-              <button onClick={saveProfile} style={{ width:"100%", padding:"12px", borderRadius:12, border:"none", background:"#059669", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, cursor:"pointer" }}>Save Changes</button>
+              <button onClick={saveProfile} style={{ width:"100%", padding:"12px", borderRadius:12, border:"none", background:"#2563eb", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, cursor:"pointer" }}>Save Changes</button>
             )}
           </div>
         )}
@@ -1450,7 +1450,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
         <button onClick={()=>{ setBankOpen(o=>!o); if(!bankOpen) setBankSecStep(bankSaved?"view":"edit"); }} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>🏦</span>
           <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Bank Details</span>
-          <span style={{ fontSize:11, color:bankSaved?"#22c55e":"#94a3b8", marginRight:4 }}>{bankSaved?"🔒 Saved":"Not set"}</span>
+          <span style={{ fontSize:11, color:bankSaved?"#3b82f6":"#94a3b8", marginRight:4 }}>{bankSaved?"🔒 Saved":"Not set"}</span>
           <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:bankOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
         </button>
         {bankOpen && (
@@ -1500,7 +1500,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
                       if (bankOtp.length < 4) { setBankSecErr("Enter the 4-digit OTP"); return; }
                       if (bankOtp === "1234") { setBankSecErr(""); setBankSecStep("edit"); }
                       else { setBankSecErr("Invalid OTP. Try again."); }
-                    }} style={{ width:"100%", padding:"10px", borderRadius:10, border:"none", background:bankOtp.length===4?"#059669":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:bankOtp.length===4?"pointer":"not-allowed" }}>
+                    }} style={{ width:"100%", padding:"10px", borderRadius:10, border:"none", background:bankOtp.length===4?"#2563eb":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:bankOtp.length===4?"pointer":"not-allowed" }}>
                       Confirm OTP
                     </button>
                   </div>
@@ -1531,8 +1531,8 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
                     <input value={dBankInst} onChange={e=>setDBankInst(e.target.value.replace(/[^0-9]/g,"").slice(0,3))} placeholder="3 digits" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
                   </div>
                 </div>
-                <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#065f46" }}>🔒 Encrypted and used only for processing payouts.</div>
-                <button onClick={()=>{ if(dBankName&&dBankAcct){ setBankSaved(true); setBankSecStep("view"); setBankOpen(false); setTimeout(()=>setBankOpen(false),100); } }} disabled={!dBankName||!dBankAcct} style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:(dBankName&&dBankAcct)?"#059669":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(dBankName&&dBankAcct)?"pointer":"not-allowed" }}>Save Bank Details</button>
+                <div style={{ background:"#eff6ff", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#1e3a5f" }}>🔒 Encrypted and used only for processing payouts.</div>
+                <button onClick={()=>{ if(dBankName&&dBankAcct){ setBankSaved(true); setBankSecStep("view"); setBankOpen(false); setTimeout(()=>setBankOpen(false),100); } }} disabled={!dBankName||!dBankAcct} style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:(dBankName&&dBankAcct)?"#2563eb":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(dBankName&&dBankAcct)?"pointer":"not-allowed" }}>Save Bank Details</button>
               </div>
             )}
           </div>
@@ -1775,7 +1775,7 @@ function DriverApp() {
           <LogoAnim size={40} />
           <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:20, color:NAVY }}>ZeezRyde</span>
         </div>
-        <RolePill color="#059669">DRIVER</RolePill>
+        <RolePill color="#2563eb">DRIVER</RolePill>
         <h2 style={{ color:NAVY, fontSize:20, fontWeight:800, marginTop:14, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Driver Sign In</h2>
         <p style={{ color:LBLUE, fontSize:11, marginBottom:18 }}>Sign in with your driver account only</p>
         <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="driver@email.com" />
@@ -1799,7 +1799,7 @@ function DriverApp() {
           <LogoAnim size={36} />
           <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY }}>ZeezRyde</span>
         </div>
-        <RolePill color="#059669">DRIVER</RolePill>
+        <RolePill color="#2563eb">DRIVER</RolePill>
         <h2 style={{ color:NAVY, fontSize:18, fontWeight:800, marginTop:12, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Driver Registration</h2>
         <p style={{ color:LBLUE, fontSize:11, marginBottom:16 }}>Fill in your details to get started</p>
         {/* Personal Info */}
@@ -1873,12 +1873,12 @@ function DriverApp() {
     <div style={{ ...sc }}>
       <style>{STYLES}</style>
       <div className="fade" style={{ padding:"44px 22px 30px" }}>
-        <RolePill color="#059669">SUBSCRIPTION</RolePill>
+        <RolePill color="#2563eb">SUBSCRIPTION</RolePill>
         <h2 style={{ color:NAVY, fontSize:20, fontWeight:800, marginTop:12, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Weekly Subscription</h2>
         <p style={{ color:LBLUE, fontSize:11, marginBottom:20 }}>Required to go online and accept trips</p>
         <Card style={{ textAlign:"center", marginBottom:16 }}>
           <div style={{ color:SLATE, fontSize:12 }}>Weekly Fee</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:48, color:promoApplied?"#16a34a":NAVY, margin:"6px 0" }}>{"CA$"+subFee}</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:48, color:promoApplied?"#2563eb":NAVY, margin:"6px 0" }}>{"CA$"+subFee}</div>
           <div style={{ color:SLATE, fontSize:12 }}>Unlocks driving access for 7 days</div>
           {promoApplied && <PillBadge label="Promo Applied - Free!" color="green" />}
         </Card>
@@ -1934,7 +1934,7 @@ function DriverApp() {
         <div style={{ color:LBLUE, fontSize:13, marginTop:4 }}>Navigate to rider pickup</div>
       </div>
       <MapView height={180} riderMode={false} finding={true} />
-      <div style={{ background:"rgba(34,197,94,0.12)", border:"1.5px solid "+GREEN, borderRadius:16, padding:"14px 32px", textAlign:"center" }}>
+      <div style={{ background:"rgba(37,99,235,0.12)", border:"1.5px solid "+GREEN, borderRadius:16, padding:"14px 32px", textAlign:"center" }}>
         <div style={{ color:LBLUE, fontSize:11, fontWeight:600 }}>EARNING</div>
         <div style={{ color:GREEN, fontWeight:900, fontSize:30, fontFamily:"'Syne',sans-serif" }}>CA$9.40</div>
       </div>
@@ -2012,11 +2012,11 @@ function DriverApp() {
                   <button onClick={()=>go("subscription")} style={{ background:YELLOW, border:"none", borderRadius:8, padding:"6px 12px", color:"#fff", fontWeight:700, fontSize:11, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>Pay</button>
                 </div>
               ) : online ? (
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#f0fdf4", borderRadius:12, padding:"10px 14px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#eff6ff", borderRadius:12, padding:"10px 14px" }}>
                   <span style={{ fontSize:20, animation:"pulse 1.5s ease infinite" }}>📡</span>
                   <div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#166534" }}>Waiting for ride requests</div>
-                    <div style={{ fontSize:11, color:"#16a34a" }}>Demo request in a few seconds</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#1e40af" }}>Waiting for ride requests</div>
+                    <div style={{ fontSize:11, color:"#2563eb" }}>Demo request in a few seconds</div>
                   </div>
                 </div>
               ) : (
