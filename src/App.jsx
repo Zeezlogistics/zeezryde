@@ -307,6 +307,7 @@ function RiderApp() {
   const [airportPax, setAirportPax]   = useState(1);
   const [airportDone, setAirportDone] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
+  const [selectedSeat, setSelectedSeat] = useState(null);
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
@@ -824,7 +825,7 @@ function RiderApp() {
             )}
             <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Available Trips</div>
             {DEMO_TRIPS.map(t=>(
-              <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+BORDER, cursor:"pointer" }}>
+              <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeat(null); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+BORDER, cursor:"pointer" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:NAVY, marginBottom:3 }}>{t.route}</div>
