@@ -306,8 +306,9 @@ function RiderApp() {
   const [airportTime, setAirportTime] = useState("");
   const [airportPax, setAirportPax]   = useState(1);
   const [airportDone, setAirportDone] = useState(false);
+  const [airportDateOpen, setAirportDateOpen] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
-  const [selectedSeat, setSelectedSeat] = useState(null);
+  const [selectedSeats, setSelectedSeats] = useState([]);
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
@@ -424,9 +425,10 @@ function RiderApp() {
   }
 
   function bookShuttle() {
-    const b = { id:"ZS-"+String(Date.now()).slice(-5), trip:selectedTrip, seats, total:seats*selectedTrip.fare_per_seat };
+    const b = { id:"ZS-"+String(Date.now()).slice(-5), trip:selectedTrip, seats:selectedSeats, total:selectedSeats.length*selectedTrip.fare_per_seat };
     setNewBooking(b);
     setBookings(prev=>[...prev, b]);
+    setSelectedSeats([]);
     go("shuttle-booked");
   }
 
@@ -578,6 +580,73 @@ function RiderApp() {
   );
 
   // SHUTTLE BOOKED
+  // SHUTTLE PAYMENT
+  if (scr==="shuttle-payment"&&selectedTrip) return (
+    <div style={{ ...sc, overflowY:"auto" }}>
+      <style>{STYLES}</style>
+      <div style={{ position:"relative", padding:"44px 22px 40px" }}>
+        <BackBtn onClick={()=>go("shuttle-detail")} />
+        <div style={{ marginTop:8 }}>
+          <RolePill>PAYMENT</RolePill>
+          <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:8, marginBottom:16 }}>Complete Your Booking</h2>
+
+          {/* Order summary */}
+          <Card style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:LBLUE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Order Summary</div>
+            {[
+              ["Route",    selectedTrip.route],
+              ["Date",     selectedTrip.depart_date+" at "+selectedTrip.depart_time],
+              ["Seats",    selectedSeats.join(", ")],
+              ["Per Seat", "CA$"+selectedTrip.fare_per_seat.toFixed(2)],
+            ].map(([k,v])=>(
+              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
+                <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
+                <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0 0" }}>
+              <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:14 }}>Total</span>
+              <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, color:BLUE, fontSize:16 }}>{"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</span>
+            </div>
+          </Card>
+
+          {/* Payment method */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:LBLUE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Payment Method</div>
+            {savedCards.length>0 ? (
+              <div style={{ background:VLIGHT, border:"1.5px solid "+BLUE, borderRadius:12, padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:24 }}>💳</span>
+                <div>
+                  <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{savedCards[0].type} ending {savedCards[0].last4}</div>
+                  <div style={{ fontSize:11, color:SLATE }}>Expires {savedCards[0].exp}</div>
+                </div>
+                <div style={{ marginLeft:"auto" }}><PillBadge label="Active" color="green" /></div>
+              </div>
+            ) : savedBanks.length>0 ? (
+              <div style={{ background:VLIGHT, border:"1.5px solid "+BLUE, borderRadius:12, padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:24 }}>🏦</span>
+                <div>
+                  <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{savedBanks[0].name}</div>
+                  <div style={{ fontSize:11, color:SLATE }}>Bank account on file</div>
+                </div>
+                <div style={{ marginLeft:"auto" }}><PillBadge label="Active" color="green" /></div>
+              </div>
+            ) : (
+              <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:12, padding:"12px 16px", fontSize:12, color:"#92400e" }}>
+                No payment method saved. <button onClick={()=>{ go("dash"); setTab("account"); }} style={{ background:"none", border:"none", color:BLUE, fontWeight:700, cursor:"pointer", fontSize:12 }}>Add one now</button>
+              </div>
+            )}
+          </div>
+
+          <Err msg={err} />
+          <BigBtn onClick={bookShuttle} disabled={savedCards.length===0&&savedBanks.length===0}>
+            Pay {"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)+" & Confirm"}
+          </BigBtn>
+        </div>
+      </div>
+    </div>
+  );
+
   if (scr==="shuttle-booked"&&newBooking) return (
     <div style={{ ...sc }}>
       <style>{STYLES}</style>
@@ -606,7 +675,7 @@ function RiderApp() {
     <div style={{ ...sc, overflowY:"auto" }}>
       <style>{STYLES}</style>
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
-        <BackBtn onClick={()=>{ setSelectedSeat(null); go("dash"); }} />
+        <BackBtn onClick={()=>{ setSelectedSeats([]); go("dash"); }} />
         <div style={{ marginTop:8 }}>
           <RolePill>SHUTTLE</RolePill>
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY, marginTop:8, marginBottom:12 }}>{selectedTrip.route}</h2>
@@ -638,13 +707,13 @@ function RiderApp() {
                 {shuttleLayout.seats.filter(s=>s.row===row).map(seat => {
                   const isPilot = seat.pilot;
                   const isTaken = shuttleBooked.includes(seat.id);
-                  const isSel   = selectedSeat===seat.id;
+                  const isSel   = selectedSeats.includes(seat.id);
                   const bg  = isPilot?"#1e3a5f":isTaken?"#e2e8f0":isSel?BLUE:WHITE;
                   const clr = isPilot||isSel?"#fff":isTaken?SLATE:NAVY;
                   const bdr = isSel?"2px solid "+BLUE:isPilot?"2px solid #1e3a5f":"1.5px solid "+BORDER;
                   return (
                     <button key={seat.id} disabled={isPilot||isTaken}
-                      onClick={()=>setSelectedSeat(isSel?null:seat.id)}
+                      onClick={()=>setSelectedSeats(prev=>isSel?prev.filter(s=>s!==seat.id):[...prev,seat.id])}
                       style={{ width:54, height:54, borderRadius:10, background:bg, border:bdr, color:clr,
                         cursor:isPilot||isTaken?"not-allowed":"pointer",
                         opacity:isTaken?0.55:1,
@@ -652,8 +721,7 @@ function RiderApp() {
                         display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2,
                         boxShadow:isSel?"0 0 0 3px rgba(37,99,235,0.3)":"0 1px 4px rgba(0,0,0,0.06)",
                         transition:"all 0.15s" }}>
-                      <span style={{ fontSize:14 }}>{isPilot?"🔑":isTaken?"✕":isSel?"✓":""}</span>
-                      <span>{seat.label}</span>
+                      <span style={{ fontSize:13, fontWeight:800 }}>{isPilot?"🔑":isTaken?"✕":isSel?"✓":seat.id}</span>
                     </button>
                   );
                 })}
@@ -662,15 +730,15 @@ function RiderApp() {
             <div style={{ fontSize:9, color:SLATE, textAlign:"center", marginTop:4, letterSpacing:1, fontWeight:700 }}>BACK</div>
           </div>
 
-          {selectedSeat ? (
+          {selectedSeats.length>0 ? (
             <div style={{ background:VLIGHT, borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
-                <div style={{ fontSize:11, color:SLATE }}>Selected</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:18 }}>Seat {selectedSeat}</div>
+                <div style={{ fontSize:11, color:SLATE }}>Selected Seats</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:18 }}>{selectedSeats.join(", ")}</div>
               </div>
               <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:11, color:SLATE }}>Fare</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:18 }}>{"CA$"+selectedTrip.fare_per_seat.toFixed(2)}</div>
+                <div style={{ fontSize:11, color:SLATE }}>Total</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:18 }}>{"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</div>
               </div>
             </div>
           ) : (
@@ -678,8 +746,8 @@ function RiderApp() {
               👆 Tap an available seat above to select it
             </div>
           )}
-          <BigBtn onClick={bookShuttle} disabled={!selectedSeat}>
-            {selectedSeat ? ("Confirm - Seat " + selectedSeat + " | CA$" + selectedTrip.fare_per_seat.toFixed(2)) : "Select a seat to continue"}
+          <BigBtn onClick={()=>go("shuttle-payment")} disabled={selectedSeats.length===0}>
+            {selectedSeats.length>0 ? ("Confirm "+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+" - CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)) : "Select seats to continue"}
           </BigBtn>
         </div>
       </div>
@@ -720,7 +788,20 @@ function RiderApp() {
                 </button>
               ))}
             </div>
-            <Input label="Pickup Date" value={airportDate} onChange={e=>setAirportDate(e.target.value)} type="date" />
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Pickup Date</div>
+              <button onClick={()=>setAirportDateOpen(o=>!o)} style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportDate?BLUE:BORDER), background:airportDate?VLIGHT:WHITE, cursor:"pointer", textAlign:"left", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ color:airportDate?NAVY:SLATE, fontSize:13, fontWeight:airportDate?700:400 }}>{airportDate||"Select a date"}</span>
+                <span style={{ fontSize:14 }}>{airportDateOpen?"▲":"▼"}</span>
+              </button>
+              {airportDateOpen && (
+                <input type="date" value={airportDate}
+                  onChange={e=>{ setAirportDate(e.target.value); setAirportDateOpen(false); }}
+                  style={{ width:"100%", marginTop:4, padding:"10px 14px", borderRadius:10, border:"1.5px solid "+BLUE, background:WHITE, fontSize:13, color:NAVY, boxSizing:"border-box", outline:"none" }}
+                  autoFocus
+                />
+              )}
+            </div>
             <Input label="Pickup Time" value={airportTime} onChange={e=>setAirportTime(e.target.value)} type="time" />
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Passengers</div>
@@ -825,7 +906,7 @@ function RiderApp() {
             )}
             <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Available Trips</div>
             {DEMO_TRIPS.map(t=>(
-              <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeat(null); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+BORDER, cursor:"pointer" }}>
+              <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+BORDER, cursor:"pointer" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:NAVY, marginBottom:3 }}>{t.route}</div>
