@@ -598,11 +598,10 @@ function RiderApp() {
   );
 
   // SHUTTLE DETAIL
-  if (scr==="shuttle-detail"&&selectedTrip) {
-    const layout = SEAT_LAYOUTS[selectedTrip.vehicle_type||"7-seater"];
-    const booked = selectedTrip.booked_seats||[];
-    const rows = ["front","middle","back"];
-    return (
+  const shuttleLayout = (scr==="shuttle-detail"&&selectedTrip) ? SEAT_LAYOUTS[selectedTrip.vehicle_type||"7-seater"] : null;
+  const shuttleBooked = (scr==="shuttle-detail"&&selectedTrip) ? (selectedTrip.booked_seats||[]) : [];
+  const shuttleRows = ["front","middle","back"];
+  if (scr==="shuttle-detail"&&selectedTrip) return (
     <div style={{ ...sc, overflowY:"auto" }}>
       <style>{STYLES}</style>
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
@@ -633,36 +632,32 @@ function RiderApp() {
           <div style={{ background:"#f8fafc", border:"1.5px solid "+BORDER, borderRadius:16, padding:"16px 12px", marginBottom:14 }}>
             <div style={{ textAlign:"center", fontSize:22, marginBottom:4 }}>🚐</div>
             <div style={{ fontSize:9, color:SLATE, textAlign:"center", marginBottom:10, letterSpacing:1, fontWeight:700 }}>FRONT</div>
-            {shuttleRows.map(row => {
-              const rowSeats = shuttleLayout.seats.filter(s=>s.row===row);
-              if (!rowSeats.length) return null;
-              return (
-                <div key={row} style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:10 }}>
-                  {rowSeats.map(seat => {
-                    const isPilot   = seat.pilot;
-                    const isTaken   = shuttleBooked.includes(seat.id);
-                    const isSel     = selectedSeat===seat.id;
-                    const bg        = isPilot?"#1e3a5f":isTaken?"#e2e8f0":isSel?BLUE:WHITE;
-                    const clr       = isPilot||isSel?"#fff":isTaken?SLATE:NAVY;
-                    const bdr       = isSel?"2px solid "+BLUE:isPilot?"2px solid #1e3a5f":"1.5px solid "+BORDER;
-                    return (
-                      <button key={seat.id} disabled={isPilot||isTaken}
-                        onClick={()=>setSelectedSeat(isSel?null:seat.id)}
-                        style={{ width:54, height:54, borderRadius:10, background:bg, border:bdr, color:clr,
-                          cursor:isPilot||isTaken?"not-allowed":"pointer",
-                          opacity:isTaken?0.55:1,
-                          fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11,
-                          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2,
-                          boxShadow:isSel?"0 0 0 3px rgba(37,99,235,0.3)":"0 1px 4px rgba(0,0,0,0.06)",
-                          transition:"all 0.15s" }}>
-                        <span style={{ fontSize:14 }}>{isPilot?"🔑":isTaken?"✕":isSel?"✓":""}</span>
-                        <span>{seat.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
+            {shuttleRows.filter(row => shuttleLayout.seats.some(s=>s.row===row)).map(row => (
+              <div key={row} style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:10 }}>
+                {shuttleLayout.seats.filter(s=>s.row===row).map(seat => {
+                  const isPilot = seat.pilot;
+                  const isTaken = shuttleBooked.includes(seat.id);
+                  const isSel   = selectedSeat===seat.id;
+                  const bg  = isPilot?"#1e3a5f":isTaken?"#e2e8f0":isSel?BLUE:WHITE;
+                  const clr = isPilot||isSel?"#fff":isTaken?SLATE:NAVY;
+                  const bdr = isSel?"2px solid "+BLUE:isPilot?"2px solid #1e3a5f":"1.5px solid "+BORDER;
+                  return (
+                    <button key={seat.id} disabled={isPilot||isTaken}
+                      onClick={()=>setSelectedSeat(isSel?null:seat.id)}
+                      style={{ width:54, height:54, borderRadius:10, background:bg, border:bdr, color:clr,
+                        cursor:isPilot||isTaken?"not-allowed":"pointer",
+                        opacity:isTaken?0.55:1,
+                        fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11,
+                        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2,
+                        boxShadow:isSel?"0 0 0 3px rgba(37,99,235,0.3)":"0 1px 4px rgba(0,0,0,0.06)",
+                        transition:"all 0.15s" }}>
+                      <span style={{ fontSize:14 }}>{isPilot?"🔑":isTaken?"✕":isSel?"✓":""}</span>
+                      <span>{seat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
             <div style={{ fontSize:9, color:SLATE, textAlign:"center", marginTop:4, letterSpacing:1, fontWeight:700 }}>BACK</div>
           </div>
 
@@ -688,9 +683,7 @@ function RiderApp() {
         </div>
       </div>
     </div>
-    </div>
     );
-  }
 
   // AIRPORT SCREEN
   if (scr==="airport") return (
