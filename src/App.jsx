@@ -11,8 +11,8 @@ const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const RIDES = [
-  { id: "family",  label: "Family",  icon: "🚗", seats: "1-4 persons",  price: "CA$8-11",  fare: 9.40  },
-  { id: "friends", label: "Friends", icon: "🚐", seats: "1-7 persons", price: "CA$18-24", fare: 21.50 },
+  { id: "family",  label: "Family",  icon: "🚗", seats: "1-4 persons",  price: "CA$10-12", fare: 9.40  },
+  { id: "friends", label: "Friends", icon: "🚐", seats: "1-7 persons", price: "CA$20-27", fare: 21.50 },
 ];
 const AIRPORTS = [
   { code: "yyz", name: "Pearson International (YYZ)", fare: 55 },
@@ -77,6 +77,9 @@ const VLIGHT = "#dbeafe";
 const WHITE  = "#ffffff";
 const DARK   = "#0f172a";
 const GREEN  = "#3b82f6";
+const TAX    = 0.13;  // 13% HST
+const withTax = (amt) => amt * (1 + TAX);
+const taxAmt  = (amt) => amt * TAX;
 const YELLOW = "#f59e0b";
 const RED    = "#ef4444";
 const SLATE  = "#94a3b8";
@@ -421,7 +424,7 @@ function RiderApp() {
     setFinding(true);
     setTimeout(() => {
       setFinding(false);
-      setTrips(h=>[{ id:Date.now(), dest, type:chosen.label, fare:"CA$"+chosen.fare.toFixed(2), date:new Date().toLocaleDateString("en-CA") }, ...h]);
+      setTrips(h=>[{ id:Date.now(), dest, type:chosen.label, fare:"CA$"+withTax(chosen.fare).toFixed(2), date:new Date().toLocaleDateString("en-CA") }, ...h]);
       setPendingRate(true);
       setDest("");
       go("complete");
@@ -430,7 +433,7 @@ function RiderApp() {
   }
 
   function bookShuttle() {
-    const b = { id:"ZS-"+String(Date.now()).slice(-5), trip:selectedTrip, seats:selectedSeats, total:selectedSeats.length*selectedTrip.fare_per_seat };
+    const b = { id:"ZS-"+String(Date.now()).slice(-5), trip:selectedTrip, seats:selectedSeats, total:withTax(selectedSeats.length*selectedTrip.fare_per_seat) };
     setNewBooking(b);
     setBookings(prev=>[...prev, b]);
     setSelectedSeats([]);
@@ -599,19 +602,28 @@ function RiderApp() {
           <Card style={{ marginBottom:16 }}>
             <div style={{ fontSize:11, fontWeight:700, color:LBLUE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Order Summary</div>
             {[
-              ["Route",    selectedTrip.route],
-              ["Date",     selectedTrip.depart_date+" at "+selectedTrip.depart_time],
-              ["Seats",    selectedSeats.join(", ")],
-              ["Per Seat", "CA$"+selectedTrip.fare_per_seat.toFixed(2)],
+              ["Route",  selectedTrip.route],
+              ["Date",   selectedTrip.depart_date+" at "+selectedTrip.depart_time],
+              ["Seats",  selectedSeats.join(", ")+" ("+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+")"],
             ].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
                 <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
                 <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
               </div>
             ))}
-            <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0 0" }}>
-              <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:14 }}>Total</span>
-              <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, color:BLUE, fontSize:16 }}>{"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</span>
+            <div style={{ borderTop:"1px solid "+BORDER, marginTop:4, paddingTop:8, display:"flex", flexDirection:"column", gap:5 }}>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:12, color:SLATE }}>Base fare</span>
+                <span style={{ fontSize:12, color:NAVY, fontWeight:600 }}>{"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:12, color:SLATE }}>HST (13%)</span>
+                <span style={{ fontSize:12, color:NAVY, fontWeight:600 }}>{"CA$"+taxAmt(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", paddingTop:6, borderTop:"1px solid "+BORDER }}>
+                <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:14 }}>Total</span>
+                <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, color:BLUE, fontSize:16 }}>{"CA$"+withTax(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</span>
+              </div>
             </div>
           </Card>
 
@@ -645,7 +657,7 @@ function RiderApp() {
 
           <Err msg={err} />
           <BigBtn onClick={bookShuttle} disabled={savedCards.length===0&&savedBanks.length===0}>
-            Pay {"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)+" & Confirm"}
+            Pay {"CA$"+withTax(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)+" & Confirm"}
           </BigBtn>
         </div>
       </div>
@@ -660,7 +672,16 @@ function RiderApp() {
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, marginBottom:4 }}>Booking Confirmed!</div>
         <div style={{ color:BLUE, fontSize:13, marginBottom:22 }}>Your shuttle is booked</div>
         <Card style={{ textAlign:"left", marginBottom:20 }}>
-          {[["Route",newBooking.trip.route],["Date",newBooking.trip.depart_date],["Time",newBooking.trip.depart_time],["Seat",newBooking.seat||newBooking.seats],["Total","CA$"+newBooking.total.toFixed(2)],["Ref",newBooking.id]].map(([k,v])=>(
+          {[
+            ["Route",     newBooking.trip.route],
+            ["Date",      newBooking.trip.depart_date],
+            ["Time",      newBooking.trip.depart_time],
+            ["Seats",     Array.isArray(newBooking.seats)?newBooking.seats.join(", "):String(newBooking.seats)],
+            ["Base Fare", "CA$"+(newBooking.total/(1+TAX)).toFixed(2)],
+            ["HST (13%)", "CA$"+(newBooking.total - newBooking.total/(1+TAX)).toFixed(2)],
+            ["Total Paid","CA$"+newBooking.total.toFixed(2)],
+            ["Ref",       newBooking.id],
+          ].map(([k,v])=>(
             <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
               <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
               <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
@@ -685,7 +706,7 @@ function RiderApp() {
           <RolePill>SHUTTLE</RolePill>
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY, marginTop:8, marginBottom:12 }}>{selectedTrip.route}</h2>
           <Card style={{ marginBottom:14 }}>
-            {[["Date",selectedTrip.depart_date],["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_type||"7-seater").toUpperCase()],["Fare","CA$"+selectedTrip.fare_per_seat+"/seat"]].map(([k,v])=>(
+            {[["Date",selectedTrip.depart_date],["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_type||"7-seater").toUpperCase()],["Fare","CA$"+withTax(selectedTrip.fare_per_seat).toFixed(2)+"/seat (incl. HST)"]].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
                 <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
                 <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
@@ -743,7 +764,7 @@ function RiderApp() {
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontSize:11, color:SLATE }}>Total</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:18 }}>{"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:18 }}>{"CA$"+(withTax(selectedSeats.length*selectedTrip.fare_per_seat)).toFixed(2)}</div>
               </div>
             </div>
           ) : (
@@ -752,7 +773,7 @@ function RiderApp() {
             </div>
           )}
           <BigBtn onClick={()=>go("shuttle-payment")} disabled={selectedSeats.length===0}>
-            {selectedSeats.length>0 ? ("Confirm "+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+" - CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)) : "Select seats to continue"}
+            {selectedSeats.length>0 ? ("Confirm "+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+" - CA$"+(withTax(selectedSeats.length*selectedTrip.fare_per_seat)).toFixed(2)) : "Select seats to continue"}
           </BigBtn>
         </div>
       </div>
@@ -778,7 +799,9 @@ function RiderApp() {
                 ["Date",      airportDate],
                 ["Time",      airportTime],
                 ["Passengers",airportPax],
-                ["Fare",      "CA$"+((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)],
+                ["Base Fare",  "CA$"+((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)],
+                ["HST (13%)",  "CA$"+taxAmt((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)],
+                ["Total Fare", "CA$"+withTax((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)],
               ].map(([k,v])=>(
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
                   <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
@@ -863,7 +886,7 @@ function RiderApp() {
               </div>
             </div>
             <div style={{ background:VLIGHT, borderRadius:10, padding:"11px 14px", marginBottom:16, display:"flex", justifyContent:"space-between" }}>
-              <span style={{ color:SLATE, fontSize:13 }}>Estimated Total</span>
+              <span style={{ color:SLATE, fontSize:13 }}>Estimated Total <span style={{ fontSize:10, color:LBLUE }}>(incl. 13% HST)</span></span>
               <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE }}>{"CA$"+((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)}</span>
             </div>
             <Err msg={err} />
@@ -954,7 +977,7 @@ function RiderApp() {
                 </button>
               </div>
               <Err msg={err} />
-              <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" - CA$"+chosen.fare.toFixed(2)}</BigBtn>
+              <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" - CA$"+withTax(chosen.fare).toFixed(2)+" (incl. HST)"}</BigBtn>
             </div>
           </div>
         </div>
@@ -990,7 +1013,7 @@ function RiderApp() {
                     <div style={{ fontSize:11, color:SLATE }}>{t.depart_date} at {t.depart_time}</div>
                     <div style={{ fontSize:11, color:SLATE, marginTop:1 }}>{t.seats_total-t.seats_booked} seats available</div>
                   </div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:16 }}>{"CA$"+t.fare_per_seat}</div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:16 }}>{"CA$"+withTax(t.fare_per_seat).toFixed(2)}</div>
                 </div>
                 <div style={{ marginTop:10, background:BORDER, borderRadius:4, height:3 }}>
                   <div style={{ width:(t.seats_booked/t.seats_total*100)+"%", background:BLUE, height:"100%", borderRadius:4 }} />
@@ -1012,12 +1035,30 @@ function RiderApp() {
             </div>
           ) : (
             trips.map(t=>(
-              <Card key={t.id} style={{ marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <div>
-                  <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
-                  <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
+              <Card key={t.id} style={{ marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
+                    <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
+                  </div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:15 }}>{t.fare}</div>
                 </div>
-                <div style={{ fontWeight:800, color:BLUE }}>{t.fare}</div>
+                {t.base && (
+                  <div style={{ borderTop:"1px solid "+BORDER, paddingTop:6, display:"flex", flexDirection:"column", gap:2 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:10, color:SLATE }}>Base fare</span>
+                      <span style={{ fontSize:10, color:SLATE }}>{"CA$"+Number(t.base).toFixed(2)}</span>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:10, color:SLATE }}>HST (13%)</span>
+                      <span style={{ fontSize:10, color:SLATE }}>{"CA$"+taxAmt(Number(t.base)).toFixed(2)}</span>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:10, fontWeight:700, color:NAVY }}>Total paid</span>
+                      <span style={{ fontSize:10, fontWeight:700, color:NAVY }}>{t.fare}</span>
+                    </div>
+                  </div>
+                )}
               </Card>
             ))
           )}
@@ -1938,7 +1979,7 @@ function DriverApp() {
   useEffect(() => {
     if (!online||!subPaid) return;
     const t = setTimeout(() => {
-      setInReq({ id:"TRP-"+String(Date.now()).slice(-5), rider:"Alex M.", dest:"Hamilton GO Station", fare:"CA$9.40", distance:"3.2 km", type:"Family" });
+      setInReq({ id:"TRP-"+String(Date.now()).slice(-5), rider:"Alex M.", dest:"Hamilton GO Station", fare:"CA$10.62", distance:"3.2 km", type:"Family" });
       go("request");
     }, 4000);
     return () => clearTimeout(t);
