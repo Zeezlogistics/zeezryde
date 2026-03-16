@@ -716,7 +716,7 @@ function RiderApp() {
 
           <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Choose Your Seat</div>
           <div style={{ display:"flex", gap:10, marginBottom:12, flexWrap:"wrap" }}>
-            {[["#1e3a5f","#fff","🔑 Pilot (F1)"],["#e2e8f0",SLATE,"✕ Taken"],[WHITE,NAVY,"Available"],[BLUE,"#fff","✓ Your pick"]].map(([bg,col,lb])=>(
+            {[["#0f172a","#fff","👨‍✈️ Pilot"],["#0d9488","#fff","$ Taken"],[WHITE,NAVY,"Available"],[BLUE,"#fff","✓ Selected"]].map(([bg,col,lb])=>(
               <div key={lb} style={{ display:"flex", alignItems:"center", gap:5, fontSize:10, color:SLATE }}>
                 <div style={{ width:18, height:18, borderRadius:5, background:bg, border:"1.5px solid "+BORDER, display:"flex", alignItems:"center", justifyContent:"center" }} />
                 <span style={{ color:col==="inherit"?SLATE:SLATE }}>{lb}</span>
@@ -734,20 +734,22 @@ function RiderApp() {
                   const isPilot = seat.pilot;
                   const isTaken = shuttleBooked.includes(seat.id);
                   const isSel   = selectedSeats.includes(seat.id);
-                  const bg  = isPilot?"#1e3a5f":isTaken?"#e2e8f0":isSel?BLUE:WHITE;
-                  const clr = isPilot||isSel?"#fff":isTaken?SLATE:NAVY;
-                  const bdr = isSel?"2px solid "+BLUE:isPilot?"2px solid #1e3a5f":"1.5px solid "+BORDER;
+                  const bg  = isPilot?"#0f172a":isTaken?"#0d9488":isSel?BLUE:WHITE;
+                  const clr = isPilot||isSel||isTaken?"#fff":NAVY;
+                  const bdr = isSel?"2px solid "+BLUE:isPilot?"2px solid #0f172a":isTaken?"2px solid #0d9488":"1.5px solid "+BORDER;
+                  const seatNum = seat.id.replace(/[^0-9]/g,"");
                   return (
                     <button key={seat.id} disabled={isPilot||isTaken}
                       onClick={()=>setSelectedSeats(prev=>isSel?prev.filter(s=>s!==seat.id):[...prev,seat.id])}
                       style={{ width:54, height:54, borderRadius:10, background:bg, border:bdr, color:clr,
                         cursor:isPilot||isTaken?"not-allowed":"pointer",
-                        opacity:isTaken?0.55:1,
+                        opacity:1,
                         fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11,
                         display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2,
-                        boxShadow:isSel?"0 0 0 3px rgba(37,99,235,0.3)":"0 1px 4px rgba(0,0,0,0.06)",
+                        boxShadow:isSel?"0 0 0 3px rgba(37,99,235,0.3)":isTaken?"0 0 0 2px rgba(13,148,136,0.3)":"0 1px 4px rgba(0,0,0,0.06)",
                         transition:"all 0.15s" }}>
-                      <span style={{ fontSize:13, fontWeight:800 }}>{isPilot?"🔑":isTaken?"✕":isSel?"✓":seat.id}</span>
+                      <span style={{ fontSize:isSel||isTaken||isPilot?14:13, fontWeight:800 }}>{isPilot?"👨‍✈️":isTaken?"$":isSel?"✓":seatNum}</span>
+                      {!isPilot&&!isTaken&&!isSel&&<span style={{ fontSize:9, opacity:0.6 }}>{seatNum}</span>}
                     </button>
                   );
                 })}
