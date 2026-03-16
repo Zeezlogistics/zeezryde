@@ -553,7 +553,7 @@ function RiderApp() {
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, marginBottom:4 }}>Booking Confirmed!</div>
         <div style={{ color:BLUE, fontSize:13, marginBottom:22 }}>Your shuttle is booked</div>
         <Card style={{ textAlign:"left", marginBottom:20 }}>
-          {[["Route",newBooking.trip.route],["Date",newBooking.trip.depart_date],["Time",newBooking.trip.depart_time],["Seats",newBooking.seats],["Total","CA$"+newBooking.total.toFixed(2)],["Ref",newBooking.id]].map(([k,v])=>(
+          {[["Route",newBooking.trip.route],["Date",newBooking.trip.depart_date],["Time",newBooking.trip.depart_time],["Seat",newBooking.seat||newBooking.seats],["Total","CA$"+newBooking.total.toFixed(2)],["Ref",newBooking.id]].map(([k,v])=>(
             <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
               <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
               <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
@@ -566,41 +566,100 @@ function RiderApp() {
   );
 
   // SHUTTLE DETAIL
-  if (scr==="shuttle-detail"&&selectedTrip) return (
-    <div style={{ ...sc }}>
+  if (scr==="shuttle-detail"&&selectedTrip) {
+    const layout = SEAT_LAYOUTS[selectedTrip.vehicle_type||"7-seater"];
+    const booked = selectedTrip.booked_seats||[];
+    const rows = ["front","middle","back"];
+    return (
+    <div style={{ ...sc, overflowY:"auto" }}>
       <style>{STYLES}</style>
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
-        <BackBtn onClick={()=>go("dash")} />
+        <BackBtn onClick={()=>{ setSelectedSeat(null); go("dash"); }} />
         <div style={{ marginTop:8 }}>
           <RolePill>SHUTTLE</RolePill>
-          <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:8, marginBottom:16 }}>{selectedTrip.route}</h2>
-          <Card style={{ marginBottom:16 }}>
-            {[["Date",selectedTrip.depart_date],["Departure",selectedTrip.depart_time],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"],["Fare per seat","CA$"+selectedTrip.fare_per_seat]].map(([k,v])=>(
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
-                <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
-                <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{v}</span>
+          <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY, marginTop:8, marginBottom:12 }}>{selectedTrip.route}</h2>
+          <Card style={{ marginBottom:14 }}>
+            {[["Date",selectedTrip.depart_date],["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_type||"7-seater").toUpperCase()],["Fare","CA$"+selectedTrip.fare_per_seat+"/seat"]].map(([k,v])=>(
+              <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
+                <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
+                <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
               </div>
             ))}
           </Card>
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:10 }}>Number of Seats</div>
-            <div style={{ display:"flex", alignItems:"center", gap:18 }}>
-              <button onClick={()=>setSeats(Math.max(1,seats-1))} style={{ width:38, height:38, borderRadius:"50%", border:"1.5px solid "+BORDER, background:WHITE, fontSize:20, cursor:"pointer", color:NAVY }}>-</button>
-              <span style={{ fontSize:24, fontWeight:800, color:NAVY, minWidth:30, textAlign:"center" }}>{seats}</span>
-              <button onClick={()=>setSeats(Math.min(4,selectedTrip.seats_total-selectedTrip.seats_booked,seats+1))} style={{ width:38, height:38, borderRadius:"50%", border:"1.5px solid "+BORDER, background:WHITE, fontSize:20, cursor:"pointer", color:NAVY }}>+</button>
+
+          <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Choose Your Seat</div>
+          <div style={{ display:"flex", gap:10, marginBottom:12, flexWrap:"wrap" }}>
+            {[["#1e3a5f","#fff","🔑 Pilot (F1)"],["#e2e8f0",SLATE,"✕ Taken"],[WHITE,NAVY,"Available"],[BLUE,"#fff","✓ Your pick"]].map(([bg,col,lb])=>(
+              <div key={lb} style={{ display:"flex", alignItems:"center", gap:5, fontSize:10, color:SLATE }}>
+                <div style={{ width:18, height:18, borderRadius:5, background:bg, border:"1.5px solid "+BORDER, display:"flex", alignItems:"center", justifyContent:"center" }} />
+                <span style={{ color:col==="inherit"?SLATE:SLATE }}>{lb}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Vehicle diagram */}
+          <div style={{ background:"#f8fafc", border:"1.5px solid "+BORDER, borderRadius:16, padding:"16px 12px", marginBottom:14 }}>
+            <div style={{ textAlign:"center", fontSize:22, marginBottom:4 }}>🚐</div>
+            <div style={{ fontSize:9, color:SLATE, textAlign:"center", marginBottom:10, letterSpacing:1, fontWeight:700 }}>FRONT</div>
+            {rows.map(row => {
+              const rowSeats = layout.seats.filter(s=>s.row===row);
+              if (!rowSeats.length) return null;
+              return (
+                <div key={row} style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:10 }}>
+                  {rowSeats.map(seat => {
+                    const isPilot   = seat.pilot;
+                    const isTaken   = booked.includes(seat.id);
+                    const isSel     = selectedSeat===seat.id;
+                    const bg        = isPilot?"#1e3a5f":isTaken?"#e2e8f0":isSel?BLUE:WHITE;
+                    const clr       = isPilot||isSel?"#fff":isTaken?SLATE:NAVY;
+                    const bdr       = isSel?"2px solid "+BLUE:isPilot?"2px solid #1e3a5f":"1.5px solid "+BORDER;
+                    return (
+                      <button key={seat.id} disabled={isPilot||isTaken}
+                        onClick={()=>setSelectedSeat(isSel?null:seat.id)}
+                        style={{ width:54, height:54, borderRadius:10, background:bg, border:bdr, color:clr,
+                          cursor:isPilot||isTaken?"not-allowed":"pointer",
+                          opacity:isTaken?0.55:1,
+                          fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11,
+                          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2,
+                          boxShadow:isSel?"0 0 0 3px rgba(37,99,235,0.3)":"0 1px 4px rgba(0,0,0,0.06)",
+                          transition:"all 0.15s" }}>
+                        <span style={{ fontSize:14 }}>{isPilot?"🔑":isTaken?"✕":isSel?"✓":""}</span>
+                        <span>{seat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            <div style={{ fontSize:9, color:SLATE, textAlign:"center", marginTop:4, letterSpacing:1, fontWeight:700 }}>BACK</div>
+          </div>
+
+          {selectedSeat ? (
+            <div style={{ background:VLIGHT, borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ fontSize:11, color:SLATE }}>Selected</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:18 }}>Seat {selectedSeat}</div>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:11, color:SLATE }}>Fare</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:18 }}>{"CA$"+selectedTrip.fare_per_seat.toFixed(2)}</div>
+              </div>
             </div>
-          </div>
-          <div style={{ background:VLIGHT, borderRadius:10, padding:"12px 16px", marginBottom:16, display:"flex", justifyContent:"space-between" }}>
-            <span style={{ color:SLATE }}>Total</span>
-            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:18 }}>{"CA$"+(seats*selectedTrip.fare_per_seat).toFixed(2)}</span>
-          </div>
-          <BigBtn onClick={bookShuttle} green>Confirm Booking</BigBtn>
+          ) : (
+            <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:14, fontSize:12, color:"#92400e" }}>
+              👆 Tap an available seat above to select it
+            </div>
+          )}
+          <BigBtn onClick={bookShuttle} disabled={!selectedSeat}>
+            {selectedSeat ? "Confirm — Seat "+selectedSeat+" · CA$"+selectedTrip.fare_per_seat.toFixed(2) : "Select a seat to continue"}
+          </BigBtn>
         </div>
       </div>
     </div>
-  );
+    );
+  }
 
-  // AIRPORT SCREEN
+    // AIRPORT SCREEN
   if (scr==="airport") return (
     <div style={{ ...sc }}>
       <style>{STYLES}</style>
