@@ -11,8 +11,8 @@ const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const RIDES = [
-  { id: "family",  label: "Family",  icon: "🚗", seats: "1-4", price: "CA$8-11",  fare: 9.40  },
-  { id: "friends", label: "Friends", icon: "🚐", seats: "7", price: "CA$18-24", fare: 21.50 },
+  { id: "family",  label: "Family",  icon: "🚗", seats: "1-4 persons",  price: "CA$8-11",  fare: 9.40  },
+  { id: "friends", label: "Friends", icon: "🚐", seats: "1-7 persons", price: "CA$18-24", fare: 21.50 },
 ];
 const AIRPORTS = [
   { code: "yyz", name: "Pearson International (YYZ)", fare: 55 },
@@ -301,7 +301,9 @@ function RiderApp() {
   const [trips, setTrips]   = useState([]);
   const [rating, setRating] = useState(0);
   const [pendingRate, setPendingRate] = useState(false);
-  const [airportCode, setAirportCode] = useState("yyz");
+  const [airportCode, setAirportCode]     = useState("yyz");
+  const [airportDir,  setAirportDir]      = useState("to");   // "to" | "from"
+  const [airportDropoff, setAirportDropoff] = useState("");
   const [airportDate, setAirportDate] = useState("");
   const [airportTime, setAirportTime] = useState("");
   const [airportPax, setAirportPax]   = useState(1);
@@ -313,6 +315,8 @@ function RiderApp() {
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
+  const [homeAddr,   setHomeAddr]         = useState("");
+  const [officeAddr, setOfficeAddr]       = useState("");
   const [promoCode, setPromoCode]       = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [payModal, setPayModal]         = useState(null); // "card" | "bank" | "digital"
@@ -767,7 +771,15 @@ function RiderApp() {
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, marginBottom:6 }}>Booking Requested!</div>
             <div style={{ color:SLATE, fontSize:13, marginBottom:24 }}>Admin will confirm within 2 hours</div>
             <Card style={{ textAlign:"left", marginBottom:20 }}>
-              {[["Airport",AIRPORTS.find(a=>a.code===airportCode)?.name],["Date",airportDate],["Time",airportTime],["Passengers",airportPax],["Fare","CA$"+((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)]].map(([k,v])=>(
+              {[
+                ["Direction", airportDir==="to" ? "To Airport" : "From Airport"],
+                ["Airport",   AIRPORTS.find(a=>a.code===airportCode)?.name],
+                ...(airportDir==="from" ? [["Drop-off", airportDropoff]] : []),
+                ["Date",      airportDate],
+                ["Time",      airportTime],
+                ["Passengers",airportPax],
+                ["Fare",      "CA$"+((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)],
+              ].map(([k,v])=>(
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
                   <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
                   <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
@@ -780,6 +792,19 @@ function RiderApp() {
           <div className="fade">
             <RolePill>AIRPORT</RolePill>
             <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:8, marginBottom:16 }}>Airport Ride Booking</h2>
+            {/* Direction toggle */}
+            <div style={{ display:"flex", background:"#f1f5f9", borderRadius:12, padding:4, marginBottom:16, gap:4 }}>
+              {[["to","✈️ To Airport"],["from","🛬 From Airport"]].map(([dir,label])=>(
+                <button key={dir} onClick={()=>setAirportDir(dir)}
+                  style={{ flex:1, padding:"9px 0", borderRadius:9, border:"none", cursor:"pointer", fontSize:12, fontWeight:700,
+                    background:airportDir===dir?WHITE:"transparent",
+                    color:airportDir===dir?BLUE:SLATE,
+                    boxShadow:airportDir===dir?"0 1px 4px rgba(0,0,0,0.10)":"none",
+                    transition:"all 0.15s" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Select Airport</div>
               {AIRPORTS.map(a=>(
@@ -789,6 +814,19 @@ function RiderApp() {
                 </button>
               ))}
             </div>
+            {airportDir==="from" && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Drop-off Address (Niagara Region)</div>
+                <input
+                  type="text"
+                  value={airportDropoff}
+                  onChange={e=>setAirportDropoff(e.target.value)}
+                  placeholder="e.g. 123 Main St, Niagara Falls, ON"
+                  style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportDropoff?BLUE:BORDER), background:WHITE, fontSize:13, color:NAVY, outline:"none", boxSizing:"border-box" }}
+                />
+                <div style={{ fontSize:10, color:SLATE, marginTop:5 }}>We serve Niagara Falls, St. Catharines, Welland, Grimsby &amp; surrounding areas.</div>
+              </div>
+            )}
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Pickup Date</div>
               <input type="date" value={airportDate}
@@ -798,27 +836,22 @@ function RiderApp() {
             </div>
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Pickup Time</div>
-              <div style={{ display:"flex", gap:10 }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:10, color:SLATE, marginBottom:4, fontWeight:600 }}>Hour</div>
-                  <select value={airportHour} onChange={e=>{ setAirportHour(e.target.value); setAirportTime(e.target.value+":"+airportMin); }}
-                    style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportHour?BLUE:BORDER), background:WHITE, fontSize:13, color:NAVY, outline:"none", cursor:"pointer", appearance:"none", WebkitAppearance:"none" }}>
-                    <option value="">HH</option>
-                    {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h=>(
-                      <option key={h} value={h}>{h}:00</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:10, color:SLATE, marginBottom:4, fontWeight:600 }}>Minutes</div>
-                  <select value={airportMin} onChange={e=>{ setAirportMin(e.target.value); setAirportTime(airportHour+":"+e.target.value); }}
-                    style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportMin?BLUE:BORDER), background:WHITE, fontSize:13, color:NAVY, outline:"none", cursor:"pointer", appearance:"none", WebkitAppearance:"none" }}>
-                    <option value="">MM</option>
-                    {["00","15","30","45"].map(m=>(
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
+              <div style={{ display:"flex", border:"1.5px solid "+(airportHour&&airportMin?BLUE:BORDER), borderRadius:10, background:WHITE, overflow:"hidden" }}>
+                <select value={airportHour} onChange={e=>{ setAirportHour(e.target.value); setAirportTime(e.target.value+":"+airportMin); }}
+                  style={{ flex:1, padding:"10px 12px", border:"none", borderRight:"1px solid "+BORDER, background:"transparent", fontSize:13, color:airportHour?NAVY:SLATE, outline:"none", cursor:"pointer", appearance:"none", WebkitAppearance:"none" }}>
+                  <option value="">HH</option>
+                  {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h=>(
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+                <span style={{ display:"flex", alignItems:"center", padding:"0 6px", color:SLATE, fontWeight:700, fontSize:16, pointerEvents:"none" }}>:</span>
+                <select value={airportMin} onChange={e=>{ setAirportMin(e.target.value); setAirportTime(airportHour+":"+e.target.value); }}
+                  style={{ flex:1, padding:"10px 12px", border:"none", background:"transparent", fontSize:13, color:airportMin?NAVY:SLATE, outline:"none", cursor:"pointer", appearance:"none", WebkitAppearance:"none" }}>
+                  <option value="">MM</option>
+                  {["00","15","30","45"].map(m=>(
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div style={{ marginBottom:14 }}>
@@ -834,7 +867,7 @@ function RiderApp() {
               <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE }}>{"CA$"+((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)}</span>
             </div>
             <Err msg={err} />
-            <BigBtn onClick={()=>{ if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } setAirportTime(airportHour+":"+airportMin); setAirportDone(true); }}>Request Airport Ride</BigBtn>
+            <BigBtn onClick={()=>{ if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } if (airportDir==="from"&&!airportDropoff.trim()) { setErr("Please enter a drop-off address"); return; } setAirportTime(airportHour+":"+airportMin); setAirportDone(true); }}>Request Airport Ride</BigBtn>
           </div>
         )}
       </div>
@@ -870,6 +903,31 @@ function RiderApp() {
                 style={{ flex:1, border:"none", outline:"none", fontSize:15, color:NAVY, background:"transparent", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
               {dest && <button onClick={()=>setDest("")} style={{ background:"none", border:"none", cursor:"pointer", color:SLATE, fontSize:18, lineHeight:1 }}>×</button>}
             </div>
+            {/* Quick location buttons */}
+            {(homeAddr||officeAddr) && (
+              <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                {homeAddr && (
+                  <button onClick={()=>{ setDest(homeAddr); setErr(""); }}
+                    style={{ flex:1, display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.9)", backdropFilter:"blur(8px)", borderRadius:10, padding:"8px 12px", border:"1.5px solid "+(dest===homeAddr?BLUE:"rgba(255,255,255,0.5)"), cursor:"pointer" }}>
+                    <span style={{ fontSize:15 }}>🏠</span>
+                    <div style={{ textAlign:"left", minWidth:0 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:BLUE, letterSpacing:0.8 }}>HOME</div>
+                      <div style={{ fontSize:11, color:NAVY, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:100 }}>{homeAddr}</div>
+                    </div>
+                  </button>
+                )}
+                {officeAddr && (
+                  <button onClick={()=>{ setDest(officeAddr); setErr(""); }}
+                    style={{ flex:1, display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.9)", backdropFilter:"blur(8px)", borderRadius:10, padding:"8px 12px", border:"1.5px solid "+(dest===officeAddr?BLUE:"rgba(255,255,255,0.5)"), cursor:"pointer" }}>
+                    <span style={{ fontSize:15 }}>🏢</span>
+                    <div style={{ textAlign:"left", minWidth:0 }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:BLUE, letterSpacing:0.8 }}>OFFICE</div>
+                      <div style={{ fontSize:11, color:NAVY, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:100 }}>{officeAddr}</div>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           {/* Bottom panel overlay */}
           <div style={{ position:"absolute", bottom:72, left:0, right:0, zIndex:10, padding:"0 16px 16px" }}>
@@ -880,6 +938,7 @@ function RiderApp() {
                   <button key={r.id} onClick={()=>setRide(r.id)} style={{ flex:1, padding:"11px 8px", borderRadius:12, cursor:"pointer", textAlign:"left", border:"2px solid "+(ride===r.id?BLUE:BORDER), background:ride===r.id?VLIGHT:WHITE }}>
                     <div style={{ fontSize:24, marginBottom:4 }}>{r.icon}</div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:12, color:NAVY }}>{r.label}</div>
+                    <div style={{ fontSize:10, color:BLUE, fontWeight:600, marginTop:1 }}>{r.seats}</div>
                     <div style={{ fontSize:10, color:SLATE, marginTop:1 }}>{r.price}</div>
                   </button>
                 ))}
@@ -996,6 +1055,28 @@ function RiderApp() {
                 <Input label="Full Name" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Your name" />
                 <Input label="Email Address" value={editEmail} onChange={e=>setEditEmail(e.target.value)} type="email" placeholder="your@email.com" />
                 <Input label="Phone Number" value={editPhone} onChange={e=>setEditPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
+                <div style={{ height:1, background:BORDER, margin:"12px 0" }} />
+                <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>
+                  Quick Locations <span style={{ color:LBLUE, fontWeight:500, textTransform:"none", letterSpacing:0 }}>(optional)</span>
+                </div>
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                    <span style={{ fontSize:15 }}>🏠</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:NAVY }}>Home Address</span>
+                  </div>
+                  <input value={homeAddr} onChange={e=>setHomeAddr(e.target.value)}
+                    placeholder="e.g. 100 Main St, Hamilton, ON (optional)"
+                    style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(homeAddr?BLUE:BORDER), background:WHITE, fontSize:12, color:NAVY, outline:"none", boxSizing:"border-box" }} />
+                </div>
+                <div style={{ marginBottom:4 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                    <span style={{ fontSize:15 }}>🏢</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:NAVY }}>Office Address</span>
+                  </div>
+                  <input value={officeAddr} onChange={e=>setOfficeAddr(e.target.value)}
+                    placeholder="e.g. 50 King St, St. Catharines, ON (optional)"
+                    style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(officeAddr?BLUE:BORDER), background:WHITE, fontSize:12, color:NAVY, outline:"none", boxSizing:"border-box" }} />
+                </div>
                 <div style={{ height:1, background:BORDER, margin:"12px 0" }} />
                 <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>
                   Security {profileSaved && <span style={{ color:"#ef4444", fontWeight:800 }}>— Password required to save changes</span>}
