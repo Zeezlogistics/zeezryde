@@ -604,7 +604,7 @@ function RiderApp() {
             {[
               ["Route",  selectedTrip.route],
               ["Date",   selectedTrip.depart_date+" at "+selectedTrip.depart_time],
-              ["Seats",  selectedSeats.join(", ")+" ("+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+")"],
+              ["Seats",  selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(", ")+" ("+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+")"],
             ].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
                 <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
@@ -676,7 +676,7 @@ function RiderApp() {
             ["Route",     newBooking.trip.route],
             ["Date",      newBooking.trip.depart_date],
             ["Time",      newBooking.trip.depart_time],
-            ["Seats",     Array.isArray(newBooking.seats)?newBooking.seats.join(", "):String(newBooking.seats)],
+            ["Seats",     Array.isArray(newBooking.seats)?newBooking.seats.map(s=>s.replace(/[^0-9]/g,"")).join(", "):String(newBooking.seats)],
             ["Base Fare", "CA$"+(newBooking.total/(1+TAX)).toFixed(2)],
             ["HST (13%)", "CA$"+(newBooking.total - newBooking.total/(1+TAX)).toFixed(2)],
             ["Total Paid","CA$"+newBooking.total.toFixed(2)],
@@ -762,7 +762,7 @@ function RiderApp() {
             <div style={{ background:VLIGHT, borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <div style={{ fontSize:11, color:SLATE }}>Selected Seats</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:18 }}>{selectedSeats.join(", ")}</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:18 }}>{selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(", ")}</div>
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontSize:11, color:SLATE }}>Total</div>
