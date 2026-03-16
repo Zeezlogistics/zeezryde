@@ -253,7 +253,7 @@ function RiderBottomNav({ tab, onTab }) {
 function DriverBottomNav({ tab, onTab }) {
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, background:WHITE, borderTop:"1px solid "+BORDER, display:"flex", paddingBottom:8, zIndex:50, boxShadow:"0 -2px 12px rgba(37,99,235,0.06)" }}>
-      {[["home","🏠","Home"],["earnings","💰","Earnings"],["summary","📊","Summary"],["account","👤","Me"]].map(([id,icon,label]) => (
+      {[["home","🏠","Home"],["earnings","💰","Earnings"],["account","👤","Me"]].map(([id,icon,label]) => (
         <button key={id} onClick={() => onTab(id)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", padding:"8px 0 2px", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
           <span style={{ fontSize:20 }}>{icon}</span>
           <span style={{ fontSize:10, fontWeight:tab===id?700:400, color:tab===id?GREEN:SLATE }}>{label}</span>
