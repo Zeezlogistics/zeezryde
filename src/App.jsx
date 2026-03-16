@@ -515,7 +515,7 @@ function RiderApp() {
           <p style={{ color:SLATE, fontSize:11, marginTop:4 }}>For demo, use code: <strong style={{ color:BLUE }}>1234</strong></p>
         </div>
         {otpError && <Err msg={otpError} />}
-        <BigBtn onClick={verifyOtp} disabled={otpValue.length < 4}>Verify & Continue</BigBtn>
+        <BigBtn onClick={verifyOtp} disabled={otpValue.length < 4}>Verify &amp; Continue</BigBtn>
         <p style={{ color:LBLUE, fontSize:11, marginTop:14, cursor:"pointer" }} onClick={()=>go("login")}>← Back to login</p>
       </div>
     </div>
@@ -1345,7 +1345,7 @@ function MonthlySummaryTab({ trips, earned, displayName }) {
         <div style={{ background:"linear-gradient(135deg,#1e3a5f,#1d4ed8)", borderRadius:16, padding:"18px", marginBottom:14, boxShadow:"0 4px 20px rgba(37,99,235,0.25)" }}>
           <div style={{ color:"rgba(255,255,255,0.7)", fontSize:10, fontWeight:700, letterSpacing:1, textTransform:"uppercase" }}>Net Payout — {MONTHS[selMonth]} {selYear}</div>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:44, color:WHITE, marginTop:4 }}>{"CA$"+netPayout.toFixed(2)}</div>
-          <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:4 }}>After platform fee & subscription</div>
+          <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:4 }}>After platform fee &amp; subscription</div>
           <button style={{ marginTop:14, background:WHITE, border:"none", borderRadius:10, padding:"10px 22px", color:"#2563eb", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, cursor: netPayout > 0 ? "pointer" : "not-allowed", opacity: netPayout > 0 ? 1 : 0.5, boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
             {netPayout > 0 ? "Cash Out CA$"+netPayout.toFixed(2) : "Nothing to cash out"}
           </button>
@@ -1954,7 +1954,7 @@ function DriverApp() {
           <p style={{ color:SLATE, fontSize:11, marginTop:4 }}>For demo, use code: <strong style={{ color:GREEN }}>1234</strong></p>
         </div>
         {dOtpError && <Err msg={dOtpError} />}
-        <BigBtn onClick={verifyDriverOtp} disabled={dOtpValue.length < 4}>Verify & Continue</BigBtn>
+        <BigBtn onClick={verifyDriverOtp} disabled={dOtpValue.length < 4}>Verify &amp; Continue</BigBtn>
         <p style={{ color:LBLUE, fontSize:11, marginTop:14, cursor:"pointer" }} onClick={()=>go("login")}>Back to login</p>
       </div>
     </div>
