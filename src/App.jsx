@@ -281,8 +281,14 @@ function RiderApp() {
   const [promoCode, setPromoCode]       = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [payModal, setPayModal]         = useState(null); // "card" | "bank" | "digital"
+  // Only ONE payment method allowed — either a card OR a bank, not both
   const [savedCards, setSavedCards]     = useState([{ id:1, type:"VISA", last4:"4242", exp:"12/27", isDefault:true }]);
   const [savedBanks, setSavedBanks]     = useState([]);
+  // Password-protected removal
+  const [removeTarget, setRemoveTarget] = useState(null); // {type:"card"|"bank", id, idx}
+  const [removePass, setRemovePass]     = useState("");
+  const [removeErr, setRemoveErr]       = useState("");
+  const [removeBusy, setRemoveBusy]     = useState(false);
   // card form
   const [cardNum, setCardNum]   = useState("");
   const [cardName, setCardName] = useState("");
@@ -835,33 +841,73 @@ function RiderApp() {
         <div className="fade" style={{ padding:"20px 20px 10px" }}>
           <SectionHeader title="Payment Methods" sub="Manage how you pay for rides" />
 
-          {/* Saved cards */}
-          {savedCards.map(c=>(
-            <div key={c.id} style={{ background:"linear-gradient(135deg,"+NAVY+","+BLUE+")", borderRadius:16, padding:"16px 18px", marginBottom:10, boxShadow:"0 4px 20px rgba(37,99,235,0.25)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          {/* Active payment method — only ONE allowed */}
+          {savedCards.length > 0 && (
+            <div style={{ background:"linear-gradient(135deg,"+NAVY+","+BLUE+")", borderRadius:16, padding:"16px 18px", marginBottom:12, boxShadow:"0 4px 20px rgba(37,99,235,0.25)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
-                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, fontWeight:600 }}>{c.isDefault?"DEFAULT CARD":c.type}</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:WHITE, marginTop:4, letterSpacing:2 }}>•••• •••• •••• {c.last4}</div>
-                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:3 }}>{c.type}  ·  Expires {c.exp}</div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, fontWeight:600 }}>ACTIVE PAYMENT · {savedCards[0].type}</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:WHITE, marginTop:4, letterSpacing:2 }}>•••• •••• •••• {savedCards[0].last4}</div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:3 }}>Expires {savedCards[0].exp}</div>
               </div>
-              <button onClick={()=>setSavedCards(cards=>cards.filter(x=>x.id!==c.id))} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, padding:"6px 10px", color:WHITE, fontSize:12, cursor:"pointer" }}>Remove</button>
+              <button onClick={()=>{ setRemoveTarget({type:"card",id:savedCards[0].id}); setRemovePass(""); setRemoveErr(""); }} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, padding:"6px 10px", color:WHITE, fontSize:12, cursor:"pointer" }}>Remove</button>
             </div>
-          ))}
-
-          {/* Saved banks */}
-          {savedBanks.map((b,i)=>(
-            <div key={i} style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:16, padding:"16px 18px", marginBottom:10, boxShadow:"0 4px 20px rgba(5,150,105,0.2)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          )}
+          {savedBanks.length > 0 && (
+            <div style={{ background:"linear-gradient(135deg,#065f46,#059669)", borderRadius:16, padding:"16px 18px", marginBottom:12, boxShadow:"0 4px 20px rgba(5,150,105,0.2)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
-                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, fontWeight:600 }}>BANK ACCOUNT</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:WHITE, marginTop:4 }}>{b.name}</div>
-                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:3 }}>Acct: •••{b.acct.slice(-3)}</div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:10, fontWeight:600 }}>ACTIVE PAYMENT · BANK</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:WHITE, marginTop:4 }}>{savedBanks[0].name}</div>
+                <div style={{ color:"rgba(255,255,255,0.6)", fontSize:11, marginTop:3 }}>Acct: •••{savedBanks[0].acct.slice(-3)}</div>
               </div>
-              <button onClick={()=>setSavedBanks(banks=>banks.filter((_,j)=>j!==i))} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, padding:"6px 10px", color:WHITE, fontSize:12, cursor:"pointer" }}>Remove</button>
+              <button onClick={()=>{ setRemoveTarget({type:"bank",idx:0}); setRemovePass(""); setRemoveErr(""); }} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, padding:"6px 10px", color:WHITE, fontSize:12, cursor:"pointer" }}>Remove</button>
             </div>
-          ))}
+          )}
 
-          <div style={{ fontSize:11, color:SLATE, marginBottom:10 }}>Tap any option below to expand</div>
+          {/* Password prompt to remove payment method */}
+          {removeTarget && (
+            <div style={{ background:"#fff7ed", border:"1.5px solid #fed7aa", borderRadius:14, padding:"16px", marginBottom:12 }}>
+              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:"#9a3412", marginBottom:8 }}>🔒 Confirm Removal</div>
+              <div style={{ fontSize:12, color:"#c2410c", marginBottom:12 }}>Enter your password to remove this payment method.</div>
+              <Input label="Password" value={removePass} onChange={e=>setRemovePass(e.target.value)} type="password" placeholder="Enter your password" />
+              {removeErr && <Err msg={removeErr} />}
+              <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                <button onClick={()=>setRemoveTarget(null)} style={{ flex:1, padding:"9px", borderRadius:10, border:"1px solid "+BORDER, background:"transparent", color:SLATE, fontSize:13, cursor:"pointer" }}>Cancel</button>
+                <button disabled={removeBusy||!removePass} onClick={async()=>{
+                  if (!removePass) { setRemoveErr("Password required"); return; }
+                  setRemoveBusy(true); setRemoveErr("");
+                  try {
+                    const { error } = await db.auth.signInWithPassword({ email:user?.email, password:removePass });
+                    if (error) throw error;
+                    if (removeTarget.type==="card") setSavedCards([]);
+                    else setSavedBanks([]);
+                    setRemoveTarget(null); setRemovePass("");
+                  } catch(e) { setRemoveErr("Incorrect password. Try again."); }
+                  finally { setRemoveBusy(false); }
+                }} style={{ flex:2, padding:"9px", borderRadius:10, border:"none", background:removePass?"#ef4444":"#cbd5e1", color:WHITE, fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:removePass?"pointer":"not-allowed" }}>
+                  {removeBusy?"Verifying...":"Confirm Remove"}
+                </button>
+              </div>
+            </div>
+          )}
 
-          {/* All payment options as collapsible dropdowns */}
+          {/* Only show add options when no payment method is saved */}
+          {(savedCards.length===0 && savedBanks.length===0) && (
+            <div style={{ background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:10, padding:"8px 12px", marginBottom:10, fontSize:11, color:BLUE, display:"flex", alignItems:"center", gap:6 }}>
+              <span>ℹ️</span><span>Add one payment method below. Only one can be active at a time.</span>
+            </div>
+          )}
+          {(savedCards.length>0 || savedBanks.length>0) && (
+            <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:10, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#16a34a", display:"flex", alignItems:"center", gap:6 }}>
+              <span>✅</span><span>Active payment method set. Remove it first to add a different one.</span>
+            </div>
+          )}
+
+          {/* Add options — hidden if a method is already saved */}
+          {(savedCards.length===0 && savedBanks.length===0) && (
+          <div style={{ fontSize:11, color:SLATE, marginBottom:10 }}>Tap an option below to add</div>)}
+
+          {/* Add options — only if no method saved */}
+          {(savedCards.length===0 && savedBanks.length===0) && (
           <div style={{ background:WHITE, border:"1px solid "+BORDER, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
 
             {/* Add Card */}
@@ -887,7 +933,8 @@ function RiderApp() {
                     if (cardCvv.length<3) { setCardErr("Enter a valid CVV"); return; }
                     const last4=cardNum.replace(/\s/g,"").slice(-4);
                     const type=cardNum.startsWith("4")?"VISA":cardNum.startsWith("5")?"Mastercard":"Card";
-                    setSavedCards(c=>[...c.map(x=>({...x,isDefault:false})),{id:Date.now(),type,last4,exp:cardExp,isDefault:c.length===0}]);
+                    setSavedCards([{id:Date.now(),type,last4,exp:cardExp,isDefault:true}]);
+                    setSavedBanks([]);
                     setCardSaved(true); setTimeout(()=>{ setPayModal(null); setCardSaved(false); setCardNum(""); setCardName(""); setCardExp(""); setCardCvv(""); setCardErr(""); },1200);
                   }}>Save Card</BigBtn>
                 </div>
@@ -922,7 +969,8 @@ function RiderApp() {
                     if (!bankFormName||!bankFormAcct||!bankFormTransit||!bankFormInst) { setBankErr("All fields required"); return; }
                     if (bankFormTransit.length!==5) { setBankErr("Transit No. must be 5 digits"); return; }
                     if (bankFormInst.length!==3) { setBankErr("Institution No. must be 3 digits"); return; }
-                    setSavedBanks(b=>[...b,{name:bankFormName,acct:bankFormAcct,transit:bankFormTransit,inst:bankFormInst}]);
+                    setSavedBanks([{name:bankFormName,acct:bankFormAcct,transit:bankFormTransit,inst:bankFormInst}]);
+                    setSavedCards([]);
                     setBankSavedMsg(true); setTimeout(()=>{ setPayModal(null); setBankSavedMsg(false); setBankFormName(""); setBankFormAcct(""); setBankFormTransit(""); setBankFormInst(""); setBankErr(""); },1200);
                   }}>Link Account</BigBtn>
                 </div>
@@ -954,6 +1002,7 @@ function RiderApp() {
             </div>
 
           </div>
+          )} {/* end add options conditional */}
 
           <div style={{ background:VLIGHT, borderRadius:12, padding:"12px 16px", fontSize:12, color:SLATE, display:"flex", gap:10 }}>
             <span style={{ fontSize:16 }}>🔒</span>
