@@ -1348,9 +1348,12 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
         </div>
       </div>
 
-      {/* Personal Information — collapsible */}
-      <div style={{ marginBottom:14 }}>
-        <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(""); setEditPass(""); setEditPc(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+      {/* Grouped card — all sections */}
+      <div style={{ background:"#fff", border:"1px solid #bfdbfe", borderRadius:14, overflow:"hidden", marginBottom:14 }}>
+
+      {/* Personal Information row */}
+      <div style={{ borderBottom:"1px solid #bfdbfe" }}>
+        <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(""); setEditPass(""); setEditPc(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>👤</span>
           <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Personal Information</span>
           <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:profileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
