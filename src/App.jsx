@@ -19,10 +19,42 @@ const AIRPORTS = [
   { code: "yhm", name: "Hamilton Airport (YHM)",      fare: 35 },
   { code: "ytz", name: "Billy Bishop (YTZ)",          fare: 28 },
 ];
+// ─── SHUTTLE SEAT LAYOUTS ────────────────────────────────────────────────────
+// F1 = pilot (always reserved). Available seats per vehicle type:
+// 3-Seater: F2, B3, B4
+// 5-Seater: F2, M3, M4, B5, B6
+// 7-Seater: F2, M3, M4, M5, B6, B7, B8
+const SEAT_LAYOUTS = {
+  "3-seater": { total:3, seats:[
+    {id:"F1",label:"F1",row:"front",pilot:true},
+    {id:"F2",label:"F2",row:"front",pilot:false},
+    {id:"B3",label:"B3",row:"back",pilot:false},
+    {id:"B4",label:"B4",row:"back",pilot:false},
+  ]},
+  "5-seater": { total:5, seats:[
+    {id:"F1",label:"F1",row:"front",pilot:true},
+    {id:"F2",label:"F2",row:"front",pilot:false},
+    {id:"M3",label:"M3",row:"middle",pilot:false},
+    {id:"M4",label:"M4",row:"middle",pilot:false},
+    {id:"B5",label:"B5",row:"back",pilot:false},
+    {id:"B6",label:"B6",row:"back",pilot:false},
+  ]},
+  "7-seater": { total:7, seats:[
+    {id:"F1",label:"F1",row:"front",pilot:true},
+    {id:"F2",label:"F2",row:"front",pilot:false},
+    {id:"M3",label:"M3",row:"middle",pilot:false},
+    {id:"M4",label:"M4",row:"middle",pilot:false},
+    {id:"M5",label:"M5",row:"middle",pilot:false},
+    {id:"B6",label:"B6",row:"back",pilot:false},
+    {id:"B7",label:"B7",row:"back",pilot:false},
+    {id:"B8",label:"B8",row:"back",pilot:false},
+  ]},
+};
+
 const DEMO_TRIPS = [
-  { id: "ST-001", route: "Hamilton GO to Pearson Airport",    depart_date: "2026-03-20", depart_time: "06:00", seats_total: 12, seats_booked: 4,  fare_per_seat: 28, status: "scheduled" },
-  { id: "ST-002", route: "Niagara Falls to Downtown Hamilton", depart_date: "2026-03-21", depart_time: "09:00", seats_total: 8,  seats_booked: 2,  fare_per_seat: 18, status: "scheduled" },
-  { id: "ST-003", route: "McMaster to Downtown Hamilton",      depart_date: "2026-03-22", depart_time: "07:30", seats_total: 10, seats_booked: 7,  fare_per_seat: 12, status: "scheduled" },
+  { id:"ST-001", route:"Hamilton GO to Pearson Airport",    depart_date:"2026-03-20", depart_time:"06:00", vehicle_type:"7-seater", seats_total:7, seats_booked:2, booked_seats:["M3","B7"], fare_per_seat:28, status:"scheduled" },
+  { id:"ST-002", route:"Niagara Falls to Downtown Hamilton", depart_date:"2026-03-21", depart_time:"09:00", vehicle_type:"5-seater", seats_total:5, seats_booked:1, booked_seats:["F2"],      fare_per_seat:18, status:"scheduled" },
+  { id:"ST-003", route:"McMaster to Downtown Hamilton",      depart_date:"2026-03-22", depart_time:"07:30", vehicle_type:"3-seater", seats_total:3, seats_booked:1, booked_seats:["B3"], fare_per_seat:12, status:"scheduled" },
 ];
 const DOC_TYPES = [
   { key: "licence",     label: "Driver Licence (Ontario Class G)" },
