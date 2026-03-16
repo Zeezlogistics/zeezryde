@@ -1554,7 +1554,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
                 <div style={{ background:"#eff6ff", borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
                   <div style={{ fontSize:10, color:"#64748b", fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>Saved Bank</div>
                   <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f" }}>{dBankName}</div>
-                  <div style={{ fontSize:12, color:"#64748b", marginTop:3 }}>Acct: •••{dBankAcct.slice(-3)} &nbsp;|&nbsp; Transit: {dBankTransit.slice(0,2)}•••</div>
+                  <div style={{ fontSize:12, color:"#64748b", marginTop:3 }}>Acct: •••{dBankAcct.slice(-3)}{" | "}Transit: {dBankTransit.slice(0,2)}•••</div>
                 </div>
                 <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#92400e" }}>
                   🔒 To change bank details, you must verify your password and complete 2FA.
@@ -1921,7 +1921,7 @@ function DriverApp() {
             )}
           </div>
           {/* Make & Model */}
-          <Input label="Make & Model" value={vehicle} onChange={e=>setVeh(e.target.value)} placeholder="e.g. Toyota Camry, Honda Civic" />
+          <Input label="Make &amp; Model" value={vehicle} onChange={e=>setVeh(e.target.value)} placeholder="e.g. Toyota Camry, Honda Civic" />
           <Input label="License Plate" value={plate} onChange={e=>setPlate(e.target.value)} placeholder="ABCD 123" />
         </div>
         {/* Security */}
