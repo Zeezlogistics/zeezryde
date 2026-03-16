@@ -1285,16 +1285,25 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
   const [editEmail,   setEditEmail]   = useState("");
   const [editPhone,   setEditPhone]   = useState("");
   const [editPass,    setEditPass]    = useState("");
-  const [editPc,      setEditPc]      = useState("");
   const [editErr,     setEditErr]     = useState("");
   const [editBusy,    setEditBusy]    = useState(false);
   const [editSuccess, setEditSuccess] = useState(false);
+  const [profileSaved,setProfileSaved]= useState(false);
   const [vehicleOpen, setVehicleOpen] = useState(false);
-  const [bankOpen,   setBankOpen]    = useState(false);
-  const [dBankName,  setDBankName]   = useState("");
-  const [dBankAcct,  setDBankAcct]   = useState("");
-  const [dBankTransit, setDBankTransit] = useState("");
-  const [dBankInst,  setDBankInst]   = useState("");
+  // Bank details state
+  const [bankOpen,      setBankOpen]      = useState(false);
+  const [bankSaved,     setBankSaved]     = useState(false);
+  const [bankLocked,    setBankLocked]    = useState(false);
+  const [dBankName,     setDBankName]     = useState("");
+  const [dBankAcct,     setDBankAcct]     = useState("");
+  const [dBankTransit,  setDBankTransit]  = useState("");
+  const [dBankInst,     setDBankInst]     = useState("");
+  // Bank security (password + 2FA to change after first save)
+  const [bankSecPass,   setBankSecPass]   = useState("");
+  const [bankOtp,       setBankOtp]       = useState("");
+  const [bankOtpSent,   setBankOtpSent]   = useState(false);
+  const [bankSecErr,    setBankSecErr]     = useState("");
+  const [bankSecStep,   setBankSecStep]   = useState("view"); // "view"|"auth"|"edit"
   const [vehicles, setVehicles] = useState(
     vehicle ? [{ id:1, make:vehicle, plate:plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
   );
@@ -1308,6 +1317,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
 
   async function saveProfile() {
     if (!editName||!editEmail) { setEditErr("Name and email required"); return; }
+    if (profileSaved && !editPass) { setEditErr("Password required to update profile"); return; }
     if (editPass && editPass.length<8) { setEditErr("Password needs 8+ characters"); return; }
     setEditBusy(true); setEditErr(""); setEditSuccess(false);
     try {
@@ -1316,8 +1326,8 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
       if (editPass) updates.password = editPass;
       await db.auth.updateUser(updates);
       await db.from("drivers").update({ name:editName, email:editEmail, phone:editPhone||null }).eq("id", user?.id);
-      setEditSuccess(true);
-      setTimeout(()=>{ setEditSuccess(false); setProfileOpen(false); }, 1800);
+      setProfileSaved(true); setEditSuccess(true);
+      setTimeout(()=>{ setEditSuccess(false); setProfileOpen(false); setEditPass(""); }, 1800);
     } catch(e) { setEditErr(e.message||"Update failed"); }
     finally { setEditBusy(false); }
   }
@@ -1353,7 +1363,7 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
 
       {/* Personal Information row */}
       <div style={{ borderBottom:"1px solid #bfdbfe" }}>
-        <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(""); setEditPass(""); setEditPc(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+        <button onClick={()=>{ if(!profileOpen){ setEditName(displayName); setEditEmail(user?.email||""); setEditPhone(""); setEditPass(""); setEditErr(""); setEditSuccess(false); } setProfileOpen(o=>!o); }} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>👤</span>
           <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Personal Information</span>
           <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:profileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
@@ -1388,40 +1398,94 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
 
       {/* Bank Details row */}
       <div style={{ borderBottom:"1px solid #bfdbfe" }}>
-        <button onClick={()=>setBankOpen(o=>!o)} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+        <button onClick={()=>{ setBankOpen(o=>!o); if(!bankOpen) setBankSecStep(bankSaved?"view":"edit"); }} style={{ width:"100%", background:"none", border:"none", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
           <span style={{ fontSize:18 }}>🏦</span>
           <span style={{ flex:1, fontSize:13, fontWeight:600, color:"#1e3a5f" }}>Bank Details</span>
-          <span style={{ fontSize:11, color:dBankName?"#22c55e":"#94a3b8", marginRight:4 }}>{dBankName?"✓ Saved":"Not set"}</span>
+          <span style={{ fontSize:11, color:bankSaved?"#22c55e":"#94a3b8", marginRight:4 }}>{bankSaved?"🔒 Saved":"Not set"}</span>
           <span style={{ color:"#94a3b8", fontSize:14, display:"inline-block", transform:bankOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
         </button>
         {bankOpen && (
-          <div style={{ background:"#f8fafc", border:"1px solid #bfdbfe", borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
-            <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Bank for Receiving Payouts</div>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Bank Name</div>
-              <select value={dBankName} onChange={e=>setDBankName(e.target.value)} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:dBankName?"#1e3a5f":"#94a3b8", outline:"none", boxSizing:"border-box" }}>
-                <option value="">Select your bank</option>
-                {["TD Bank","RBC Royal Bank","Scotiabank","BMO Bank of Montreal","CIBC","National Bank","Desjardins","HSBC Canada","Tangerine","EQ Bank","Simplii Financial","Meridian Credit Union","Coast Capital","ATB Financial","Other"].map(b=>(
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Account Number</div>
-              <input value={dBankAcct} onChange={e=>setDBankAcct(e.target.value.replace(/[^0-9]/g,""))} placeholder="e.g. 1234567" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
-            </div>
-            <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Transit No.</div>
-                <input value={dBankTransit} onChange={e=>setDBankTransit(e.target.value.replace(/[^0-9]/g,"").slice(0,5))} placeholder="5 digits" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+          <div style={{ background:"#f8fafc", borderTop:"1px solid #bfdbfe", padding:"14px" }}>
+
+            {/* VIEW mode — show masked saved details */}
+            {bankSecStep==="view" && bankSaved && (
+              <div>
+                <div style={{ background:"#eff6ff", borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
+                  <div style={{ fontSize:10, color:"#64748b", fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>Saved Bank</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f" }}>{dBankName}</div>
+                  <div style={{ fontSize:12, color:"#64748b", marginTop:3 }}>Acct: •••{dBankAcct.slice(-3)} &nbsp;|&nbsp; Transit: {dBankTransit.slice(0,2)}•••</div>
+                </div>
+                <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#92400e" }}>
+                  🔒 To change bank details, you must verify your password and complete 2FA.
+                </div>
+                <button onClick={()=>{ setBankSecPass(""); setBankOtp(""); setBankOtpSent(false); setBankSecErr(""); setBankSecStep("auth"); }} style={{ width:"100%", padding:"10px", borderRadius:10, border:"1.5px solid #fbbf24", background:"#fefce8", color:"#92400e", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                  Change Bank Details
+                </button>
               </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Institution No.</div>
-                <input value={dBankInst} onChange={e=>setDBankInst(e.target.value.replace(/[^0-9]/g,"").slice(0,3))} placeholder="3 digits" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+            )}
+
+            {/* AUTH step — password + OTP before editing */}
+            {bankSecStep==="auth" && (
+              <div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:"#1e3a5f", marginBottom:10 }}>🔐 Verify Identity</div>
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Current Password</div>
+                <input value={bankSecPass} onChange={e=>setBankSecPass(e.target.value)} type="password" placeholder="Enter your password" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", marginBottom:10, fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+                {!bankOtpSent ? (
+                  <button onClick={async ()=>{
+                    if (!bankSecPass) { setBankSecErr("Enter your password"); return; }
+                    setBankSecErr("");
+                    try {
+                      const { error } = await db.auth.signInWithPassword({ email: user?.email, password: bankSecPass });
+                      if (error) throw error;
+                      setBankOtpSent(true); setBankOtp("");
+                    } catch(e) { setBankSecErr("Incorrect password"); }
+                  }} style={{ width:"100%", padding:"10px", borderRadius:10, border:"none", background:bankSecPass?"#1d4ed8":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:bankSecPass?"pointer":"not-allowed" }}>
+                    Verify Password &amp; Send OTP
+                  </button>
+                ) : (
+                  <div>
+                    <div style={{ background:"#eff6ff", borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#1e3a5f" }}>📱 OTP sent to your registered phone. Demo code: <strong>1234</strong></div>
+                    <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Enter OTP Code</div>
+                    <input value={bankOtp} onChange={e=>setBankOtp(e.target.value.replace(/[^0-9]/g,"").slice(0,4))} type="tel" placeholder="4-digit code" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", marginBottom:10, fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+                    <button onClick={()=>{
+                      if (bankOtp.length < 4) { setBankSecErr("Enter the 4-digit OTP"); return; }
+                      if (bankOtp === "1234") { setBankSecErr(""); setBankSecStep("edit"); }
+                      else { setBankSecErr("Invalid OTP. Try again."); }
+                    }} style={{ width:"100%", padding:"10px", borderRadius:10, border:"none", background:bankOtp.length===4?"#059669":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:bankOtp.length===4?"pointer":"not-allowed" }}>
+                      Confirm OTP
+                    </button>
+                  </div>
+                )}
+                {bankSecErr && <div style={{ color:"#ef4444", fontSize:12, marginTop:8, textAlign:"center" }}>{bankSecErr}</div>}
+                <button onClick={()=>setBankSecStep("view")} style={{ width:"100%", marginTop:8, padding:"8px", borderRadius:8, border:"none", background:"transparent", color:"#94a3b8", fontSize:12, cursor:"pointer" }}>Cancel</button>
               </div>
-            </div>
-            <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#065f46" }}>🔒 Bank details are encrypted and used only for processing your payouts.</div>
-            <button onClick={()=>{ if(dBankName&&dBankAcct) setBankOpen(false); }} disabled={!dBankName||!dBankAcct} style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:(dBankName&&dBankAcct)?"#059669":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(dBankName&&dBankAcct)?"pointer":"not-allowed" }}>Save Bank Details</button>
+            )}
+
+            {/* EDIT step — show the bank form */}
+            {bankSecStep==="edit" && (
+              <div>
+                {bankSaved && <div style={{ background:"#eff6ff", borderRadius:8, padding:"8px 12px", marginBottom:10, fontSize:11, color:"#1e3a5f" }}>✅ Identity verified — you can now update bank details.</div>}
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Bank Name</div>
+                <select value={dBankName} onChange={e=>setDBankName(e.target.value)} style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:dBankName?"#1e3a5f":"#94a3b8", outline:"none", boxSizing:"border-box", marginBottom:10 }}>
+                  <option value="">Select your bank</option>
+                  {["TD Bank","RBC Royal Bank","Scotiabank","BMO Bank of Montreal","CIBC","National Bank","Desjardins","HSBC Canada","Tangerine","EQ Bank","Simplii Financial","Meridian Credit Union","Coast Capital","ATB Financial","Other"].map(b=>(<option key={b} value={b}>{b}</option>))}
+                </select>
+                <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Account Number</div>
+                <input value={dBankAcct} onChange={e=>setDBankAcct(e.target.value.replace(/[^0-9]/g,""))} placeholder="e.g. 1234567" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box", marginBottom:10 }} />
+                <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Transit No.</div>
+                    <input value={dBankTransit} onChange={e=>setDBankTransit(e.target.value.replace(/[^0-9]/g,"").slice(0,5))} placeholder="5 digits" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:9, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Institution No.</div>
+                    <input value={dBankInst} onChange={e=>setDBankInst(e.target.value.replace(/[^0-9]/g,"").slice(0,3))} placeholder="3 digits" style={{ width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #bfdbfe", background:"#eff6ff", fontSize:13, color:"#1e3a5f", outline:"none", boxSizing:"border-box" }} />
+                  </div>
+                </div>
+                <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:11, color:"#065f46" }}>🔒 Encrypted and used only for processing payouts.</div>
+                <button onClick={()=>{ if(dBankName&&dBankAcct){ setBankSaved(true); setBankSecStep("view"); setBankOpen(false); setTimeout(()=>setBankOpen(false),100); } }} disabled={!dBankName||!dBankAcct} style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:(dBankName&&dBankAcct)?"#059669":"#cbd5e1", color:"#fff", fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, cursor:(dBankName&&dBankAcct)?"pointer":"not-allowed" }}>Save Bank Details</button>
+              </div>
+            )}
           </div>
         )}
       </div>
