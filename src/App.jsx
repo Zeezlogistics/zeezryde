@@ -131,7 +131,7 @@ function calcRating(trips) {
 }
 
 function RatingStars({ rating, size=14, color="#f59e0b" }) {
-  const display = rating != null ? rating.toFixed(1) : "—";
+  const display = rating != null ? rating.toFixed(1) : "-";
   const filled  = rating != null ? Math.round(rating) : 0;
   return (
     <div style={{ display:"flex", alignItems:"center", gap:3 }}>
@@ -633,14 +633,14 @@ function RiderApp() {
           <div style={{ background:"#f8fafc", border:"1.5px solid "+BORDER, borderRadius:16, padding:"16px 12px", marginBottom:14 }}>
             <div style={{ textAlign:"center", fontSize:22, marginBottom:4 }}>🚐</div>
             <div style={{ fontSize:9, color:SLATE, textAlign:"center", marginBottom:10, letterSpacing:1, fontWeight:700 }}>FRONT</div>
-            {rows.map(row => {
-              const rowSeats = layout.seats.filter(s=>s.row===row);
+            {shuttleRows.map(row => {
+              const rowSeats = shuttleLayout.seats.filter(s=>s.row===row);
               if (!rowSeats.length) return null;
               return (
                 <div key={row} style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:10 }}>
                   {rowSeats.map(seat => {
                     const isPilot   = seat.pilot;
-                    const isTaken   = booked.includes(seat.id);
+                    const isTaken   = shuttleBooked.includes(seat.id);
                     const isSel     = selectedSeat===seat.id;
                     const bg        = isPilot?"#1e3a5f":isTaken?"#e2e8f0":isSel?BLUE:WHITE;
                     const clr       = isPilot||isSel?"#fff":isTaken?SLATE:NAVY;
@@ -683,7 +683,7 @@ function RiderApp() {
             </div>
           )}
           <BigBtn onClick={bookShuttle} disabled={!selectedSeat}>
-            {selectedSeat ? "Confirm — Seat "+selectedSeat+" · CA$"+selectedTrip.fare_per_seat.toFixed(2) : "Select a seat to continue"}
+            {selectedSeat ? ("Confirm - Seat " + selectedSeat + " | CA$" + selectedTrip.fare_per_seat.toFixed(2)) : "Select a seat to continue"}
           </BigBtn>
         </div>
       </div>
@@ -692,7 +692,7 @@ function RiderApp() {
     );
   }
 
-    // AIRPORT SCREEN
+  // AIRPORT SCREEN
   if (scr==="airport") return (
     <div style={{ ...sc }}>
       <style>{STYLES}</style>
@@ -802,7 +802,7 @@ function RiderApp() {
                 </button>
               </div>
               <Err msg={err} />
-              <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" — CA$"+chosen.fare.toFixed(2)}</BigBtn>
+              <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" - CA$"+chosen.fare.toFixed(2)}</BigBtn>
             </div>
           </div>
         </div>
@@ -1370,7 +1370,7 @@ function MonthlySummaryTab({ trips, earned, displayName }) {
 
         {/* Stats row */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:14 }}>
-          {[["🚗","Trips",monthTrips.length],["💵","Avg Fare",monthTrips.length?"CA$"+avgFare.toFixed(2):"—"],["⭐","Rating",(calcRating(trips)??"5.0")+""]].map(([ic,lb,val])=>(
+          {[["🚗","Trips",monthTrips.length],["💵","Avg Fare",monthTrips.length?"CA$"+avgFare.toFixed(2):"-"],["⭐","Rating",(calcRating(trips)??"5.0")+""]].map(([ic,lb,val])=>(
             <Card key={lb} style={{ textAlign:"center", padding:"12px 8px" }}>
               <div style={{ fontSize:20 }}>{ic}</div>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:NAVY, marginTop:4 }}>{String(val)}</div>
@@ -2074,7 +2074,7 @@ function DriverApp() {
                   <div>
                     <div style={{ fontSize:10, color:SLATE, fontWeight:600, letterSpacing:1, textTransform:"uppercase" }}>This Week</div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:28, color:NAVY }}>
-                      {hideBalance ? "CA$ ••••" : "CA$"+earned.toFixed(2)}
+                      {hideBalance ? "CA$ ****" : "CA$"+earned.toFixed(2)}
                     </div>
                     <div style={{ fontSize:11, color:SLATE }}>{trips.length} trip{trips.length!==1?"s":""} completed</div>
                   </div>
