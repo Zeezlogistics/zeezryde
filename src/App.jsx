@@ -437,6 +437,8 @@ function RiderApp() {
     setNewBooking(b);
     setBookings(prev=>[...prev, b]);
     setSelectedSeats([]);
+    try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:selectedTrip.route.split(" to ")[0]||"Shuttle", dest:selectedTrip.route.split(" to ")[1]||selectedTrip.route, fare:b.total.toFixed(2), rideType:"Shuttle", seats:selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(","), status:"confirmed", requested_at:new Date().toISOString() }); } catch(_) {}
+    try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:b.id, rider:displayName, origin:selectedTrip.route, dest:"Shuttle", fare:"CA$"+b.total.toFixed(2), rideType:"Shuttle", status:"confirmed", time:new Date().toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) }); } catch(_) {}
     go("shuttle-booked");
   }
 
@@ -892,7 +894,11 @@ function RiderApp() {
               <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE }}>{"CA$"+((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax).toFixed(2)}</span>
             </div>
             <Err msg={err} />
-            <BigBtn onClick={()=>{ if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } if (airportDir==="from"&&!airportDropoff.trim()) { setErr("Please enter a drop-off address"); return; } setAirportTime(airportHour+":"+airportMin); setAirportDone(true); }}>Request Airport Ride</BigBtn>
+            <BigBtn onClick={()=>{ if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } if (airportDir==="from"&&!airportDropoff.trim()) { setErr("Please enter a drop-off address"); return; } setAirportTime(airportHour+":"+airportMin);
+          const aFare = withTax((AIRPORTS.find(a=>a.code===airportCode)?.fare||0)*airportPax);
+          try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?"Current Location":AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {}
+          try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?"Current Location":AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {}
+          setAirportDone(true); }}>Request Airport Ride</BigBtn>
           </div>
         )}
       </div>
@@ -2051,12 +2057,16 @@ function DriverApp() {
       const { data: { user:u } } = await db.auth.getUser();
       if (u) await db.from("drivers").update({ online:next }).eq("id", u.id);
     } catch(_) {}
+    try { if(window.__zeezAdmin?.setDriverOnline) window.__zeezAdmin.setDriverOnline(next); } catch(_) {}
   }
 
   function acceptRide() {
     if (!inReq) return;
+    const fareNum = parseFloat((inReq.fare||"0").replace("CA$",""))||0;
     setTrips(t=>[{ id:inReq.id, dest:inReq.dest, fare:inReq.fare, type:inReq.type, date:new Date().toLocaleDateString("en-CA") }, ...t]);
-    setEarned(e=>e+9.40);
+    setEarned(e=>e+fareNum);
+    try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ id:String(inReq.id), rider:inReq.rider, driver_id:user?.id, driver:displayName, origin:inReq.origin||"Pickup", dest:inReq.dest, fare:fareNum.toFixed(2), rideType:inReq.type||"Family", status:"completed", requested_at:new Date().toISOString() }); } catch(_) {}
+    try { if(window.__zeezAdmin?.updateTrip) window.__zeezAdmin.updateTrip(inReq.id,{ status:"completed", driver:displayName }); } catch(_) {}
     setInReq(null);
     go("enroute");
     setTimeout(()=>go("dash"), 5000);
