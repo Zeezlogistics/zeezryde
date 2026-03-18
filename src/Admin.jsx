@@ -1,26 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUPABASE CONFIG
-// Replace these with your real values from:
-// Supabase Dashboard → Project Settings → API
 // ─────────────────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = "https://bkbpsobvhxxvlzlmzsmy.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnBzb2J2aHh4dmx6bG16c215Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzQ4MTUsImV4cCI6MjA4OTA1MDgxNX0.PLJyaouYk4FLfcZwVy_YsKMmny2a6DqrYOn_3jmpgMI";
 
-// Lazy-load Supabase client from CDN
+// Supabase client using npm package (same as App.jsx)
 let _supabase = null;
 async function getSupabase() {
   if (_supabase) return _supabase;
-  if (!window.supabase) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
-      s.onload = resolve; s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
-  _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  _supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
   return _supabase;
 }
 
