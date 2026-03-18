@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import AdminApp from "./Admin";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
+const AdminApp = lazy(() => import("./Admin"));
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 import { createClient } from "@supabase/supabase-js";
@@ -2419,7 +2419,7 @@ const ROLE_ANIM_CSS = `
 export default function App() {
   // Route to admin if URL contains /admin
   if (typeof window !== "undefined" && window.location.pathname.includes("admin")) {
-    return <AdminApp />;
+    return <Suspense fallback={<div style={{background:"#080c14",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#60a5fa",fontFamily:"monospace",fontSize:14}}>Loading Admin...</div>}><AdminApp /></Suspense>;
   }
   const [role, setRole] = useState(null);
 
