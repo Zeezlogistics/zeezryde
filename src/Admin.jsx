@@ -66,7 +66,7 @@ const ALL_SUBS = [];
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────
-export default function App() {
+export default function AdminApp() {
   // ── Supabase Auth state ───────────────────────────────────────────────────
   const [authed,     setAuthed]     = useState(false);
   const [authEmail,  setAuthEmail]  = useState("");
