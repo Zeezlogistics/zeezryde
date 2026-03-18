@@ -418,9 +418,11 @@ function RiderApp() {
     setUser(null); setEmail(""); setPass(""); go("login");
   }
 
+  const displayName = user?.user_metadata?.name||name||"Rider";
+  const chosen = RIDES.find(r=>r.id===ride);
+
   function bookRide() {
     if (!dest.trim()) { setErr("Enter a destination"); return; }
-    const chosen = RIDES.find(r=>r.id===ride);
     setFinding(true);
     setTimeout(() => {
       setFinding(false);
@@ -441,9 +443,6 @@ function RiderApp() {
     try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:b.id, rider:displayName, origin:selectedTrip.route, dest:"Shuttle", fare:"CA$"+b.total.toFixed(2), rideType:"Shuttle", status:"confirmed", time:new Date().toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) }); } catch(_) {}
     go("shuttle-booked");
   }
-
-  const displayName = user?.user_metadata?.name||name||"Rider";
-  const chosen = RIDES.find(r=>r.id===ride);
 
   // SPLASH
   if (scr==="splash") return (
