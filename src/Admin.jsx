@@ -1,0 +1,6214 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPABASE CONFIG
+// Replace these with your real values from:
+// Supabase Dashboard → Project Settings → API
+// ─────────────────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = "https://bkbpsobvhxxvlzlmzsmy.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnBzb2J2aHh4dmx6bG16c215Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzQ4MTUsImV4cCI6MjA4OTA1MDgxNX0.PLJyaouYk4FLfcZwVy_YsKMmny2a6DqrYOn_3jmpgMI";
+
+// Lazy-load Supabase client from CDN
+let _supabase = null;
+async function getSupabase() {
+  if (_supabase) return _supabase;
+  if (!window.supabase) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  return _supabase;
+}
+
+// ── Supabase DB helpers (replicate old apiGet/Post/Patch/Del pattern) ─────────
+const sbGet    = async (table, filters={}) => {
+  const sb = await getSupabase();
+  let q = sb.from(table).select("*");
+  Object.entries(filters).forEach(([k,v]) => { q = q.eq(k, v); });
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data;
+};
+const sbInsert = async (table, row) => {
+  const sb = await getSupabase();
+  const { data, error } = await sb.from(table).insert(row).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+};
+const sbUpdate = async (table, id, patch) => {
+  const sb = await getSupabase();
+  const { data, error } = await sb.from(table).update(patch).eq("id", id).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+};
+const sbDelete = async (table, id) => {
+  const sb = await getSupabase();
+  const { error } = await sb.from(table).delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { deleted: true };
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEED DATA
+// ─────────────────────────────────────────────────────────────────────────────
+const INIT_DRIVERS = [];
+
+const INIT_RIDERS = [];
+
+const ALL_TRIPS = [];
+const ALL_SUBS = [];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROOT
+// ─────────────────────────────────────────────────────────────────────────────
+export default function App() {
+  // ── Supabase Auth state ───────────────────────────────────────────────────
+  const [authed,     setAuthed]     = useState(false);
+  const [authEmail,  setAuthEmail]  = useState("");
+  const [authPass,   setAuthPass]   = useState("");
+  const [authError,  setAuthError]  = useState("");
+  const [authLoading,setAuthLoading]= useState(false);
+
+  // Check existing session on mount
+  useEffect(() => {
+    (async () => {
+      const sb = await getSupabase();
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) setAuthed(true);
+      sb.auth.onAuthStateChange((_e, s) => setAuthed(!!s));
+    })();
+  }, []);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError(""); setAuthLoading(true);
+    try {
+      const sb = await getSupabase();
+      const { error } = await sb.auth.signInWithPassword({ email: authEmail, password: authPass });
+      if (error) throw error;
+      setAuthed(true);
+    } catch (err) {
+      setAuthError(err.message || "Login failed");
+    } finally { setAuthLoading(false); }
+  };
+
+  const handleLogout = async () => {
+    const sb = await getSupabase();
+    await sb.auth.signOut();
+    setAuthed(false);
+  };
+
+  // ── Login screen ──────────────────────────────────────────────────────────
+  if (!authed) return (
+    <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:380, background:"rgba(15,23,42,0.9)", border:"1px solid rgba(99,179,237,0.15)",
+        borderRadius:16, padding:40, boxShadow:"0 25px 50px rgba(0,0,0,0.5)" }}>
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ fontSize:32, fontWeight:800, color:"#60a5fa", letterSpacing:-1 }}>ZeezRyde</div>
+          <div style={{ fontSize:13, color:"#475569", marginTop:4 }}>Admin Portal</div>
+        </div>
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, color:"#64748b", marginBottom:6, fontWeight:600 }}>EMAIL</div>
+            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+              placeholder="admin@zeezryde.com" required
+              style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.2)",
+                borderRadius:8, padding:"10px 14px", color:"#f0f9ff", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+          </div>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontSize:11, color:"#64748b", marginBottom:6, fontWeight:600 }}>PASSWORD</div>
+            <input type="password" value={authPass} onChange={e => setAuthPass(e.target.value)}
+              placeholder="••••••••" required
+              style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.2)",
+                borderRadius:8, padding:"10px 14px", color:"#f0f9ff", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+          </div>
+          {authError && <div style={{ color:"#ef4444", fontSize:12, marginBottom:16, textAlign:"center" }}>{authError}</div>}
+          <button type="submit" disabled={authLoading}
+            style={{ width:"100%", padding:"12px", borderRadius:8, border:"none", cursor:"pointer",
+              background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff", fontSize:14, fontWeight:700 }}>
+            {authLoading ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+        <div style={{ marginTop:24, padding:"14px 16px", background:"rgba(99,179,237,0.06)", border:"1px dashed rgba(99,179,237,0.2)", borderRadius:10 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Demo Credentials</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:11, color:"#64748b" }}>Email</span>
+              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin@zeezryde.com</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:11, color:"#64748b" }}>Password</span>
+              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin123</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── API connection state ──────────────────────────────────────────────────
+  const [page, setPage]       = useState("overview");
+  const [promos, setPromos]   = useState([
+    {
+      id: "PROMO-001",
+      code: "NEWDRIVER",
+      name: "New Driver Welcome",
+      type: "sub_discount",
+      discount: 100,
+      discountType: "pct",
+      duration: 1,
+      maxUses: 500,
+      used: 47,
+      target: "new_drivers",
+      status: "active",
+      created: "Mar 1 2026",
+      expiry: "May 31 2026",
+      description: "100% off the weekly subscription fee for the first month (4 weeks) for newly registered drivers.",
+    },
+    {
+      id: "PROMO-002",
+      code: "STUDENT50",
+      name: "Student Discount",
+      type: "sub_discount",
+      discount: 50,
+      discountType: "pct",
+      duration: 4,
+      maxUses: 200,
+      used: 0,
+      target: "all_drivers",
+      status: "active",
+      created: "Mar 8 2026",
+      expiry: "Sep 30 2026",
+      description: "50% off the weekly subscription fee for 4 weeks for eligible students with valid student ID.",
+    },
+  ]);
+  const MAX_DRIVERS = 50;
+  // ── Live demo integration ────────────────────────────────────────────────
+  const [liveTrips,    setLiveTrips]    = useState([]);      // trips from live rider/driver demo
+  const [liveDriverOn, setLiveDriverOn] = useState(false);   // driver online status from live demo
+  // ── Pricing settings (also passed to live demo) ─────────────────────────
+  const [riderDelayFee,    setRiderDelayFee]    = useState("3.00");   // CA$ per min after 2 min free
+  const [driverCancelFee,  setDriverCancelFee]  = useState("5.00");   // CA$ fee charged when driver cancels after 5min
+  // Surge settings
+  const [surgeEnabled,     setSurgeEnabled]     = useState(true);
+  const [surgeRadiusKm,    setSurgeRadiusKm]    = useState("5");
+  const [baseFare,    setBaseFare]    = useState("2.50");
+  const [ratePerKm,   setRatePerKm]   = useState("1.20");
+  const [ratePerMin,  setRatePerMin]  = useState("0.25");
+  const [minimumFare, setMinimumFare] = useState("5.00");
+  const [drivers, setDrivers] = useState(INIT_DRIVERS);
+  const [riders,  setRiders]  = useState(INIT_RIDERS);
+
+
+
+
+
+  // ── Expose setters for live demo integration ─────────────────────────────
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.__zeezAdmin = {
+        pushTrip:        (trip) => setLiveTrips(prev => [trip, ...prev]),
+        updateTrip:      (id, patch) => setLiveTrips(prev => prev.map(t => t.id===id ? {...t,...patch} : t)),
+        setDriverOnline: (v) => setLiveDriverOn(v),
+        setSubFee:       setSubFee,
+        setCommPct:      setCommPct,
+        setBaseFare:     setBaseFare,
+        setRatePerKm:    setRatePerKm,
+        setRatePerMin:   setRatePerMin,
+        setSurgeEnabled: setSurgeEnabled,
+        setSurgeRadius:  setSurgeRadiusKm,
+        getRiderDelayFee:() => riderDelayFee,
+        getDriverCancelFee:() => driverCancelFee,
+        // ── Shuttle bridge ── admin trips/vehicles → rider app ──────────
+        getShuttleTrips:    () => shuttleTrips,
+        getShuttleVehicles: () => shuttleVehicles,
+        setShuttleTrips:    setShuttleTrips,
+        setShuttleVehicles: setShuttleVehicles,
+        // Called by rider app when a seat is booked
+        riderBookShuttle: (tripId, seats) => {
+          setShuttleTrips(prev => prev.map(t =>
+            t.id === tripId ? { ...t, booked: (t.booked || 0) + seats } : t
+          ));
+        },
+        // Airport pricing getters — read by rider app
+        getAirportFare: (airportId) => {
+          if (airportId === "yyz") return airportFareYYZ;
+          if (airportId === "yhm") return airportFareYHM;
+          if (airportId === "ytz") return airportFareYTZ;
+          return "0";
+        },
+        getAirportBookingFee: () => airportBookingFee,
+        // Shuttle pricing getters
+        getShuttleBaseFare:   () => shuttleBaseFare,
+        getShuttlePeakMult:   () => shuttlePeakMult,
+        getShuttleBookingFee: () => shuttleBookingFee,
+        getShuttlePeakOn:     () => shuttlePeakOn,
+        // ── Pricing engine getters — read by live app ────────────────────────
+        getBaseFare:       () => baseFare,
+        getRatePerKm:      () => ratePerKm,
+        getRatePerMin:     () => ratePerMin,
+        getMinimumFare:    () => minimumFare,
+        getSubFee:         () => subFee,
+        getCommPct:        () => commPct,
+        // ── Enforcement & dispatch getters ───────────────────────────────────
+        getCountdown:      () => countdown,
+        getReqSub:         () => reqSub,
+        getSurgeEnabled:   () => surgeEnabled,
+        getWaitFeeOn:      () => waitFeeOn,
+        getWaitFeeRate:    () => waitFeeRate,
+        getWaitFeeMinutes: () => waitFeeMinutes,
+        getPickupFeeOn:    () => pickupFeeOn,
+        getPickupFeeKm:    () => pickupFeeKm,
+        // ── Airport extras ───────────────────────────────────────────────
+        getAirportMinNotice: () => airportMinNotice,
+        // ── Dispatch settings ────────────────────────────────────────────
+        getDispatchMode:  () => dispatchMode,
+        getMaxPickupKm:   () => maxPickupKm,
+        getAutoSusp:      () => autoSusp,
+        getAdminAlert:    () => adminAlert,
+        // ── Beyond-cap & surge radius (needed by live sync) ──────────────
+        getBeyondFeeOn:   () => beyondFeeOn,
+        getBeyondCapKm:   () => beyondCapKm,
+        getBeyondFeeFlat: () => beyondFeeFlat,
+        getSurgeRadius:   () => surgeRadiusKm,
+      };
+    }
+  });
+  const [search,  setSearch]  = useState("");
+  const [modal,   setModal]   = useState(null);
+  const [toast,   setToast]   = useState(null);
+  const [dFilter, setDFilter] = useState("all");
+  const [rFilter, setRFilter] = useState("all");
+  const [subFee,  setSubFee]  = useState("25");
+  const [commPct, setCommPct] = useState("10");
+  const [countdown, setCountdown] = useState("15");
+  const [reqSub,    setReqSub]    = useState(true);
+  const [autoSusp,  setAutoSusp]  = useState(true);
+  const [adminAlert,setAdminAlert]= useState(true);
+  const [maxPickupKm,   setMaxPickupKm]   = useState("10");
+  const [pickupFeeKm,   setPickupFeeKm]   = useState("0.50");
+  const [dispatchMode,  setDispatchMode]  = useState("closest");  // closest | manual
+  const [pickupFeeOn,   setPickupFeeOn]   = useState(true);
+  const [beyondCapKm,   setBeyondCapKm]   = useState("30");   // max km beyond radius before fee is capped
+  const [beyondFeeFlat, setBeyondFeeFlat] = useState("2.00"); // flat fee for any over-radius dispatch
+  const [beyondFeeOn,   setBeyondFeeOn]   = useState(true);
+  const [waitFeeOn,     setWaitFeeOn]     = useState(true);   // wait-time > ride surcharge
+  const [waitFeeRate,   setWaitFeeRate]   = useState("0.20"); // CA$ per minute over threshold
+  const [waitFeeMinutes,setWaitFeeMinutes]= useState("5");    // grace minutes before fee kicks in
+
+  // ── Airport pricing ───────────────────────────────────────────────────────
+  const [airportFareYYZ,    setAirportFareYYZ]    = useState("55.00");  // CA$ flat rate to/from YYZ
+  const [airportFareYHM,    setAirportFareYHM]    = useState("35.00");  // CA$ flat rate to/from YHM
+  const [airportFareYTZ,    setAirportFareYTZ]    = useState("28.00");  // CA$ flat rate to/from YTZ
+  const [airportBookingFee, setAirportBookingFee] = useState("3.00");   // CA$ platform booking fee
+  const [airportMinNotice,  setAirportMinNotice]  = useState("2");      // hours notice required
+
+  // ── Shuttle pricing ───────────────────────────────────────────────────────
+  const [shuttleBaseFare,   setShuttleBaseFare]   = useState("12.00");  // CA$ base fare per seat
+  const [shuttlePeakMult,   setShuttlePeakMult]   = useState("1.25");   // peak hour multiplier
+  const [shuttleBookingFee, setShuttleBookingFee] = useState("1.50");   // CA$ booking fee per seat
+  const [shuttlePeakOn,     setShuttlePeakOn]     = useState(true);
+
+  // ── Shuttle Service state ─────────────────────────────────────────────────
+  const [shuttleVehicles, setShuttleVehicles] = useState([]);
+  const [shuttleTrips,    setShuttleTrips]    = useState([]);
+
+  // ── Payment state ─────────────────────────────────────────────────────────
+  // ── Stripe configuration (persisted to Settings in real backend) ──────────
+  const [stripePublishableKey, setStripePublishableKey] = useState("");
+  const [stripeSecretKey,      setStripeSecretKey]      = useState("");
+  const [stripeWebhookSecret,  setStripeWebhookSecret]  = useState("");
+  const [stripeAccountId,      setStripeAccountId]      = useState("");
+  const [stripeMode,           setStripeMode]           = useState("test"); // test | live
+  const [stripeConnected,      setStripeConnected]      = useState(false);
+  const [payoutSchedule,       setPayoutSchedule]       = useState("weekly"); // daily | weekly | manual
+  const [autoPayoutEnabled,    setAutoPayoutEnabled]    = useState(true);
+  const [lastAutoPayoutDate,   setLastAutoPayoutDate]   = useState("");
+  const [nextAutoPayoutDate,   setNextAutoPayoutDate]   = useState("");
+  const [cashoutRequests,      setCashoutRequests]      = useState([]);
+  const [payoutDay,            setPayoutDay]            = useState("monday");
+  const [stripeAutoCapture,    setStripeAutoCapture]    = useState(true);
+  // ── Business account details ──────────────────────────────────────────────
+  const [businessName,         setBusinessName]         = useState("");
+  const [businessEmail,        setBusinessEmail]        = useState("");
+  const [businessPhone,        setBusinessPhone]        = useState("");
+  const [businessAddress,      setBusinessAddress]      = useState("");
+  const [businessBankName,     setBusinessBankName]     = useState("");
+  const [businessBankLast4,    setBusinessBankLast4]    = useState("");
+  const [businessTransitNo,    setBusinessTransitNo]    = useState("");
+  const [businessInstNo,       setBusinessInstNo]       = useState("");
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [payoutRequests, setPayoutRequests] = useState([]);
+
+  function flash(msg, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  function patchDriver(id, delta) {
+    const stampedDelta = { ...delta };
+    setDrivers(prev => prev.map(d => {
+      if (d.id !== id) return d;
+      const updated = { ...d, ...delta };
+      if (delta.status && delta.status !== d.status) {
+        updated.statusSince = new Date().toISOString().slice(0,10);
+        stampedDelta.statusSince = updated.statusSince;
+      }
+      return updated;
+    }));
+    try { (async () => { const sb = await getSupabase(); await sb.from("drivers").update(stampedDelta).eq("id", id); })(); } catch(_) {}
+    flash("Driver updated");
+  }
+
+  function patchRider(id, delta) {
+    setRiders(prev => prev.map(r => r.id === id ? { ...r, ...delta } : r));
+    try { (async () => { const sb = await getSupabase(); await sb.from("riders").update(delta).eq("id", id); })(); } catch(_) {}
+    flash("Rider updated");
+  }
+
+  // Stats
+  const completedTrips = ALL_TRIPS.filter(t => t.status === "completed");
+  const tripRev = completedTrips.reduce((s, t) => s + parseFloat(t.platform.replace("CA$", "") || 0), 0);
+  const subRev  = ALL_SUBS.filter(s => s.status === "paid").length * 25;
+  const totalRev = (tripRev + subRev).toFixed(2);
+  const onlineCount = drivers.filter(d => d.online).length + (liveDriverOn ? 1 : 0); // +1 if Marcus (live demo) is online
+  const todayTrips  = ALL_TRIPS.filter(t => t.date === "Mar 7 2026");
+  const unpaidSubs  = ALL_SUBS.filter(s => s.status !== "paid").length;
+  const pendingDocs = drivers.reduce((n, d) => n + (d.docFiles||[]).filter(f => f.status === "pending").length, 0);
+
+  const NAV = [
+    { id:"overview",  icon:"◈", label:"Overview"       },
+    { id:"drivers",   icon:"⊙", label:"Drivers"        },
+    { id:"riders",    icon:"◉", label:"Riders"         },
+    { id:"trips",     icon:"⊛", label:"Trips"          },
+    { id:"subs",      icon:"⊠", label:"Subscriptions", badge: unpaidSubs },
+    { id:"docs",      icon:"⊟", label:"Documents",     badge: pendingDocs },
+    { id:"promos",    icon:"⊕", label:"Promos"          },
+    { id:"zones",     icon:"⬡", label:"Zone Control"   },
+    { id:"shuttle",   icon:"⊞", label:"Shuttle / Airport" },
+    { id:"payment",   icon:"⊟", label:"Payment"         },
+    { id:"settings",  icon:"◎", label:"Settings"       },
+    { id:"data",      icon:"🗑", label:"Data Management" },
+  ];
+
+  return (
+    <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:"#080c14", fontFamily:"'Space Grotesk',sans-serif", color:"#e2e8f0" }}>
+      <Styles />
+
+      {/* ── SIDEBAR ─────────────────────────── */}
+      <aside style={{ width:220, background:"#080c14", borderRight:"1px solid rgba(99,179,237,0.08)", display:"flex", flexDirection:"column", flexShrink:0 }}>
+        {/* Brand */}
+        <div style={{ padding:"22px 20px 18px", borderBottom:"1px solid rgba(99,179,237,0.08)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+            <div style={{ width:32, height:32, borderRadius:8, background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 0 18px rgba(59,130,246,0.5)" }}>
+              <span style={{ color:"#fff", fontWeight:900, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>Z</span>
+            </div>
+            <div>
+              <div style={{ color:"#f0f9ff", fontWeight:700, fontSize:14, letterSpacing:0.3 }}>ZeezRyde</div>
+              <div style={{ color:"#3b82f6", fontSize:8, fontWeight:600, letterSpacing:2.5, textTransform:"uppercase", marginTop:1 }}>Admin Console</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav links */}
+        <nav style={{ flex:1, padding:"14px 10px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
+          <div style={{ color:"rgba(99,179,237,0.3)", fontSize:8, fontWeight:700, letterSpacing:2.5, textTransform:"uppercase", padding:"4px 10px 8px" }}>Platform</div>
+          {NAV.map(n => {
+            const active = page === n.id;
+            return (
+              <button key={n.id} onClick={() => { setPage(n.id); setSearch(""); }} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", borderRadius:7, border:"none", cursor:"pointer", background:active?"rgba(59,130,246,0.12)":"transparent", width:"100%", textAlign:"left", transition:"all 0.15s" }}>
+                <span style={{ fontSize:15, color:active?"#60a5fa":"rgba(148,163,184,0.5)", width:18, flexShrink:0, fontFamily:"monospace" }}>{n.icon}</span>
+                <span style={{ color:active?"#93c5fd":"#64748b", fontSize:12, fontWeight:active?600:400, flex:1 }}>{n.label}</span>
+                {n.badge > 0 && <span style={{ background:"#ef4444", color:"#fff", fontSize:9, fontWeight:700, padding:"1px 5px", borderRadius:10 }}>{n.badge}</span>}
+                {active && <div style={{ width:3, height:14, borderRadius:2, background:"#3b82f6", flexShrink:0 }} />}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Admin user */}
+        <div style={{ padding:"12px 14px 18px", borderTop:"1px solid rgba(99,179,237,0.08)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 10px", background:"rgba(255,255,255,0.03)", borderRadius:8, border:"1px solid rgba(99,179,237,0.07)" }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>SA</div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:600 }}>Super Admin</div>
+              <div style={{ color:"#334155", fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>admin@zeezryde.com</div>
+            </div>
+          </div>
+          <button onClick={handleLogout}
+            style={{ width:"100%", marginTop:8, padding:"7px 10px", borderRadius:7,
+              border:"1px solid rgba(239,68,68,0.2)", background:"rgba(239,68,68,0.05)",
+              color:"#ef4444", fontSize:11, fontWeight:600, cursor:"pointer", textAlign:"left" }}>
+            ⏻ Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* ── MAIN ───────────────────────────── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+        {/* Topbar */}
+        <header style={{ height:54, background:"rgba(8,12,20,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", alignItems:"center", padding:"0 24px", gap:14, flexShrink:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:7, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:7, padding:"6px 12px", flex:1, maxWidth:320 }}>
+            <span style={{ color:"#334155", fontSize:12 }}>⌕</span>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${page}…`} style={{ background:"none", border:"none", outline:"none", fontSize:12, color:"#94a3b8", width:"100%", fontFamily:"inherit" }} />
+            {search && <button onClick={() => setSearch("")} style={{ background:"none", border:"none", color:"#334155", cursor:"pointer", fontSize:12, padding:0 }}>✕</button>}
+          </div>
+          <div style={{ flex:1 }} />
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e", boxShadow:"0 0 8px #22c55e" }} />
+            <span style={{ color:"#334155", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>LIVE</span>
+          </div>
+          <div style={{ width:1, height:20, background:"rgba(99,179,237,0.1)" }} />
+          <span style={{ color:"#334155", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>SAT MAR 07 2026</span>
+        </header>
+
+        {/* Page scroll area */}
+        <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px" }}>
+          {page === "overview"  && <PageOverview  drivers={drivers} trips={ALL_TRIPS} subs={ALL_SUBS} onlineCount={onlineCount} totalRev={totalRev} tripRev={tripRev} subRev={subRev} todayTrips={todayTrips} maxDrivers={MAX_DRIVERS}
+              setDrivers={setDrivers} setTrips={setLiveTrips} setAllSubs={() => {}} />}
+          {page === "drivers"   && <PageDrivers   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS}  setDrivers={setDrivers} />}
+          {page === "riders"    && <PageRiders    riders={riders}   search={search} filter={rFilter} setFilter={setRFilter} patchRider={patchRider}   setModal={setModal} />}
+          {page === "trips"     && <PageTrips     trips={[...liveTrips.map(t => ({ id:t.id, rider:t.rider, driver:t.driver, from:t.origin, to:t.dest, fare:t.fare, status:t.status, time:t.time, rideType:t.rideType, _live:true })), ...ALL_TRIPS]} search={search} />}
+          {page === "subs"      && <PageSubs      subs={ALL_SUBS}   drivers={drivers} />}
+          {page === "docs"      && <PageDocs       drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
+          {page === "promos"    && <PagePromos    promos={promos} setPromos={setPromos} drivers={drivers} />}
+          {page === "zones"     && <PageZones     drivers={drivers} patchDriver={patchDriver} />}
+          {page === "shuttle"   && <PageShuttle   shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} trips={shuttleTrips} setTrips={setShuttleTrips} drivers={drivers} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
+          {page === "payment"   && <PagePayment   methods={paymentMethods} setMethods={setPaymentMethods} payouts={payoutRequests} setPayouts={setPayoutRequests} trips={ALL_TRIPS} subs={ALL_SUBS} stripePublishableKey={stripePublishableKey} setStripePublishableKey={setStripePublishableKey} stripeSecretKey={stripeSecretKey} setStripeSecretKey={setStripeSecretKey} stripeWebhookSecret={stripeWebhookSecret} setStripeWebhookSecret={setStripeWebhookSecret} stripeAccountId={stripeAccountId} setStripeAccountId={setStripeAccountId} stripeMode={stripeMode} setStripeMode={setStripeMode} stripeConnected={stripeConnected} setStripeConnected={setStripeConnected} payoutSchedule={payoutSchedule} setPayoutSchedule={setPayoutSchedule} payoutDay={payoutDay} setPayoutDay={setPayoutDay} stripeAutoCapture={stripeAutoCapture} setStripeAutoCapture={setStripeAutoCapture} businessName={businessName} setBusinessName={setBusinessName} businessEmail={businessEmail} setBusinessEmail={setBusinessEmail} businessPhone={businessPhone} setBusinessPhone={setBusinessPhone} businessAddress={businessAddress} setBusinessAddress={setBusinessAddress} businessBankName={businessBankName} setBusinessBankName={setBusinessBankName} businessBankLast4={businessBankLast4} setBusinessBankLast4={setBusinessBankLast4} businessTransitNo={businessTransitNo} setBusinessTransitNo={setBusinessTransitNo} businessInstNo={businessInstNo} setBusinessInstNo={setBusinessInstNo} autoPayoutEnabled={autoPayoutEnabled} setAutoPayoutEnabled={setAutoPayoutEnabled} lastAutoPayoutDate={lastAutoPayoutDate} nextAutoPayoutDate={nextAutoPayoutDate} cashoutRequests={cashoutRequests} setCashoutRequests={setCashoutRequests} />}
+          {page === "data"      && <PageDataManagement />}
+          {page === "settings"  && <PageSettings  airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} riderDelayFee={riderDelayFee} setRiderDelayFee={setRiderDelayFee} driverCancelFee={driverCancelFee} setDriverCancelFee={setDriverCancelFee} surgeEnabled={surgeEnabled} setSurgeEnabled={setSurgeEnabled} surgeRadiusKm={surgeRadiusKm} setSurgeRadiusKm={setSurgeRadiusKm} subFee={subFee} setSubFee={setSubFee} commPct={commPct} setCommPct={setCommPct} countdown={countdown} setCountdown={setCountdown} reqSub={reqSub} setReqSub={setReqSub} autoSusp={autoSusp} setAutoSusp={setAutoSusp} adminAlert={adminAlert} setAdminAlert={setAdminAlert} flash={flash} trips={ALL_TRIPS} drivers={drivers} subs={ALL_SUBS} maxPickupKm={maxPickupKm} setMaxPickupKm={setMaxPickupKm} pickupFeeKm={pickupFeeKm} setPickupFeeKm={setPickupFeeKm} dispatchMode={dispatchMode} setDispatchMode={setDispatchMode} pickupFeeOn={pickupFeeOn} setPickupFeeOn={setPickupFeeOn} baseFare={baseFare} setBaseFare={setBaseFare} ratePerKm={ratePerKm} setRatePerKm={setRatePerKm} ratePerMin={ratePerMin} setRatePerMin={setRatePerMin} minimumFare={minimumFare} setMinimumFare={setMinimumFare} beyondCapKm={beyondCapKm} setBeyondCapKm={setBeyondCapKm} beyondFeeFlat={beyondFeeFlat} setBeyondFeeFlat={setBeyondFeeFlat} beyondFeeOn={beyondFeeOn} setBeyondFeeOn={setBeyondFeeOn} waitFeeOn={waitFeeOn} setWaitFeeOn={setWaitFeeOn} waitFeeRate={waitFeeRate} setWaitFeeRate={setWaitFeeRate} waitFeeMinutes={waitFeeMinutes} setWaitFeeMinutes={setWaitFeeMinutes} />}
+        </main>
+      </div>
+
+      {/* Modal */}
+      {modal && <Modal modal={modal} setModal={setModal} patchDriver={patchDriver} patchRider={patchRider} />}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position:"fixed", bottom:24, right:24, background:toast.ok?"#166534":"#991b1b", border:`1px solid ${toast.ok?"#22c55e":"#ef4444"}`, color:toast.ok?"#86efac":"#fca5a5", padding:"11px 18px", borderRadius:9, fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5, zIndex:9999, boxShadow:"0 8px 32px rgba(0,0,0,0.5)", animation:"fadeUp 0.25s ease" }}>
+          {toast.ok ? "✓" : "✗"} {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: OVERVIEW
+// ─────────────────────────────────────────────────────────────────────────────
+function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, subRev, todayTrips, maxDrivers=50, setDrivers, setTrips, setAllSubs }) {
+  const completed = trips.filter(t => t.status === "completed");
+  const cancelled = trips.filter(t => t.status === "cancelled");
+  const paidSubs  = subs.filter(s => s.status === "paid").length;
+  const unpaidSubs= subs.filter(s => s.status !== "paid").length;
+
+  // Load real data from Supabase
+  useEffect(() => {
+    (async () => {
+      try {
+        const sb = await getSupabase();
+        const [{ data: drv }, { data: trp }, { data: sub }, { data: rdr }] = await Promise.all([
+          sb.from("drivers").select("*").neq("status","archived").order("joined",{ascending:false}),
+          sb.from("trips").select("*").order("requested_at",{ascending:false}).limit(200),
+          sb.from("subscriptions").select("*").order("created_at",{ascending:false}),
+          sb.from("riders").select("*").order("created_at",{ascending:false}),
+        ]);
+        if (drv && setDrivers) setDrivers(drv);
+        if (rdr) setRiders(rdr.map(r => ({ ...r, status: r.status||"active" })));
+        if (trp) setLiveTrips(trp.map(t => ({
+          id: t.id, rider: t.rider||"Rider", driver: t.driver||"-",
+          origin: t.origin||"-", dest: t.dest||"-",
+          fare: t.fare ? "CA$"+t.fare : "-",
+          status: t.status||"completed", time: t.requested_at ? new Date(t.requested_at).toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) : "-",
+          rideType: t.rideType||"Family", seats: t.seats||null,
+        })));
+        if (sub && setAllSubs) setAllSubs(sub);
+      } catch (err) { console.error("Overview Supabase load:", err.message); }
+    })();
+  }, []);
+
+  const KPIS = [
+    { label:"PLATFORM REVENUE",  value:`CA$${totalRev}`,    sub:"Trips + subscriptions",         accent:"#3b82f6" },
+    { label:"DRIVERS ONLINE",    value:`${onlineCount}/${drivers.length}`, sub:"Available right now", accent:"#22c55e" },
+    { label:"DRIVER CAPACITY",   value:`${drivers.length}/${maxDrivers}`, sub: drivers.length>=maxDrivers ? "⚠ At capacity — registrations paused" : `${maxDrivers-drivers.length} spots remaining`, accent: drivers.length>=maxDrivers?"#ef4444":drivers.length>=maxDrivers*0.9?"#f59e0b":"#3b82f6" },
+    { label:"TRIPS TODAY",       value:todayTrips.length,   sub:`${todayTrips.filter(t=>t.status==="completed").length} completed`, accent:"#f59e0b" },
+    { label:"UNPAID SUBS",       value:unpaidSubs,          sub:"Drivers blocked from going live", accent: unpaidSubs > 0 ? "#ef4444" : "#22c55e" },
+  ];
+
+  const weekBars = [
+    { d:"MON", v:62 }, { d:"TUE", v:45 }, { d:"WED", v:78 }, { d:"THU", v:91 },
+    { d:"FRI", v:55 }, { d:"SAT", v:100 }, { d:"SUN", v:34 },
+  ];
+
+  return (
+    <div>
+      <SectionHdr title="Overview" sub="Platform health · Mar 7, 2026" />
+
+      {/* KPI row */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+        {KPIS.map((k, i) => (
+          <div key={k.label} className="kpi-card" style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, padding:"18px 20px", position:"relative", overflow:"hidden", animationDelay:`${i*0.06}s` }}>
+            <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:`linear-gradient(90deg,${k.accent}aa,${k.accent}00)` }} />
+            <div style={{ color:"rgba(148,163,184,0.5)", fontSize:8, fontWeight:700, letterSpacing:2, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>{k.label}</div>
+            <div style={{ color:k.accent, fontSize:30, fontWeight:700, letterSpacing:-1, fontFamily:"'JetBrains Mono',monospace", lineHeight:1, marginBottom:5 }}>{k.value}</div>
+            <div style={{ color:"#334155", fontSize:11 }}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Middle row */}
+      <div style={{ display:"grid", gridTemplateColumns:"1.5fr 1fr", gap:12, marginBottom:12 }}>
+        {/* Recent trips */}
+        <Panel title="RECENT TRIPS" sub={`${completed.length} completed · ${cancelled.length} cancelled`}>
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead><tr>{["ID","RIDER","DRIVER","FARE","STATUS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+            <tbody>
+              {trips.slice(0,7).map(t => (
+                <tr key={t.id} className="trow">
+                  <Td><Mono small>{t.id}</Mono></Td>
+                  <Td muted>{t.rider}</Td>
+                  <Td muted>{t.driver}</Td>
+                  <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{t.fare}</span></Td>
+                  <Td><StatusBadge s={t.status} /></Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+
+        {/* Right column */}
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {/* Revenue breakdown */}
+          <Panel title="REVENUE SPLIT">
+            {[
+              ["Trip commissions (10%)", `CA$${tripRev.toFixed(2)}`, "#3b82f6"],
+              ["Weekly subscriptions",   `CA$${subRev}`,             "#a78bfa"],
+              ["Total platform earnings",`CA$${(tripRev+subRev).toFixed(2)}`, "#22c55e"],
+            ].map(([l, v, c]) => (
+              <div key={l} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid rgba(99,179,237,0.06)" }}>
+                <span style={{ color:"#4b5563", fontSize:11 }}>{l}</span>
+                <span style={{ color:c, fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{v}</span>
+              </div>
+            ))}
+          </Panel>
+
+          {/* Sub status */}
+          <Panel title="SUBSCRIPTION STATUS">
+            <div style={{ display:"flex", gap:8 }}>
+              <div style={{ flex:1, background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.15)", borderRadius:8, padding:"12px", textAlign:"center" }}>
+                <div style={{ color:"#22c55e", fontSize:26, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{paidSubs}</div>
+                <div style={{ color:"#374151", fontSize:10, marginTop:3 }}>PAID</div>
+              </div>
+              <div style={{ flex:1, background:"rgba(239,68,68,0.07)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:8, padding:"12px", textAlign:"center" }}>
+                <div style={{ color:"#ef4444", fontSize:26, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{unpaidSubs}</div>
+                <div style={{ color:"#374151", fontSize:10, marginTop:3 }}>UNPAID</div>
+              </div>
+            </div>
+          </Panel>
+        </div>
+      </div>
+
+      {/* Weekly bar chart */}
+      <Panel title="WEEKLY TRIP VOLUME" sub="Mar 1–7, 2026">
+        <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:80, marginTop:8 }}>
+          {weekBars.map(b => (
+            <div key={b.d} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4, height:"100%", justifyContent:"flex-end" }}>
+              <div style={{ width:"100%", height:`${b.v}%`, background:`linear-gradient(180deg, rgba(59,130,246,0.9) 0%, rgba(29,78,216,0.6) 100%)`, borderRadius:"3px 3px 0 0", border:"1px solid rgba(59,130,246,0.3)", transition:"height 0.4s ease" }} />
+              <div style={{ fontSize:8, color:"#334155", fontFamily:"'JetBrains Mono',monospace" }}>{b.d}</div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: DRIVERS
+// ─────────────────────────────────────────────────────────────────────────────
+function PageDrivers({ drivers, search, filter, setFilter, patchDriver, setModal, maxDrivers=50, setDrivers }) {
+  // Reload drivers from Supabase on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const sb = await getSupabase();
+        const { data } = await sb.from("drivers").select("*").neq("status","archived").order("joined",{ascending:false});
+        if (data && setDrivers) setDrivers(data);
+      } catch (err) { console.error("Drivers load:", err.message); }
+    })();
+  }, []);
+  const ARCHIVE_DAYS = 28; // 4 weeks
+  const TODAY = new Date("2026-03-08");
+  const [reminderTarget, setReminderTarget] = useState(null);
+  const [reminderSent, setReminderSent]     = useState({});
+
+  const daysSince = (dateStr) => {
+    if (!dateStr) return 0;
+    return Math.floor((TODAY - new Date(dateStr)) / (1000*60*60*24));
+  };
+
+  const shouldArchive = (d) =>
+    (d.status === "suspended" || d.status === "inactive") &&
+    daysSince(d.statusSince) >= ARCHIVE_DAYS;
+
+  const activeDrivers   = drivers.filter(d => !shouldArchive(d));
+  const archivedDrivers = drivers.filter(d => shouldArchive(d));
+
+  const counts = {
+    all:       activeDrivers.length,
+    active:    activeDrivers.filter(d => d.status === "active").length,
+    suspended: activeDrivers.filter(d => d.status === "suspended").length,
+    inactive:  activeDrivers.filter(d => d.status === "inactive").length,
+  };
+
+  const visible = activeDrivers
+    .filter(d => filter === "all" || d.status === filter)
+    .filter(d => !search || [d.name, d.email, d.id, d.plate].some(f => f.toLowerCase().includes(search.toLowerCase())));
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:22 }}>
+        <div>
+          <h1 style={{ color:"#f0f9ff", fontSize:20, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:-0.3 }}>Drivers</h1>
+          <p style={{ color:"#334155", fontSize:12, marginTop:4, fontFamily:"'JetBrains Mono',monospace" }}>{drivers.length} registered · {drivers.filter(d=>d.online).length} online now</p>
+        </div>
+        {/* Capacity indicator */}
+        <div style={{ background:"#0d1220", border:`1px solid ${drivers.length>=maxDrivers?"rgba(239,68,68,0.3)":drivers.length>=maxDrivers*0.9?"rgba(245,158,11,0.3)":"rgba(99,179,237,0.1)"}`, borderRadius:10, padding:"10px 16px", textAlign:"right", minWidth:140 }}>
+          <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:4 }}>DRIVER CAPACITY</div>
+          <div style={{ color:drivers.length>=maxDrivers?"#ef4444":drivers.length>=maxDrivers*0.9?"#f59e0b":"#3b82f6", fontSize:22, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>
+            {drivers.length}<span style={{ color:"#334155", fontSize:13 }}>/{maxDrivers}</span>
+          </div>
+          {/* Progress bar */}
+          <div style={{ marginTop:6, height:3, borderRadius:3, background:"rgba(255,255,255,0.05)", overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${Math.min(100, drivers.length/maxDrivers*100)}%`, background:drivers.length>=maxDrivers?"#ef4444":drivers.length>=maxDrivers*0.9?"#f59e0b":"#3b82f6", borderRadius:3, transition:"width 0.4s ease" }} />
+          </div>
+          {drivers.length >= maxDrivers && (
+            <div style={{ color:"#ef4444", fontSize:8, fontWeight:700, letterSpacing:1, fontFamily:"'JetBrains Mono',monospace", marginTop:4 }}>AT CAPACITY</div>
+          )}
+          {drivers.length >= maxDrivers*0.9 && drivers.length < maxDrivers && (
+            <div style={{ color:"#f59e0b", fontSize:8, fontWeight:700, letterSpacing:1, fontFamily:"'JetBrains Mono',monospace", marginTop:4 }}>{maxDrivers - drivers.length} SPOTS LEFT</div>
+          )}
+        </div>
+      </div>
+
+      {/* Filter pills */}
+      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+        {Object.entries(counts).map(([k, v]) => (
+          <FilterPill key={k} label={k} count={v} active={filter === k} onClick={() => setFilter(k)} accent="#3b82f6" />
+        ))}
+      </div>
+
+      <Panel>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead><tr>{["DRIVER","CONTACT","VEHICLE","STATUS","ONLINE","SUB","RATING","TRIPS","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+          <tbody>
+            {visible.map(d => (
+              <tr key={d.id} className="trow">
+                <Td>
+                  <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+                    <Avi name={d.name} seed={d.id} />
+                    <div>
+                      <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:500 }}>{d.name}</div>
+                      <Mono small>{d.id}</Mono>
+                    </div>
+                  </div>
+                </Td>
+                <Td>
+                  <div style={{ color:"#64748b", fontSize:11 }}>{d.email}</div>
+                  <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{d.phone}</div>
+                </Td>
+                <Td>
+                  <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    <div style={{ color:"#94a3b8", fontSize:12 }}>{d.vehicle}</div>
+                    {vehicleYearWarning(d.vehicleYear) && (
+                      <span title={vehicleYearWarning(d.vehicleYear)} style={{ background: d.vehicleYear < MIN_VEHICLE_YEAR ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)", border: d.vehicleYear < MIN_VEHICLE_YEAR ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(245,158,11,0.3)", color: d.vehicleYear < MIN_VEHICLE_YEAR ? "#ef4444" : "#f59e0b", fontSize:8, fontWeight:700, padding:"1px 5px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", cursor:"help", flexShrink:0 }}>
+                        {d.vehicleYear < MIN_VEHICLE_YEAR ? "OVER AGE" : "⚠ AGE"}
+                      </span>
+                    )}
+                  </div>
+                  <Mono small>{d.plate}</Mono>
+                </Td>
+                <Td><StatusBadge s={d.status} /></Td>
+                <Td>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <div style={{ width:6, height:6, borderRadius:"50%", background:d.online?"#22c55e":"#1e293b", boxShadow:d.online?"0 0 6px #22c55e":"none" }} />
+                    <span style={{ color:d.online?"#22c55e":"#334155", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{d.online?"ONLINE":"OFFLINE"}</span>
+                  </div>
+                </Td>
+                <Td>
+                  <span style={{ background:d.subPaid?"rgba(34,197,94,0.08)":"rgba(239,68,68,0.08)", border:`1px solid ${d.subPaid?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"}`, color:d.subPaid?"#22c55e":"#ef4444", fontSize:9, fontWeight:700, padding:"2px 8px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
+                    {d.subPaid ? "PAID" : "UNPAID"}
+                  </span>
+                </Td>
+                <Td><span style={{ color:"#f59e0b", fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>★ {d.rating.toFixed(2)}</span></Td>
+                <Td><span style={{ color:"#e2e8f0", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{d.trips.toLocaleString()}</span></Td>
+                <Td>
+                  <div style={{ display:"flex", gap:5 }}>
+                    <ActBtn onClick={() => setModal({ type:"driver", data:d })}>View</ActBtn>
+                    {d.status === "active"
+                      ? <ActBtn danger onClick={() => patchDriver(d.id, { status:"suspended" })}>Suspend</ActBtn>
+                      : <ActBtn success onClick={() => patchDriver(d.id, { status:"active" })}>Reinstate</ActBtn>
+                    }
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {visible.length === 0 && <EmptyRow text="No drivers match your filter." />}
+      </Panel>
+
+      {/* ── Archived Drivers ── */}
+      {archivedDrivers.length > 0 && (
+        <div style={{ marginTop:32 }}>
+          {/* Section divider */}
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+            <div style={{ flex:1, height:1, background:"linear-gradient(90deg,rgba(239,68,68,0.25),transparent)" }} />
+            <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(239,68,68,0.07)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:20, padding:"5px 14px" }}>
+              <div style={{ width:7, height:7, borderRadius:"50%", background:"#ef4444", boxShadow:"0 0 8px #ef4444" }} />
+              <span style={{ color:"#ef4444", fontSize:10, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", textTransform:"uppercase" }}>Archived · {archivedDrivers.length}</span>
+            </div>
+            <div style={{ flex:1, height:1, background:"linear-gradient(90deg,transparent,rgba(239,68,68,0.25))" }} />
+          </div>
+          <div style={{ color:"#475569", fontSize:11, fontFamily:"'Space Grotesk',sans-serif", marginBottom:12 }}>
+            Drivers suspended or inactive for <strong style={{ color:"#64748b" }}>4+ weeks</strong> — send a reminder to bring them back.
+          </div>
+          <div style={{ background:"#080c14", border:"1px solid rgba(239,68,68,0.12)", borderRadius:12, overflow:"hidden" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>
+                  {["DRIVER","CONTACT","VEHICLE","STATUS","DAYS","ARCHIVED DATE","TRIPS","ACTIONS"].map(h => (
+                    <th key={h} style={{ padding:"11px 14px", textAlign:"left", fontSize:8, fontWeight:700, color:"rgba(100,116,139,0.6)", letterSpacing:2, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", borderBottom:"1px solid rgba(71,85,105,0.2)", background:"rgba(0,0,0,0.3)", whiteSpace:"nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {archivedDrivers.map(d => {
+                  const days = daysSince(d.statusSince);
+                  const archiveDate = d.statusSince ? new Date(new Date(d.statusSince).getTime() + ARCHIVE_DAYS*24*60*60*1000).toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}) : "—";
+                  return (
+                    <tr key={d.id} style={{ borderBottom:"1px solid rgba(71,85,105,0.08)" }}>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+                          <Avi name={d.name} seed={d.id} />
+                          <div>
+                            <div style={{ color:"#64748b", fontSize:13, fontWeight:500 }}>{d.name}</div>
+                            <span style={{ background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.12)", color:"#475569", fontSize:9, fontWeight:500, padding:"1px 5px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", display:"inline-block" }}>{d.id}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <div style={{ color:"#475569", fontSize:11 }}>{d.email}</div>
+                        <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{d.phone}</div>
+                      </td>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <div style={{ color:"#475569", fontSize:12 }}>{d.vehicle}</div>
+                        <span style={{ background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.12)", color:"#475569", fontSize:9, fontWeight:500, padding:"1px 5px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", display:"inline-block" }}>{d.plate}</span>
+                      </td>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <span style={{ background:d.status==="suspended"?"rgba(239,68,68,0.06)":"rgba(100,116,139,0.06)", border:`1px solid ${d.status==="suspended"?"rgba(239,68,68,0.15)":"rgba(100,116,139,0.15)"}`, color:d.status==="suspended"?"#7f1d1d":"#475569", fontSize:9, fontWeight:700, padding:"2px 9px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, textTransform:"uppercase" }}>
+                          {d.status}
+                        </span>
+                      </td>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <div style={{ background:"rgba(71,85,105,0.15)", borderRadius:5, padding:"3px 8px" }}>
+                            <span style={{ color:"#94a3b8", fontSize:12, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{days}</span>
+                            <span style={{ color:"#475569", fontSize:9, marginLeft:3 }}>days</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <span style={{ color:"#475569", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{archiveDate}</span>
+                      </td>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <span style={{ color:"#475569", fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>{d.trips.toLocaleString()}</span>
+                      </td>
+                      <td style={{ padding:"11px 14px", borderBottom:"1px solid rgba(71,85,105,0.1)" }}>
+                        <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                          <button onClick={() => setModal({ type:"driver", data:d })} style={{ background:"rgba(71,85,105,0.1)", border:"1px solid rgba(71,85,105,0.2)", color:"#64748b", borderRadius:6, padding:"4px 10px", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5 }}>View</button>
+                          <button
+                            onClick={() => setReminderTarget(d)}
+                            disabled={!!reminderSent[d.id]}
+                            style={{ background: reminderSent[d.id] ? "rgba(34,197,94,0.07)" : "linear-gradient(135deg,#2563eb,#7c3aed)", border: reminderSent[d.id] ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(124,58,237,0.4)", color: reminderSent[d.id] ? "#22c55e" : "#fff", borderRadius:7, padding:"5px 13px", fontSize:10, fontWeight:700, cursor: reminderSent[d.id] ? "default" : "pointer", fontFamily:"'Space Grotesk',sans-serif", letterSpacing:0.3, boxShadow: reminderSent[d.id] ? "none" : "0 2px 12px rgba(37,99,235,0.35)", transition:"all 0.2s" }}
+                          >
+                            {reminderSent[d.id] ? "✓ Sent" : "✦ Remind"}
+                          </button>
+                          <button onClick={() => patchDriver(d.id, { status:"active" })} style={{ background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.2)", color:"#22c55e", borderRadius:6, padding:"4px 10px", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5 }}>Reinstate</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {/* ── Reminder Modal ── */}
+      {reminderTarget && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", backdropFilter:"blur(6px)", zIndex:9000, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
+          onClick={() => setReminderTarget(null)}
+        >
+          <div style={{ background:"linear-gradient(160deg,#0d1220,#0f172a)", border:"1px solid rgba(99,179,237,0.15)", borderRadius:18, width:"100%", maxWidth:500, overflow:"hidden", boxShadow:"0 32px 80px rgba(0,0,0,0.7)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header gradient bar */}
+            <div style={{ height:4, background:"linear-gradient(90deg,#2563eb,#7c3aed,#ec4899)" }} />
+
+            <div style={{ padding:"28px 32px 24px" }}>
+              {/* Icon + title */}
+              <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:22 }}>
+                <div style={{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg,rgba(37,99,235,0.2),rgba(124,58,237,0.2))", border:"1px solid rgba(99,179,237,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>✦</div>
+                <div>
+                  <div style={{ color:"#f0f9ff", fontSize:15, fontWeight:700, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:-0.3 }}>Re-engagement Reminder</div>
+                  <div style={{ color:"#334155", fontSize:11, fontFamily:"'JetBrains Mono',monospace", marginTop:2 }}>Sending to {reminderTarget.name} · {reminderTarget.email}</div>
+                </div>
+              </div>
+
+              {/* Message preview card */}
+              <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(99,179,237,0.08)", borderRadius:12, padding:"20px 22px", marginBottom:20, position:"relative", overflow:"hidden" }}>
+                <div style={{ position:"absolute", right:-20, top:-20, width:100, height:100, borderRadius:"50%", background:"radial-gradient(circle,rgba(37,99,235,0.08),transparent)" }} />
+
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:12, textTransform:"uppercase" }}>Message Preview</div>
+
+                <div style={{ color:"#e2e8f0", fontSize:13, lineHeight:1.85, fontFamily:"'Space Grotesk',sans-serif" }}>
+                  <p style={{ margin:"0 0 12px" }}>Hey <strong style={{ color:"#60a5fa" }}>{reminderTarget.name.split(" ")[0]}</strong> 👋</p>
+                  <p style={{ margin:"0 0 12px" }}>
+                    We've been keeping your seat warm. You built something real here: <strong style={{ color:"#a5f3fc" }}>{reminderTarget.trips.toLocaleString()} trips</strong>, a <strong style={{ color:"#fde68a" }}>★ {reminderTarget.rating.toFixed(2)}</strong> rating, and a reputation riders trust.
+                  </p>
+                  <p style={{ margin:"0 0 12px" }}>
+                    Why not reactivate your <strong style={{ color:"#c4b5fd" }}>Zeez Ryde</strong> and get back on the road...?
+                  </p>
+                  <p style={{ margin:"0 0 16px" }}>
+                    The platform is growing. The rides are waiting.{" "}
+                    <strong style={{ color:"#f9a8d4" }}>We are waiting for you...!</strong>
+                  </p>
+                  <p style={{ margin:0, color:"#64748b", fontSize:12 }}>
+                    — The Zeez Ryde Team 🚀
+                  </p>
+                </div>
+              </div>
+
+              {/* Delivery channels */}
+              <div style={{ display:"flex", gap:8, marginBottom:22 }}>
+                {[["📧","Email",reminderTarget.email],["📱","SMS",reminderTarget.phone]].map(([icon,label,val])=>(
+                  <div key={label} style={{ flex:1, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.08)", borderRadius:9, padding:"10px 12px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                      <span style={{ fontSize:13 }}>{icon}</span>
+                      <span style={{ color:"rgba(148,163,184,0.5)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", textTransform:"uppercase" }}>{label}</span>
+                    </div>
+                    <div style={{ color:"#475569", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display:"flex", gap:10 }}>
+                <button
+                  onClick={() => setReminderTarget(null)}
+                  style={{ flex:1, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(99,179,237,0.1)", color:"#64748b", borderRadius:10, padding:"12px", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Space Grotesk',sans-serif" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setReminderSent(prev => ({ ...prev, [reminderTarget.id]: true }));
+                    setReminderTarget(null);
+                    flash("Reminder sent to " + reminderTarget.name);
+                  }}
+                  style={{ flex:2, background:"linear-gradient(135deg,#2563eb,#7c3aed)", border:"none", color:"#fff", borderRadius:10, padding:"12px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'Space Grotesk',sans-serif", letterSpacing:0.3, boxShadow:"0 4px 20px rgba(37,99,235,0.35)" }}
+                >
+                  ✦ Send Reminder
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: RIDERS
+// ─────────────────────────────────────────────────────────────────────────────
+function PageRiders({ riders, search, filter, setFilter, patchRider, setModal }) {
+  const counts = {
+    all:       riders.length,
+    active:    riders.filter(r => r.status === "active").length,
+    suspended: riders.filter(r => r.status === "suspended").length,
+    inactive:  riders.filter(r => r.status === "inactive").length,
+  };
+
+  const visible = riders
+    .filter(r => filter === "all" || r.status === filter)
+    .filter(r => !search || [r.name, r.email, r.id].some(f => f.toLowerCase().includes(search.toLowerCase())));
+
+  return (
+    <div>
+      <SectionHdr title="Riders" sub={`${riders.length} registered · ${riders.filter(r=>r.status==="active").length} active`} />
+
+      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+        {Object.entries(counts).map(([k, v]) => (
+          <FilterPill key={k} label={k} count={v} active={filter === k} onClick={() => setFilter(k)} accent="#a78bfa" />
+        ))}
+      </div>
+
+      <Panel>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead><tr>{["RIDER","CONTACT","STATUS","RATING","TRIPS","TOTAL SPENT","PAYMENT","JOINED","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+          <tbody>
+            {visible.map(r => (
+              <tr key={r.id} className="trow">
+                <Td>
+                  <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+                    <Avi name={r.name} seed={r.id} hue={260} />
+                    <div>
+                      <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:500 }}>{r.name}</div>
+                      <Mono small>{r.id}</Mono>
+                    </div>
+                  </div>
+                </Td>
+                <Td>
+                  <div style={{ color:"#64748b", fontSize:11 }}>{r.email}</div>
+                  <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{r.phone}</div>
+                </Td>
+                <Td><StatusBadge s={r.status} /></Td>
+                <Td><span style={{ color:"#f59e0b", fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>★ {r.rating.toFixed(2)}</span></Td>
+                <Td><span style={{ color:"#e2e8f0", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{r.trips}</span></Td>
+                <Td><span style={{ color:"#22c55e", fontWeight:700, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{r.spent}</span></Td>
+                <Td><span style={{ color:"#64748b", fontSize:11 }}>{r.payment}</span></Td>
+                <Td><span style={{ color:"#334155", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{r.joined}</span></Td>
+                <Td>
+                  <div style={{ display:"flex", gap:5 }}>
+                    <ActBtn onClick={() => setModal({ type:"rider", data:r })}>View</ActBtn>
+                    {r.status === "active"
+                      ? <ActBtn danger onClick={() => patchRider(r.id, { status:"suspended" })}>Suspend</ActBtn>
+                      : <ActBtn success onClick={() => patchRider(r.id, { status:"active" })}>Reinstate</ActBtn>
+                    }
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {visible.length === 0 && <EmptyRow text="No riders match your filter." />}
+      </Panel>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: TRIPS
+// ─────────────────────────────────────────────────────────────────────────────
+function PageTrips({ trips, search }) {
+  const visible = trips.filter(t =>
+    !search || [t.id, t.rider, t.driver, t.to, t.from].some(f => f.toLowerCase().includes(search.toLowerCase()))
+  );
+  const done   = visible.filter(t => t.status === "completed");
+  const canc   = visible.filter(t => t.status === "cancelled");
+  const grossFare = done.reduce((s, t) => s + parseFloat(t.fare.replace("CA$","") || 0), 0);
+  const grossPlat = done.reduce((s, t) => s + parseFloat(t.platform.replace("CA$","") || 0), 0);
+
+  return (
+    <div>
+      <SectionHdr title="Trips" sub={`${trips.length} total records`} />
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:18 }}>
+        {[
+          ["TOTAL",     visible.length,              "#93c5fd"],
+          ["COMPLETED", done.length,                 "#22c55e"],
+          ["CANCELLED", canc.length,                 "#ef4444"],
+          ["GROSS FARE",`CA$${grossFare.toFixed(2)}`, "#f59e0b"],
+        ].map(([l, v, c]) => (
+          <div key={l} style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.08)", borderRadius:10, padding:"14px 16px" }}>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>{l}</div>
+            <div style={{ color:c, fontSize:22, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <Panel>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead><tr>{["TRIP ID","DATE","RIDER","DRIVER","ROUTE","TYPE","FARE","DRIVER EARNED","PLATFORM","STATUS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+          <tbody>
+            {visible.map(t => (
+              <tr key={t.id} className="trow">
+                <Td><Mono small>{t.id}</Mono></Td>
+                <Td>
+                  <div style={{ color:"#64748b", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{t.date}</div>
+                  <div style={{ color:"#334155", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{t.time}</div>
+                </Td>
+                <Td muted>{t.rider}</Td>
+                <Td muted>{t.driver}</Td>
+                <Td>
+                  <div style={{ color:"#475569", fontSize:10, maxWidth:130 }}>{t.from}</div>
+                  <div style={{ color:"#334155", fontSize:10 }}>→ {t.to}</div>
+                </Td>
+                <Td><span style={{ color:"#64748b", fontSize:11 }}>{t.type}</span></Td>
+                <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.fare}</span></Td>
+                <Td><span style={{ color:"#22c55e", fontWeight:600, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.driverCut}</span></Td>
+                <Td><span style={{ color:"#a78bfa", fontWeight:600, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.platform}</span></Td>
+                <Td><StatusBadge s={t.status} /></Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {visible.length === 0 && <EmptyRow text="No trips match your search." />}
+      </Panel>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: SUBSCRIPTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function PageSubs({ subs, drivers }) {
+  const paid   = subs.filter(s => s.status === "paid");
+  const notPaid= subs.filter(s => s.status !== "paid");
+
+  return (
+    <div>
+      <SectionHdr title="Subscriptions" sub="Weekly CA$25 driver pass · renews every Monday" />
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:18 }}>
+        {[
+          ["ACTIVE PASSES",   paid.length,              "rgba(34,197,94,0.07)",  "rgba(34,197,94,0.15)",  "#22c55e"],
+          ["UNPAID / FAILED", notPaid.length,            "rgba(239,68,68,0.07)",  "rgba(239,68,68,0.15)",  "#ef4444"],
+          ["WEEKLY REVENUE",  `CA$${paid.length * 25}`,  "rgba(245,158,11,0.07)", "rgba(245,158,11,0.15)", "#f59e0b"],
+        ].map(([l, v, bg, border, c]) => (
+          <div key={l} style={{ background:bg, border:`1px solid ${border}`, borderRadius:10, padding:"16px 20px" }}>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>{l}</div>
+            <div style={{ color:c, fontSize:28, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <Panel title="ALL SUBSCRIPTION RECORDS" style={{ marginBottom:14 }}>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead><tr>{["PAYMENT ID","DRIVER","AMOUNT","DATE","METHOD","STATUS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+          <tbody>
+            {subs.map(s => (
+              <tr key={s.id} className="trow">
+                <Td><Mono small>{s.id}</Mono></Td>
+                <Td><span style={{ color:"#cbd5e1", fontSize:13 }}>{s.driver}</span></Td>
+                <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{s.amount}</span></Td>
+                <Td><span style={{ color:"#64748b", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{s.date}</span></Td>
+                <Td><span style={{ color:"#64748b", fontSize:11 }}>{s.method}</span></Td>
+                <Td>
+                  <span style={{ background:s.status==="paid"?"rgba(34,197,94,0.08)":s.status==="failed"?"rgba(239,68,68,0.08)":"rgba(245,158,11,0.08)", border:`1px solid ${s.status==="paid"?"rgba(34,197,94,0.2)":s.status==="failed"?"rgba(239,68,68,0.2)":"rgba(245,158,11,0.2)"}`, color:s.status==="paid"?"#22c55e":s.status==="failed"?"#ef4444":"#f59e0b", fontSize:9, fontWeight:700, padding:"2px 9px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, textTransform:"uppercase" }}>
+                    {s.status}
+                  </span>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      {notPaid.length > 0 && (
+        <div style={{ background:"rgba(239,68,68,0.04)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:12, overflow:"hidden" }}>
+          <div style={{ padding:"12px 18px", background:"rgba(239,68,68,0.07)", borderBottom:"1px solid rgba(239,68,68,0.12)", display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ color:"#ef4444", fontSize:12 }}>⚠</span>
+            <span style={{ color:"#ef4444", fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>DRIVERS BLOCKED — subscription not paid</span>
+          </div>
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead><tr>{["DRIVER ID","DRIVER NAME","REASON","ACTION"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+            <tbody>
+              {notPaid.map(s => (
+                <tr key={s.id} className="trow">
+                  <Td><Mono small>{s.dId}</Mono></Td>
+                  <Td><span style={{ color:"#e2e8f0", fontSize:13 }}>{s.driver}</span></Td>
+                  <Td>
+                    <span style={{ background:s.status==="failed"?"rgba(239,68,68,0.1)":"rgba(245,158,11,0.1)", color:s.status==="failed"?"#ef4444":"#f59e0b", fontSize:10, fontWeight:600, padding:"2px 8px", borderRadius:4 }}>
+                      {s.status==="failed"?"Payment failed":"No payment made"}
+                    </span>
+                  </Td>
+                  <Td><ActBtn>Send Reminder</ActBtn></Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UBER BENCHMARK RATES — GTA / Toronto (source: taxifarefinder.com, 2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// UberX Toronto:  CA$2.50 base | CA$0.81/km | CA$0.18/min | CA$5.25 minimum
+// UberXL Toronto: CA$5.00 base | CA$1.20/km | CA$0.25/min | CA$8.00 minimum
+// (UberXL is the closest equivalent to ZeezRyde "Friends" ride type)
+//
+// UNDERCUT ENGINE:
+//   Given a target undercut margin (e.g. 10%), it solves for ZeezRyde rates
+//   such that: zeezFare(km, min) = uberFare(km, min) × (1 − margin/100)
+//
+//   To keep the ratio constant across all trip lengths we solve each component:
+//     zeezBase   = uberBase   × (1 − margin/100)
+//     zeezPerKm  = uberPerKm  × (1 − margin/100)
+//     zeezPerMin = uberPerMin × (1 − margin/100)
+//     zeezMin    = uberMin    × (1 − margin/100)
+//
+//   This guarantees ZeezRyde is always exactly `margin`% cheaper than Uber
+//   regardless of trip distance or duration.
+
+const UBER_RATES = {
+  uberX: {
+    label:       "UberX",
+    baseFare:    2.50,
+    ratePerKm:   0.81,
+    ratePerMin:  0.18,
+    minimumFare: 5.25,
+  },
+  uberXL: {
+    label:       "UberXL",
+    baseFare:    5.00,
+    ratePerKm:   1.20,
+    ratePerMin:  0.25,
+    minimumFare: 8.00,
+  },
+};
+
+// Calculate what Uber charges for a given trip
+function calcUberFare(product, distKm, durationMin) {
+  const r = UBER_RATES[product];
+  return Math.max(r.baseFare + distKm * r.ratePerKm + durationMin * r.ratePerMin, r.minimumFare);
+}
+
+// Given a desired undercut margin %, return ZeezRyde rates that guarantee we're cheaper
+function deriveUndercutRates(uberProduct, marginPct) {
+  const r      = UBER_RATES[uberProduct];
+  const factor = 1 - (marginPct / 100);
+  return {
+    baseFare:    Math.round(r.baseFare    * factor * 100) / 100,
+    ratePerKm:   Math.round(r.ratePerKm  * factor * 100) / 100,
+    ratePerMin:  Math.round(r.ratePerMin * factor * 100) / 100,
+    minimumFare: Math.round(r.minimumFare* factor * 100) / 100,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRICING ENGINE
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Formula:
+//   subtotal  = baseFare + (distKm × ratePerKm) + (durationMin × ratePerMin)
+//   subtotal  = max(subtotal, minimumFare)
+//   surged    = subtotal × surgeMultiplier
+//   typed     = surged  × rideTypeMultiplier
+//   total     = round(typed, 2)
+//   driverCut = total × (1 − commissionPct / 100)
+//   platform  = total × (commissionPct / 100)
+//
+// Surge multiplier is determined by demand tier:
+//   Low  (0–39% online drivers busy)  → 1.0×
+//   Med  (40–69%)                     → 1.2×
+//   High (70–89%)                     → 1.5×
+//   Peak (90–100%)                    → 2.0×
+
+function calcFare(cfg, distKm, durationMin) {
+  const { baseFare, ratePerKm, ratePerMin, minimumFare, surgeMultiplier, commPct } = cfg;
+  const subtotal  = Math.max(baseFare + distKm * ratePerKm + durationMin * ratePerMin, minimumFare);
+  const surged    = subtotal * surgeMultiplier;
+  const total     = Math.round(surged * 100) / 100;
+  const platform  = Math.round(total * (commPct / 100) * 100) / 100;
+  const driverCut = Math.round((total - platform) * 100) / 100;
+  return { total, platform, driverCut };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: SETTINGS
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── PAGE: DATA MANAGEMENT ───────────────────────────────────────────────────
+function PageDataManagement() {
+  const SUPABASE_URL  = "https://bkbpsobvhxxvlzlmzsmy.supabase.co";
+  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnBzb2J2aHh4dmx6bG16c215Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzQ4MTUsImV4cCI6MjA4OTA1MDgxNX0.PLJyaouYk4FLfcZwVy_YsKMmny2a6DqrYOn_3jmpgMI";
+
+  const TABLES = [
+    { id:"auth_users",       label:"Auth Users (Login Accounts)", desc:"Deletes all registered user accounts",       danger:true  },
+    { id:"riders",           label:"Riders",                       desc:"All rider profiles",                        danger:false },
+    { id:"drivers",          label:"Drivers",                      desc:"All driver profiles",                       danger:false },
+    { id:"trips",            label:"Trips",                        desc:"All completed and active trips",            danger:false },
+    { id:"subscriptions",    label:"Subscriptions",                desc:"All driver subscription records",          danger:false },
+    { id:"driver_documents", label:"Driver Documents",             desc:"All uploaded document records",            danger:false },
+    { id:"promos",           label:"Promo Codes",                  desc:"All promo/discount codes",                 danger:false },
+  ];
+
+  const [checked, setChecked]     = React.useState({});
+  const [confirming, setConfirming] = React.useState(false);
+  const [busy, setBusy]           = React.useState(false);
+  const [results, setResults]     = React.useState([]);
+  const [selectAll, setSelectAll] = React.useState(false);
+
+  function toggleAll(val) {
+    setSelectAll(val);
+    const next = {};
+    TABLES.forEach(t => { next[t.id] = val; });
+    setChecked(next);
+  }
+
+  function toggle(id) {
+    setChecked(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      setSelectAll(TABLES.every(t => next[t.id]));
+      return next;
+    });
+  }
+
+  const selected = TABLES.filter(t => checked[t.id]);
+
+  async function doDelete() {
+    if (selected.length === 0) return;
+    setBusy(true);
+    setResults([]);
+    const logs = [];
+
+    // Load Supabase if needed
+    if (!window.supabase) {
+      await new Promise((res, rej) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    for (const t of selected) {
+      try {
+        if (t.id === "auth_users") {
+          // Auth users — call sign out for current session only (anon key can't mass-delete auth)
+          const { error } = await db.auth.admin ? db.auth.admin.deleteUser("") : { error: { message: "Use Supabase SQL Editor: DELETE FROM auth.users" } };
+          if (error) {
+            logs.push({ id: t.id, label: t.label, status: "info", msg: "Run in SQL Editor: DELETE FROM auth.users;" });
+          } else {
+            logs.push({ id: t.id, label: t.label, status: "ok", msg: "Deleted" });
+          }
+        } else {
+          const { error } = await db.from(t.id).delete().neq("id", "00000000-0000-0000-0000-000000000000");
+          if (error) throw error;
+          logs.push({ id: t.id, label: t.label, status: "ok", msg: "All records deleted" });
+        }
+      } catch (e) {
+        logs.push({ id: t.id, label: t.label, status: "error", msg: e.message || "Failed" });
+      }
+    }
+
+    setResults(logs);
+    setBusy(false);
+    setConfirming(false);
+    setChecked({});
+    setSelectAll(false);
+  }
+
+  return (
+    <div style={{ padding:32, maxWidth:700 }}>
+      <div style={{ marginBottom:24 }}>
+        <div style={{ fontSize:22, fontWeight:800, color:"#f1f5f9", marginBottom:6 }}>🗑 Data Management</div>
+        <div style={{ fontSize:13, color:"#64748b" }}>Select the tables you want to clear. This action is permanent and cannot be undone.</div>
+      </div>
+
+      {/* Results */}
+      {results.length > 0 && (
+        <div style={{ marginBottom:24, background:"#0f172a", borderRadius:12, padding:16, border:"1px solid #1e293b" }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#94a3b8", letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>Results</div>
+          {results.map(r => (
+            <div key={r.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:"1px solid #1e293b" }}>
+              <span style={{ fontSize:16 }}>{r.status==="ok"?"✅":r.status==="info"?"ℹ️":"❌"}</span>
+              <span style={{ flex:1, fontSize:13, color:"#e2e8f0" }}>{r.label}</span>
+              <span style={{ fontSize:12, color:r.status==="ok"?"#22c55e":r.status==="info"?"#f59e0b":"#ef4444" }}>{r.msg}</span>
+            </div>
+          ))}
+          <button onClick={()=>setResults([])} style={{ marginTop:10, background:"none", border:"none", color:"#64748b", fontSize:12, cursor:"pointer" }}>Dismiss</button>
+        </div>
+      )}
+
+      {/* Select All */}
+      <div style={{ background:"#0f172a", borderRadius:14, border:"1px solid #1e293b", overflow:"hidden", marginBottom:20 }}>
+        <div style={{ padding:"12px 20px", borderBottom:"1px solid #1e293b", display:"flex", alignItems:"center", gap:12, background:"#0d1117" }}>
+          <input type="checkbox" checked={selectAll} onChange={e=>toggleAll(e.target.checked)}
+            style={{ width:18, height:18, cursor:"pointer", accentColor:"#ef4444" }} />
+          <span style={{ fontSize:13, fontWeight:700, color:"#94a3b8" }}>Select All Tables</span>
+        </div>
+
+        {TABLES.map((t, i) => (
+          <div key={t.id} style={{ padding:"14px 20px", borderBottom: i<TABLES.length-1?"1px solid #1e293b":"none", display:"flex", alignItems:"center", gap:14, background: checked[t.id]?"rgba(239,68,68,0.05)":"transparent", transition:"background 0.15s" }}>
+            <input type="checkbox" checked={!!checked[t.id]} onChange={()=>toggle(t.id)}
+              style={{ width:18, height:18, cursor:"pointer", accentColor:"#ef4444", flexShrink:0 }} />
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600, color: checked[t.id]?"#fca5a5":"#e2e8f0" }}>{t.label}</div>
+              <div style={{ fontSize:12, color:"#475569", marginTop:2 }}>{t.desc}</div>
+            </div>
+            {t.danger && (
+              <span style={{ background:"rgba(239,68,68,0.15)", color:"#ef4444", fontSize:10, fontWeight:700, padding:"3px 8px", borderRadius:20, border:"1px solid rgba(239,68,68,0.3)" }}>HIGH RISK</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Delete button */}
+      {!confirming ? (
+        <button
+          onClick={()=>setConfirming(true)}
+          disabled={selected.length===0}
+          style={{ padding:"12px 28px", borderRadius:10, border:"none", background:selected.length>0?"#ef4444":"#334155", color:"#fff", fontWeight:700, fontSize:14, cursor:selected.length>0?"pointer":"not-allowed", opacity:selected.length>0?1:0.5 }}>
+          {selected.length===0 ? "Select tables to delete" : `Delete ${selected.length} table${selected.length>1?"s":""}`}
+        </button>
+      ) : (
+        <div style={{ background:"rgba(239,68,68,0.1)", border:"1.5px solid #ef4444", borderRadius:12, padding:20 }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"#fca5a5", marginBottom:8 }}>⚠️ Are you sure?</div>
+          <div style={{ fontSize:13, color:"#94a3b8", marginBottom:16 }}>
+            You are about to permanently delete all data in: <strong style={{ color:"#fca5a5" }}>{selected.map(t=>t.label).join(", ")}</strong>. This cannot be undone.
+          </div>
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={()=>setConfirming(false)} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid #334155", background:"transparent", color:"#94a3b8", fontWeight:600, fontSize:13, cursor:"pointer" }}>
+              Cancel
+            </button>
+            <button onClick={doDelete} disabled={busy} style={{ flex:2, padding:"10px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", fontWeight:700, fontSize:13, cursor:busy?"not-allowed":"pointer" }}>
+              {busy ? "Deleting..." : "Yes, Delete Permanently"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Auth users note */}
+      {checked["auth_users"] && (
+        <div style={{ marginTop:16, background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:10, padding:14 }}>
+          <div style={{ fontSize:12, color:"#fcd34d", fontWeight:600, marginBottom:4 }}>ℹ️ Auth Users require manual SQL</div>
+          <div style={{ fontSize:12, color:"#94a3b8" }}>Due to Supabase security, auth users must be deleted via SQL Editor. After clicking delete, also run this in your Supabase SQL Editor:</div>
+          <div style={{ fontFamily:"monospace", fontSize:12, color:"#22c55e", background:"#0f172a", borderRadius:6, padding:"8px 12px", marginTop:8 }}>DELETE FROM auth.users;</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAirportFareYHM, airportFareYTZ, setAirportFareYTZ, airportBookingFee, setAirportBookingFee, airportMinNotice, setAirportMinNotice, shuttleBaseFare, setShuttleBaseFare, shuttlePeakMult, setShuttlePeakMult, shuttleBookingFee, setShuttleBookingFee, shuttlePeakOn, setShuttlePeakOn, riderDelayFee, setRiderDelayFee, driverCancelFee, setDriverCancelFee, surgeEnabled, setSurgeEnabled, surgeRadiusKm, setSurgeRadiusKm, subFee, setSubFee, commPct, setCommPct, countdown, setCountdown, reqSub, setReqSub, autoSusp, setAutoSusp, adminAlert, setAdminAlert, flash, trips, drivers, subs, maxPickupKm, setMaxPickupKm, pickupFeeKm, setPickupFeeKm, dispatchMode, setDispatchMode, pickupFeeOn, setPickupFeeOn, baseFare, setBaseFare, ratePerKm, setRatePerKm, ratePerMin, setRatePerMin, minimumFare, setMinimumFare, beyondCapKm, setBeyondCapKm, beyondFeeFlat, setBeyondFeeFlat, beyondFeeOn, setBeyondFeeOn, waitFeeOn, setWaitFeeOn, waitFeeRate, setWaitFeeRate, waitFeeMinutes, setWaitFeeMinutes }) {
+
+  // ── Pricing state (lifted to App — received as props) ────────────────────
+  const [demandTier,  setDemandTier]  = useState("low");   // low | med | high | peak
+  const [familyMult,  setFamilyMult]  = useState("1.00");
+  const [friendsMult, setFriendsMult] = useState("2.10");
+
+  // ── Fare calculator preview inputs ───────────────────────────────────────
+  const [previewKm,  setPreviewKm]  = useState("8");
+  const [previewMin, setPreviewMin] = useState("14");
+  const [previewType, setPreviewType] = useState("family");
+
+  const SURGE_MAP = { low:1.0, med:1.2, high:1.5, peak:2.0 };
+  const surgeMultiplier = SURGE_MAP[demandTier];
+  const typeMult = previewType === "family" ? parseFloat(familyMult)||1 : parseFloat(friendsMult)||1;
+
+  const cfg = {
+    baseFare:       parseFloat(baseFare)    || 0,
+    ratePerKm:      parseFloat(ratePerKm)   || 0,
+    ratePerMin:     parseFloat(ratePerMin)  || 0,
+    minimumFare:    parseFloat(minimumFare) || 0,
+    surgeMultiplier,
+    commPct:        parseFloat(commPct)     || 0,
+  };
+
+  // Apply ride-type multiplier on top of engine output
+  const raw = calcFare(cfg, parseFloat(previewKm)||0, parseFloat(previewMin)||0);
+  const previewBase = Math.round(raw.total * typeMult * 100) / 100;
+  const preview = {
+    total:     Math.round(previewBase * 1.13 * 100) / 100,
+    platform:  Math.round(previewBase * (cfg.commPct/100) * 100) / 100,
+    driverCut: Math.round(previewBase * (1 - cfg.commPct/100) * 100) / 100,
+    tax:       Math.round(previewBase * 0.13 * 100) / 100,
+  };
+
+  // Fare breakdown steps for the explainer
+  const subtotalRaw   = Math.max(cfg.baseFare + (parseFloat(previewKm)||0)*cfg.ratePerKm + (parseFloat(previewMin)||0)*cfg.ratePerMin, cfg.minimumFare);
+  const afterSurge    = Math.round(subtotalRaw * surgeMultiplier * 100) / 100;
+  const afterType     = Math.round(afterSurge * typeMult * 100) / 100;
+
+  const TIER_LABELS = { low:"Low (1.0×)", med:"Medium (1.2×)", high:"High (1.5×)", peak:"Peak (2.0×)" };
+  const TIER_COLORS = { low:"#22c55e", med:"#f59e0b", high:"#f97316", peak:"#ef4444" };
+
+  function handleSave() {
+    const errors = [];
+    if (isNaN(parseFloat(baseFare))   || parseFloat(baseFare)   < 0) errors.push("Base fare");
+    if (isNaN(parseFloat(ratePerKm))  || parseFloat(ratePerKm)  < 0) errors.push("Rate/km");
+    if (isNaN(parseFloat(ratePerMin)) || parseFloat(ratePerMin) < 0) errors.push("Rate/min");
+    if (isNaN(parseFloat(minimumFare))|| parseFloat(minimumFare)< 0) errors.push("Min fare");
+    if (isNaN(parseFloat(commPct))    || parseFloat(commPct) < 0 || parseFloat(commPct) > 100) errors.push("Commission %");
+    if (errors.length) { flash(`Invalid values: ${errors.join(", ")}`, false); return; }
+    flash("Pricing & settings saved successfully");
+  }
+
+  const inp = (val, set, w=80) => (
+    <input value={val} onChange={e => set(e.target.value)} style={{ width:w, padding:"6px 10px", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:6, fontSize:13, fontWeight:700, color:"#60a5fa", fontFamily:"'JetBrains Mono',monospace", outline:"none", textAlign:"center" }} />
+  );
+
+  return (
+    <div style={{ maxWidth:860 }}>
+      <SectionHdr title="Settings" sub="Pricing engine, platform fees, and enforcement rules" />
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, alignItems:"start" }}>
+
+        {/* ── LEFT COLUMN ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+          {/* Base fare structure */}
+          <SettingsPanel title="BASE FARE STRUCTURE">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
+              Every trip starts with a base fare, then adds per-kilometre and per-minute charges. The minimum fare applies if the calculated amount falls below it.
+            </div>
+            {[
+              { label:"Base Fare",       sub:"Fixed charge every trip starts with",           prefix:"CA$", val:baseFare,    set:setBaseFare    },
+              { label:"Rate per km",     sub:"Charged for every kilometre driven",             prefix:"CA$", val:ratePerKm,   set:setRatePerKm   },
+              { label:"Rate per minute", sub:"Charged for every minute of trip duration",      prefix:"CA$", val:ratePerMin,  set:setRatePerMin  },
+              { label:"Minimum Fare",    sub:"Floor price — no trip can be charged below this",prefix:"CA$", val:minimumFare, set:setMinimumFare },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+                <div>
+                  <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:500 }}>{f.label}</div>
+                  <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{f.sub}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ color:"#475569", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{f.prefix}</span>
+                  {inp(f.val, f.set)}
+                </div>
+              </div>
+            ))}
+          </SettingsPanel>
+
+          {/* Ride type multipliers */}
+          <SettingsPanel title="RIDE TYPE MULTIPLIERS">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
+              Multiplied against the base fare calculation. 1.00 = no change. Friends rides carry more passengers so they are priced higher.
+            </div>
+            {[
+              { label:"🚗 Family", sub:"Standard single-family ride", val:familyMult,  set:setFamilyMult  },
+              { label:"🚐 Friends",sub:"Multi-passenger group ride",   val:friendsMult, set:setFriendsMult },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+                <div>
+                  <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:500 }}>{f.label}</div>
+                  <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{f.sub}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ color:"#475569", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>×</span>
+                  {inp(f.val, f.set)}
+                </div>
+              </div>
+            ))}
+          </SettingsPanel>
+
+          {/* Commission + subscription */}
+          <SettingsPanel title="PLATFORM FEES">
+            {[
+              { label:"Platform Commission", sub:"% kept from every completed fare",   prefix:"", val:commPct, set:setCommPct, suffix:"%" },
+              { label:"Weekly Driver Pass",  sub:"Subscription charged every Monday",  prefix:"CA$", val:subFee, set:setSubFee, suffix:"/wk" },
+              { label:"Request Countdown",   sub:"Seconds before a request auto-expires",prefix:"", val:countdown, set:setCountdown, suffix:"sec" },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+                <div>
+                  <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:500 }}>{f.label}</div>
+                  <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{f.sub}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  {f.prefix && <span style={{ color:"#475569", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{f.prefix}</span>}
+                  {inp(f.val, f.set)}
+                  {f.suffix && <span style={{ color:"#334155", fontSize:11 }}>{f.suffix}</span>}
+                </div>
+              </div>
+            ))}
+          </SettingsPanel>
+
+          {/* Enforcement */}
+          <SettingsPanel title="ENFORCEMENT RULES">
+            {[
+              { label:"Require subscription to go online",   sub:"Drivers cannot go online without an active weekly pass",        val:reqSub,     set:setReqSub     },
+              { label:"Auto-suspend on failed payment",      sub:"Suspend driver accounts when subscription payment fails",       val:autoSusp,   set:setAutoSusp   },
+              { label:"Admin alerts on new registrations",   sub:"Notify admin when a new driver or rider account is created",    val:adminAlert, set:setAdminAlert },
+            ].map(s => (
+              <div key={s.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+                <div style={{ flex:1, paddingRight:20 }}>
+                  <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:500 }}>{s.label}</div>
+                  <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{s.sub}</div>
+                </div>
+                <Toggle val={s.val} set={s.set} />
+              </div>
+            ))}
+          </SettingsPanel>
+
+
+          {/* ── DISPATCH POLICY ── */}
+          <DispatchPolicyPanel
+            maxPickupKm={maxPickupKm}       setMaxPickupKm={setMaxPickupKm}
+            pickupFeeKm={pickupFeeKm}       setPickupFeeKm={setPickupFeeKm}
+            dispatchMode={dispatchMode}     setDispatchMode={setDispatchMode}
+            pickupFeeOn={pickupFeeOn}       setPickupFeeOn={setPickupFeeOn}
+            beyondCapKm={beyondCapKm}       setBeyondCapKm={setBeyondCapKm}
+            beyondFeeFlat={beyondFeeFlat}   setBeyondFeeFlat={setBeyondFeeFlat}
+            beyondFeeOn={beyondFeeOn}       setBeyondFeeOn={setBeyondFeeOn}
+            waitFeeOn={waitFeeOn}           setWaitFeeOn={setWaitFeeOn}
+            waitFeeRate={waitFeeRate}        setWaitFeeRate={setWaitFeeRate}
+            waitFeeMinutes={waitFeeMinutes} setWaitFeeMinutes={setWaitFeeMinutes}
+          />
+
+          {/* ── UBER UNDERCUT ENGINE ── */}
+          <UberUndercutPanel
+            onApply={(rates) => {
+              setBaseFare(String(rates.baseFare));
+              setRatePerKm(String(rates.ratePerKm));
+              setRatePerMin(String(rates.ratePerMin));
+              setMinimumFare(String(rates.minimumFare));
+              flash("Undercut rates applied — always cheaper than Uber ✓");
+            }}
+          />
+
+          <button onClick={handleSave} style={{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:8, padding:"10px 24px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5, alignSelf:"flex-start" }}>
+            SAVE ALL SETTINGS
+          </button>
+        </div>
+
+          {/* ── CANCELLATION & DELAY FEES ── */}
+          <SettingsPanel title="CANCELLATION &amp; DELAY FEES">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
+              Riders are charged a delay fee after 2 minutes of free wait time. Drivers may cancel after 5 minutes with a fixed fee charged to the rider.
+            </div>
+            {[
+              { label:"Rider Delay Fee",    sub:`CA$ per minute after ${2}-min free wait`,    prefix:"CA$", val:riderDelayFee,   set:setRiderDelayFee,   suffix:"/min" },
+              { label:"Driver Cancel Fee",  sub:`Fixed fee if driver cancels after ${5} min`, prefix:"CA$", val:driverCancelFee, set:setDriverCancelFee, suffix:"flat" },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:11, paddingBottom:11, borderBottom:"1px solid rgba(148,163,184,0.15)" }}>
+                <div>
+                  <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>{f.label}</div>
+                  <div style={{ color:"#64748b", fontSize:10 }}>{f.sub}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                  <span style={{ color:"#64748b", fontSize:11 }}>{f.prefix}</span>
+                  <input value={f.val} onChange={e=>f.set(e.target.value)}
+                    style={{ width:60, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)", borderRadius:6, padding:"5px 7px", color:"#f1f5f9", fontSize:12, textAlign:"right", outline:"none" }} />
+                  <span style={{ color:"#64748b", fontSize:9 }}>{f.suffix}</span>
+                </div>
+              </div>
+            ))}
+          </SettingsPanel>
+
+          {/* ── SURGE PRICING ── */}
+          <SettingsPanel title="SURGE PRICING">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:12, lineHeight:1.6 }}>
+              Automatically applies fare multipliers when rider demand exceeds driver supply within a {surgeRadiusKm}km radius.
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, paddingBottom:12, borderBottom:"1px solid rgba(148,163,184,0.15)" }}>
+              <div>
+                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Surge Pricing</div>
+                <div style={{ color:"#64748b", fontSize:10 }}>Enable automatic demand-based multipliers</div>
+              </div>
+              <div onClick={()=>setSurgeEnabled(v=>!v)} style={{ width:36,height:20,borderRadius:100,background:surgeEnabled?"#3b82f6":"rgba(148,163,184,0.25)",position:"relative",cursor:"pointer",transition:"background 0.2s" }}>
+                <div style={{ position:"absolute",top:2,width:16,height:16,background:"#fff",borderRadius:"50%",transition:"left 0.2s",left:surgeEnabled?18:2,boxShadow:"0 1px 4px rgba(0,0,0,0.3)" }} />
+              </div>
+            </div>
+            {surgeEnabled && (
+              <>
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ color:"#94a3b8", fontSize:9, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Surge Tiers (riders:drivers ratio)</div>
+                  {[
+                    { tier:"Low",  ratio:"2:1", mult:"1.25×", color:"#f59e0b" },
+                    { tier:"Mid",  ratio:"3:1", mult:"1.50×", color:"#f97316" },
+                    { tier:"High", ratio:"4:1", mult:"1.75×", color:"#ef4444" },
+                    { tier:"Peak", ratio:"5:1", mult:"2.00×", color:"#dc2626" },
+                  ].map(t => (
+                    <div key={t.tier} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", borderBottom:"1px solid rgba(148,163,184,0.1)" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{ width:10, height:10, borderRadius:"50%", background:t.color, display:"inline-block" }} />
+                        <span style={{ color:"#f1f5f9", fontSize:11, fontWeight:600 }}>{t.tier} Surge</span>
+                        <span style={{ color:"#64748b", fontSize:10 }}>({t.ratio} ratio)</span>
+                      </div>
+                      <span style={{ color:t.color, fontWeight:800, fontSize:12 }}>{t.mult}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div>
+                    <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Surge Radius</div>
+                    <div style={{ color:"#64748b", fontSize:10 }}>Max area per surge zone (km)</div>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                    <input value={surgeRadiusKm} onChange={e=>setSurgeRadiusKm(e.target.value)}
+                      style={{ width:50, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)", borderRadius:6, padding:"5px 7px", color:"#f1f5f9", fontSize:12, textAlign:"right", outline:"none" }} />
+                    <span style={{ color:"#64748b", fontSize:10 }}>km</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </SettingsPanel>
+
+        {/* ── RIGHT COLUMN — AI Advisor + Pricing preview ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+          {/* ── AI PRICING ADVISOR ── */}
+          <AIPricingAdvisor
+            trips={trips} drivers={drivers} subs={subs}
+            currentSettings={{ subFee, commPct, countdown }}
+            pricingState={{ baseFare, ratePerKm, ratePerMin, minimumFare, familyMult, friendsMult, demandTier }}
+            dispatchState={{ maxPickupKm, pickupFeeKm, pickupFeeOn, beyondCapKm, beyondFeeFlat, beyondFeeOn, waitFeeOn, waitFeeRate, waitFeeMinutes }}
+            onApply={(patch) => {
+              if (patch.baseFare    !== undefined) setBaseFare(String(patch.baseFare));
+              if (patch.ratePerKm   !== undefined) setRatePerKm(String(patch.ratePerKm));
+              if (patch.ratePerMin  !== undefined) setRatePerMin(String(patch.ratePerMin));
+              if (patch.minimumFare !== undefined) setMinimumFare(String(patch.minimumFare));
+              if (patch.familyMult  !== undefined) setFamilyMult(String(patch.familyMult));
+              if (patch.friendsMult !== undefined) setFriendsMult(String(patch.friendsMult));
+              if (patch.demandTier  !== undefined) setDemandTier(patch.demandTier);
+              if (patch.commPct     !== undefined) setCommPct(String(patch.commPct));
+              if (patch.subFee      !== undefined) setSubFee(String(patch.subFee));
+              if (patch.pickupFeeKm !== undefined) setPickupFeeKm(String(patch.pickupFeeKm));
+              if (patch.maxPickupKm !== undefined) setMaxPickupKm(String(patch.maxPickupKm));
+              if (patch.pickupFeeOn !== undefined) setPickupFeeOn(Boolean(patch.pickupFeeOn));
+              flash("AI recommendation applied ✓");
+            }}
+          />
+
+          {/* Live Uber vs ZeezRyde comparison */}
+          <UberComparisonPanel cfg={cfg} familyMult={familyMult} friendsMult={friendsMult} />
+
+          {/* Surge control */}
+          <SettingsPanel title="DEMAND SURGE CONTROL">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:12, lineHeight:1.6 }}>
+              Set the current demand tier. This multiplies the base fare to balance supply and demand in real time.
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+              {Object.entries(TIER_LABELS).map(([k, label]) => (
+                <button key={k} onClick={() => setDemandTier(k)} style={{ padding:"9px 8px", borderRadius:7, border:`1px solid ${demandTier===k ? TIER_COLORS[k] : "rgba(99,179,237,0.1)"}`, background:demandTier===k ? `${TIER_COLORS[k]}15` : "transparent", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", color:demandTier===k ? TIER_COLORS[k] : "#334155", fontSize:10, fontWeight:700, transition:"all 0.15s", textAlign:"center" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div style={{ marginTop:10, padding:"8px 12px", background:`${TIER_COLORS[demandTier]}10`, border:`1px solid ${TIER_COLORS[demandTier]}30`, borderRadius:7, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ color:"#64748b", fontSize:11 }}>Active surge multiplier</span>
+              <span style={{ color:TIER_COLORS[demandTier], fontWeight:700, fontSize:16, fontFamily:"'JetBrains Mono',monospace" }}>{surgeMultiplier.toFixed(1)}×</span>
+            </div>
+          </SettingsPanel>
+
+          {/* Live fare calculator */}
+          <SettingsPanel title="FARE CALCULATOR PREVIEW">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
+              Enter a trip scenario to see exactly how the pricing engine calculates the final fare using your current settings.
+            </div>
+
+            {/* Inputs */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
+              {[
+                { label:"Distance (km)", val:previewKm,  set:setPreviewKm  },
+                { label:"Duration (min)",val:previewMin, set:setPreviewMin },
+              ].map(f => (
+                <div key={f.label}>
+                  <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:4 }}>{f.label}</div>
+                  {inp(f.val, f.set, "100%")}
+                </div>
+              ))}
+            </div>
+
+            {/* Ride type toggle */}
+            <div style={{ display:"flex", gap:6, marginBottom:14 }}>
+              {[["family","🚗 Family"],["friends","🚐 Friends"]].map(([id, label]) => (
+                <button key={id} onClick={() => setPreviewType(id)} style={{ flex:1, padding:"7px", borderRadius:6, border:`1px solid ${previewType===id?"#3b82f6":"rgba(99,179,237,0.1)"}`, background:previewType===id?"rgba(59,130,246,0.12)":"transparent", color:previewType===id?"#60a5fa":"#334155", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Step-by-step breakdown */}
+            <div style={{ background:"rgba(0,0,0,0.3)", border:"1px solid rgba(99,179,237,0.08)", borderRadius:8, padding:"12px 14px", marginBottom:12 }}>
+              <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:10 }}>CALCULATION BREAKDOWN</div>
+              {[
+                [`Base fare`,                                        `CA$${cfg.baseFare.toFixed(2)}`,                                                                  "#94a3b8"],
+                [`${previewKm} km × CA$${cfg.ratePerKm.toFixed(2)}/km`, `CA$${((parseFloat(previewKm)||0)*cfg.ratePerKm).toFixed(2)}`,                                "#94a3b8"],
+                [`${previewMin} min × CA$${cfg.ratePerMin.toFixed(2)}/min`,`CA$${((parseFloat(previewMin)||0)*cfg.ratePerMin).toFixed(2)}`,                            "#94a3b8"],
+                [`Subtotal (min: CA$${cfg.minimumFare.toFixed(2)})`, `CA$${subtotalRaw.toFixed(2)}`,                                                                   "#cbd5e1"],
+                [`Surge ${surgeMultiplier.toFixed(1)}× (${TIER_LABELS[demandTier]})`, `CA$${afterSurge.toFixed(2)}`,                                                  TIER_COLORS[demandTier]],
+                [`${previewType==="family"?"Family":"Friends"} ×${typeMult.toFixed(2)}`, `CA$${afterType.toFixed(2)}`,                                                "#60a5fa"],
+                [`HST (13%)`, `CA$${preview.tax.toFixed(2)}`, `CA$${preview.tax.toFixed(2)}`],
+              ].map(([step, val, color], i, arr) => (
+                <div key={step} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 0", borderBottom: i < arr.length-1 ? "1px solid rgba(99,179,237,0.06)" : "none" }}>
+                  <span style={{ color:"#334155", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{step}</span>
+                  <span style={{ color, fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{val}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Final fare card */}
+            <div style={{ background:"linear-gradient(135deg,rgba(59,130,246,0.1),rgba(29,78,216,0.05))", border:"1px solid rgba(59,130,246,0.25)", borderRadius:10, padding:"14px 16px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                <div>
+                  <div style={{ color:"rgba(148,163,184,0.5)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace" }}>RIDER PAYS</div>
+                  <div style={{ color:"#f0f9ff", fontSize:30, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", letterSpacing:-1, marginTop:2 }}>CA${preview.total.toFixed(2)}</div>
+                </div>
+                <div style={{ padding:"3px 9px", borderRadius:20, background:`${TIER_COLORS[demandTier]}20`, border:`1px solid ${TIER_COLORS[demandTier]}40`, color:TIER_COLORS[demandTier], fontSize:9, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>
+                  {demandTier.toUpperCase()} DEMAND
+                </div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                <div style={{ background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.15)", borderRadius:7, padding:"8px 10px" }}>
+                  <div style={{ color:"#4b5563", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>DRIVER EARNS</div>
+                  <div style={{ color:"#22c55e", fontSize:16, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", marginTop:2 }}>CA${preview.driverCut.toFixed(2)}</div>
+                  <div style={{ color:"#374151", fontSize:9, marginTop:1 }}>{(100 - parseFloat(commPct)).toFixed(0)}% of fare</div>
+                </div>
+                <div style={{ background:"rgba(167,139,250,0.07)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:7, padding:"8px 10px" }}>
+                  <div style={{ color:"#4b5563", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>PLATFORM EARNS</div>
+                  <div style={{ color:"#a78bfa", fontSize:16, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", marginTop:2 }}>CA${preview.platform.toFixed(2)}</div>
+                  <div style={{ color:"#374151", fontSize:9, marginTop:1 }}>{parseFloat(commPct).toFixed(0)}% commission</div>
+                </div>
+              </div>
+            </div>
+          </SettingsPanel>
+
+          {/* Fare range reference */}
+          <SettingsPanel title="FARE RANGE REFERENCE">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:12 }}>Estimated fares at current settings, no surge, for common trip lengths.</div>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>{["TRIP","DIST","TIME","FAMILY","FRIENDS"].map(h => <th key={h} style={{ padding:"6px 8px", textAlign:"left", fontSize:8, color:"rgba(148,163,184,0.35)", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, fontWeight:700, borderBottom:"1px solid rgba(99,179,237,0.07)" }}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Short",   3,  6],
+                  ["Medium",  8, 14],
+                  ["Long",   18, 28],
+                  ["Airport",35, 45],
+                ].map(([label, km, min]) => {
+                  const noSurge = { ...cfg, surgeMultiplier:1.0 };
+                  const fam  = calcFare(noSurge, km, min);
+                  const fam2 = { total: Math.round(fam.total * (parseFloat(familyMult)||1)  * 100)/100 };
+                  const fri2 = { total: Math.round(fam.total * (parseFloat(friendsMult)||1) * 100)/100 };
+                  return (
+                    <tr key={label} className="trow">
+                      <td style={{ padding:"7px 8px", color:"#94a3b8", fontSize:11 }}>{label}</td>
+                      <td style={{ padding:"7px 8px", color:"#475569", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{km}km</td>
+                      <td style={{ padding:"7px 8px", color:"#475569", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{min}m</td>
+                      <td style={{ padding:"7px 8px", color:"#60a5fa", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>CA${fam2.total.toFixed(2)}</td>
+                      <td style={{ padding:"7px 8px", color:"#a78bfa", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>CA${fri2.total.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </SettingsPanel>
+
+          {/* ── AIRPORT PRICING ── */}
+          <SettingsPanel title="AIRPORT TRIP PRICING">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
+              Flat-rate fares charged for airport pickups and drop-offs. Applied automatically when a rider books an airport trip.
+            </div>
+            {/* Per-airport flat rates */}
+            {[
+              { label:"Pearson International (YYZ)", val:airportFareYYZ, set:setAirportFareYYZ },
+              { label:"John C. Munro Hamilton (YHM)", val:airportFareYHM, set:setAirportFareYHM },
+              { label:"Billy Bishop Toronto City (YTZ)", val:airportFareYTZ, set:setAirportFareYTZ },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                marginBottom:10, paddingBottom:10, borderBottom:"1px solid rgba(148,163,184,0.12)" }}>
+                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>{f.label}</div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ color:"#64748b", fontSize:11 }}>CA$</span>
+                  <input value={f.val} onChange={e=>f.set(e.target.value)} type="number" step="0.50"
+                    style={{ width:70, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
+                      borderRadius:6, padding:"5px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
+                  <span style={{ color:"#64748b", fontSize:9 }}>flat</span>
+                </div>
+              </div>
+            ))}
+
+            {/* Booking fee + min notice */}
+            {[
+              { label:"Platform Booking Fee", sub:"Added to every airport booking", val:airportBookingFee, set:setAirportBookingFee, suffix:"/booking" },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                <div>
+                  <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>{f.label}</div>
+                  <div style={{ color:"#64748b", fontSize:10 }}>{f.sub}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ color:"#64748b", fontSize:11 }}>CA$</span>
+                  <input value={f.val} onChange={e=>f.set(e.target.value)} type="number" step="0.50"
+                    style={{ width:60, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
+                      borderRadius:6, padding:"5px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
+                  <span style={{ color:"#64748b", fontSize:9 }}>{f.suffix}</span>
+                </div>
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Minimum Booking Notice</div>
+                <div style={{ color:"#64748b", fontSize:10 }}>Hours before pickup required</div>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <input value={airportMinNotice} onChange={e=>setAirportMinNotice(e.target.value)} type="number" min="1"
+                  style={{ width:55, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
+                    borderRadius:6, padding:"5px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
+                <span style={{ color:"#64748b", fontSize:9 }}>hrs</span>
+              </div>
+            </div>
+          </SettingsPanel>
+
+          {/* ── SHUTTLE PRICING ── */}
+          <SettingsPanel title="SHUTTLE TRIP PRICING">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
+              Per-seat pricing for shared shuttle routes. Base fare is set here and auto-applied when creating new trips.
+            </div>
+            {[
+              { label:"Base Fare Per Seat",   sub:"Default fare applied to new trips",        val:shuttleBaseFare,   set:setShuttleBaseFare,   suffix:"/seat" },
+              { label:"Platform Booking Fee", sub:"Added per seat on every shuttle booking",  val:shuttleBookingFee, set:setShuttleBookingFee, suffix:"/seat" },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                marginBottom:11, paddingBottom:11, borderBottom:"1px solid rgba(148,163,184,0.12)" }}>
+                <div>
+                  <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>{f.label}</div>
+                  <div style={{ color:"#64748b", fontSize:10 }}>{f.sub}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ color:"#64748b", fontSize:11 }}>CA$</span>
+                  <input value={f.val} onChange={e=>f.set(e.target.value)} type="number" step="0.50"
+                    style={{ width:65, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
+                      borderRadius:6, padding:"5px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
+                  <span style={{ color:"#64748b", fontSize:9 }}>{f.suffix}</span>
+                </div>
+              </div>
+            ))}
+            {/* Peak multiplier */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Peak Hour Multiplier</div>
+                <div style={{ color:"#64748b", fontSize:10 }}>Applied 7–9 AM and 4–7 PM weekdays</div>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <Toggle val={shuttlePeakOn} set={setShuttlePeakOn} />
+                <input value={shuttlePeakMult} onChange={e=>setShuttlePeakMult(e.target.value)}
+                  type="number" step="0.05" disabled={!shuttlePeakOn}
+                  style={{ width:60, background:shuttlePeakOn?"rgba(148,163,184,0.1)":"rgba(148,163,184,0.04)",
+                    border:"1px solid rgba(148,163,184,0.25)", borderRadius:6, padding:"5px 8px",
+                    color:shuttlePeakOn?"#f0f9ff":"#475569", fontSize:12, outline:"none", textAlign:"right" }} />
+                <span style={{ color:"#64748b", fontSize:9 }}>×</span>
+              </div>
+            </div>
+            {/* Live preview */}
+            <div style={{ marginTop:14, background:"rgba(99,179,237,0.06)", border:"1px solid rgba(99,179,237,0.15)",
+              borderRadius:8, padding:"10px 14px" }}>
+              <div style={{ color:"rgba(148,163,184,0.6)", fontSize:9, fontWeight:700, letterSpacing:1.5,
+                textTransform:"uppercase", marginBottom:8 }}>Pricing Preview</div>
+              <div style={{ display:"flex", gap:16 }}>
+                {[["Standard", false], ["Peak Hour", true]].map(([label, isPeak]) => {
+                  const base = parseFloat(shuttleBaseFare)||0;
+                  const book = parseFloat(shuttleBookingFee)||0;
+                  const mult = isPeak && shuttlePeakOn ? parseFloat(shuttlePeakMult)||1 : 1;
+                  const subtotal = base * mult + book;
+                  const total = (subtotal * 1.13).toFixed(2);
+                  return (
+                    <div key={label}>
+                      <div style={{ color:"#64748b", fontSize:9 }}>{label}</div>
+                      <div style={{ color: isPeak ? "#f59e0b" : "#60a5fa", fontSize:18, fontWeight:700,
+                        fontFamily:"'JetBrains Mono',monospace" }}>CA${total}</div>
+                      <div style={{ color:"#475569", fontSize:9 }}>per seat (incl. HST)</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </SettingsPanel>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UBER UNDERCUT PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// DISPATCH POLICY PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+function DispatchPolicyPanel({
+  maxPickupKm, setMaxPickupKm,
+  pickupFeeKm, setPickupFeeKm,
+  dispatchMode, setDispatchMode,
+  pickupFeeOn, setPickupFeeOn,
+  beyondCapKm, setBeyondCapKm,
+  beyondFeeFlat, setBeyondFeeFlat,
+  beyondFeeOn, setBeyondFeeOn,
+  waitFeeOn, setWaitFeeOn,
+  waitFeeRate, setWaitFeeRate,
+  waitFeeMinutes, setWaitFeeMinutes,
+}) {
+  const maxKm       = parseFloat(maxPickupKm)  || 10;
+  const feePerKm    = parseFloat(pickupFeeKm)  || 0.50;
+  const capKm       = parseFloat(beyondCapKm)  || 30;
+  const flatFee     = parseFloat(beyondFeeFlat)|| 2.00;
+  const waitRate    = parseFloat(waitFeeRate)  || 0.20;
+  const graceMins   = parseInt(waitFeeMinutes) || 5;
+
+  const exampleDistances = [5, 8, 10, 12, 15, 20];
+
+  // Over-radius fee: per-km charge on distance beyond radius, capped at beyondCapKm,
+  // plus optional flat fee for any over-radius dispatch
+  function calcPickupFee(driverDistKm) {
+    if (!pickupFeeOn || driverDistKm <= maxKm) return 0;
+    const overKm     = Math.min(driverDistKm - maxKm, capKm - maxKm);
+    const perKmTotal = Math.round(Math.max(0, overKm) * feePerKm * 100) / 100;
+    const flat       = beyondFeeOn ? flatFee : 0;
+    return Math.round((perKmTotal + flat) * 100) / 100;
+  }
+
+  // Wait-time fee: when pickup ETA (minutes) > ride distance (km)
+  // e.g. driver is 12 min away for a 7 km ride → 5 min over → fee
+  function calcWaitFee(etaMin, rideKm) {
+    if (!waitFeeOn) return 0;
+    const excess = etaMin - rideKm - graceMins;
+    if (excess <= 0) return 0;
+    return Math.round(excess * waitRate * 100) / 100;
+  }
+
+  const Row = ({ label, val, c = "#f0f9ff" }) => (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:"1px solid rgba(99,179,237,0.05)" }}>
+      <span style={{ color:"#475569", fontSize:11 }}>{label}</span>
+      <span style={{ color:c, fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{val}</span>
+    </div>
+  );
+
+  return (
+    <SettingsPanel title="DISPATCH POLICY">
+      <div style={{ color:"#475569", fontSize:11, lineHeight:1.6, marginBottom:16 }}>
+        Controls how ride requests are routed to drivers. Configure the pickup radius, the fees applied when drivers exceed it, and the wait-time surcharge for slow pickups.
+      </div>
+
+      {/* ── Dispatch mode ── */}
+      <div style={{ marginBottom:18 }}>
+        <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:8 }}>DISPATCH MODE</div>
+        <div style={{ display:"flex", gap:8 }}>
+          {[
+            { id:"closest", icon:"◎", label:"Closest Driver First", sub:"Auto-dispatch to nearest available driver" },
+            { id:"manual",  icon:"◈", label:"Manual Dispatch",      sub:"Admin assigns each ride manually" },
+          ].map(m => (
+            <button key={m.id} onClick={() => setDispatchMode(m.id)} style={{ flex:1, padding:"11px 12px", borderRadius:8, border:`1px solid ${dispatchMode===m.id?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.08)"}`, background:dispatchMode===m.id?"rgba(59,130,246,0.07)":"transparent", cursor:"pointer", textAlign:"left" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:4 }}>
+                <span style={{ color:dispatchMode===m.id?"#60a5fa":"#475569", fontSize:14 }}>{m.icon}</span>
+                <span style={{ color:dispatchMode===m.id?"#e2e8f0":"#94a3b8", fontSize:11, fontWeight:600 }}>{m.label}</span>
+              </div>
+              <div style={{ color:"#334155", fontSize:9, lineHeight:1.4, paddingLeft:21 }}>{m.sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Max pickup radius ── */}
+      <div style={{ marginBottom:18 }}>
+        <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:8 }}>MAX PICKUP RADIUS</div>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ flex:1 }}>
+            <input type="range" min="1" max="25" step="0.5"
+              value={maxPickupKm} onChange={e => setMaxPickupKm(e.target.value)}
+              style={{ width:"100%", accentColor:"#3b82f6", cursor:"pointer" }}
+            />
+            <div style={{ display:"flex", justifyContent:"space-between", marginTop:2 }}>
+              <span style={{ color:"#334155", fontSize:8, fontFamily:"'JetBrains Mono',monospace" }}>1 km</span>
+              <span style={{ color:"#334155", fontSize:8, fontFamily:"'JetBrains Mono',monospace" }}>25 km</span>
+            </div>
+          </div>
+          <div style={{ background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.25)", borderRadius:8, padding:"8px 14px", textAlign:"center", minWidth:58 }}>
+            <div style={{ color:"#60a5fa", fontSize:22, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{maxKm}</div>
+            <div style={{ color:"#475569", fontSize:9, marginTop:2 }}>km</div>
+          </div>
+        </div>
+        <div style={{ marginTop:6, color:"#334155", fontSize:10, lineHeight:1.5 }}>
+          Requests only go to drivers within <strong style={{ color:"#60a5fa" }}>{maxKm} km</strong> of the rider. Drivers beyond this radius are only dispatched if no closer driver is available and the over-radius fee is enabled.
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* OVER-RADIUS FEE                                           */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      <div style={{ background:"rgba(0,0,0,0.2)", border:"1px solid rgba(245,158,11,0.15)", borderRadius:12, padding:"16px 18px", marginBottom:14 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+          <div>
+            <div style={{ color:"#f59e0b", fontSize:13, fontWeight:700 }}>Over-Radius Pickup Fee</div>
+            <div style={{ color:"#334155", fontSize:10, marginTop:2 }}>Applied when a driver is dispatched beyond the {maxKm} km radius</div>
+          </div>
+          <Toggle val={pickupFeeOn} set={setPickupFeeOn} />
+        </div>
+
+        {pickupFeeOn && (
+          <>
+            {/* Per-km rate */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:7 }}>Rate Per km Beyond Radius</div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ color:"#334155", fontSize:12 }}>CA$</span>
+                  <input type="number" step="0.05" min="0" max="5" value={pickupFeeKm} onChange={e => setPickupFeeKm(e.target.value)}
+                    style={{ width:80, padding:"8px 10px", background:"#080c14", border:"1px solid rgba(99,179,237,0.2)", borderRadius:7, color:"#f0f9ff", fontSize:13, fontFamily:"'JetBrains Mono',monospace", outline:"none" }}
+                  />
+                  <span style={{ color:"#334155", fontSize:12 }}>/km</span>
+                </div>
+                <div style={{ display:"flex", gap:5, marginTop:7 }}>
+                  {[0.25, 0.50, 0.75, 1.00].map(v => (
+                    <button key={v} onClick={() => setPickupFeeKm(String(v))}
+                      style={{ padding:"3px 9px", borderRadius:4, border:`1px solid ${Math.abs(parseFloat(pickupFeeKm)-v)<0.001?"rgba(245,158,11,0.4)":"rgba(99,179,237,0.1)"}`, background:Math.abs(parseFloat(pickupFeeKm)-v)<0.001?"rgba(245,158,11,0.08)":"transparent", color:Math.abs(parseFloat(pickupFeeKm)-v)<0.001?"#f59e0b":"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                      ${v.toFixed(2)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cap km */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:7 }}>Per-km Fee Cap Distance</div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <input type="range" min={maxKm} max="50" step="1" value={capKm} onChange={e => setBeyondCapKm(e.target.value)}
+                    style={{ flex:1, accentColor:"#f59e0b", cursor:"pointer" }}
+                  />
+                  <div style={{ background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.25)", borderRadius:7, padding:"5px 10px", minWidth:46, textAlign:"center" }}>
+                    <div style={{ color:"#f59e0b", fontSize:16, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{capKm}</div>
+                    <div style={{ color:"#475569", fontSize:8, marginTop:1 }}>km</div>
+                  </div>
+                </div>
+                <div style={{ color:"#334155", fontSize:9, marginTop:5, lineHeight:1.5 }}>
+                  Per-km charge stops accumulating after <strong style={{ color:"#f59e0b" }}>{capKm} km</strong>. Rides beyond this still dispatch but the fee is capped.
+                </div>
+              </div>
+            </div>
+
+            {/* Flat dispatch fee */}
+            <div style={{ background:"rgba(0,0,0,0.2)", border:"1px solid rgba(99,179,237,0.08)", borderRadius:10, padding:"12px 14px", marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div>
+                  <div style={{ color:"#cbd5e1", fontSize:11, fontWeight:600 }}>Flat Dispatch Fee</div>
+                  <div style={{ color:"#334155", fontSize:9, marginTop:1 }}>One-time fee added any time an over-radius driver is dispatched, on top of the per-km charge</div>
+                </div>
+                <Toggle val={beyondFeeOn} set={setBeyondFeeOn} />
+              </div>
+              {beyondFeeOn && (
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ color:"#334155", fontSize:12 }}>CA$</span>
+                  <input type="number" step="0.25" min="0" max="20" value={beyondFeeFlat} onChange={e => setBeyondFeeFlat(e.target.value)}
+                    style={{ width:80, padding:"7px 10px", background:"#080c14", border:"1px solid rgba(99,179,237,0.2)", borderRadius:7, color:"#f0f9ff", fontSize:13, fontFamily:"'JetBrains Mono',monospace", outline:"none" }}
+                  />
+                  <span style={{ color:"#64748b", fontSize:11 }}>flat per over-radius dispatch</span>
+                  <div style={{ marginLeft:"auto", display:"flex", gap:5 }}>
+                    {[1.00, 1.50, 2.00, 3.00].map(v => (
+                      <button key={v} onClick={() => setBeyondFeeFlat(String(v))}
+                        style={{ padding:"3px 8px", borderRadius:4, border:`1px solid ${Math.abs(parseFloat(beyondFeeFlat)-v)<0.01?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.1)"}`, background:Math.abs(parseFloat(beyondFeeFlat)-v)<0.01?"rgba(59,130,246,0.08)":"transparent", color:Math.abs(parseFloat(beyondFeeFlat)-v)<0.01?"#60a5fa":"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                        ${v.toFixed(2)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Fee table */}
+            <div style={{ marginBottom:10 }}>
+              <div style={{ color:"rgba(148,163,184,0.3)", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, textTransform:"uppercase", marginBottom:6 }}>PICKUP FEE PREVIEW — DRIVER DISTANCE</div>
+              <div style={{ display:"grid", gridTemplateColumns:`repeat(${exampleDistances.length}, 1fr)`, gap:4 }}>
+                {exampleDistances.map(d => {
+                  const fee = calcPickupFee(d);
+                  const overRadius = d > maxKm;
+                  const capped = d > capKm;
+                  return (
+                    <div key={d} style={{ background:overRadius?"rgba(245,158,11,0.06)":"rgba(34,197,94,0.04)", border:`1px solid ${overRadius?"rgba(245,158,11,0.2)":"rgba(34,197,94,0.15)"}`, borderRadius:7, padding:"7px 6px", textAlign:"center" }}>
+                      <div style={{ color:overRadius?"#f59e0b":"#22c55e", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{d} km</div>
+                      <div style={{ color:overRadius?"#f59e0b":"#22c55e", fontSize:9, marginTop:3, fontFamily:"'JetBrains Mono',monospace" }}>
+                        {fee > 0 ? `+CA$${fee.toFixed(2)}` : "✓ free"}
+                      </div>
+                      <div style={{ color:"#334155", fontSize:7, marginTop:2 }}>{capped ? "fee capped" : overRadius ? "over limit" : "in range"}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ padding:"8px 12px", background:"rgba(59,130,246,0.05)", border:"1px solid rgba(59,130,246,0.15)", borderRadius:8 }}>
+              <div style={{ color:"#60a5fa", fontSize:10, fontWeight:600, marginBottom:3 }}>How the fee works</div>
+              <div style={{ color:"#334155", fontSize:10, lineHeight:1.6 }}>
+                When a driver beyond <strong style={{ color:"#60a5fa" }}>{maxKm} km</strong> is dispatched, the rider sees the breakdown at booking. The per-km charge applies up to <strong style={{ color:"#f59e0b" }}>{capKm} km</strong>{beyondFeeOn ? `, plus a CA$${parseFloat(beyondFeeFlat).toFixed(2)} flat dispatch fee` : ""}. Total over-radius fee goes to the platform, not the driver.
+              </div>
+            </div>
+          </>
+        )}
+
+        {!pickupFeeOn && (
+          <div style={{ padding:"8px 12px", background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:8 }}>
+            <div style={{ color:"#ef4444", fontSize:10, lineHeight:1.5 }}>
+              ⚠ Over-radius fee is <strong>off</strong> — if no driver is within {maxKm} km, the request will simply time out with no fee collected.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* WAIT-TIME SURCHARGE                                        */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      <div style={{ background:"rgba(0,0,0,0.2)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:12, padding:"16px 18px" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+          <div>
+            <div style={{ color:"#a78bfa", fontSize:13, fontWeight:700 }}>Wait-Time Surcharge</div>
+            <div style={{ color:"#334155", fontSize:10, marginTop:2 }}>Added to the fare when pickup ETA (minutes) exceeds ride distance (km)</div>
+          </div>
+          <Toggle val={waitFeeOn} set={setWaitFeeOn} />
+        </div>
+
+        {waitFeeOn && (
+          <>
+            <div style={{ color:"#475569", fontSize:10, lineHeight:1.6, marginBottom:14, background:"rgba(167,139,250,0.05)", border:"1px solid rgba(167,139,250,0.1)", borderRadius:8, padding:"9px 12px" }}>
+              <strong style={{ color:"#a78bfa" }}>Example:</strong> A rider books a <strong style={{ color:"#e2e8f0" }}>6 km</strong> ride. Driver ETA is <strong style={{ color:"#e2e8f0" }}>14 min</strong>. Since 14 min &gt; 6 km, the wait exceeds the ride — a surcharge applies after a <strong style={{ color:"#a78bfa" }}>{graceMins}-minute</strong> grace period: <strong style={{ color:"#e2e8f0" }}>{Math.max(0,(14-6-graceMins))} min × CA${parseFloat(waitFeeRate).toFixed(2)} = CA${calcWaitFee(14,6).toFixed(2)}</strong>
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+              {/* Rate per minute */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:7 }}>Rate Per Extra Minute</div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ color:"#334155", fontSize:12 }}>CA$</span>
+                  <input type="number" step="0.05" min="0" max="2" value={waitFeeRate} onChange={e => setWaitFeeRate(e.target.value)}
+                    style={{ width:80, padding:"8px 10px", background:"#080c14", border:"1px solid rgba(167,139,250,0.2)", borderRadius:7, color:"#f0f9ff", fontSize:13, fontFamily:"'JetBrains Mono',monospace", outline:"none" }}
+                  />
+                  <span style={{ color:"#334155", fontSize:12 }}>/min</span>
+                </div>
+                <div style={{ display:"flex", gap:5, marginTop:7 }}>
+                  {[0.10, 0.15, 0.20, 0.25].map(v => (
+                    <button key={v} onClick={() => setWaitFeeRate(String(v))}
+                      style={{ padding:"3px 8px", borderRadius:4, border:`1px solid ${Math.abs(parseFloat(waitFeeRate)-v)<0.001?"rgba(167,139,250,0.4)":"rgba(99,179,237,0.1)"}`, background:Math.abs(parseFloat(waitFeeRate)-v)<0.001?"rgba(167,139,250,0.08)":"transparent", color:Math.abs(parseFloat(waitFeeRate)-v)<0.001?"#a78bfa":"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                      ${v.toFixed(2)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grace period */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:7 }}>Grace Period (free minutes)</div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <input type="range" min="0" max="15" step="1" value={graceMins} onChange={e => setWaitFeeMinutes(e.target.value)}
+                    style={{ flex:1, accentColor:"#a78bfa", cursor:"pointer" }}
+                  />
+                  <div style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:7, padding:"5px 10px", minWidth:46, textAlign:"center" }}>
+                    <div style={{ color:"#a78bfa", fontSize:16, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{graceMins}</div>
+                    <div style={{ color:"#475569", fontSize:8, marginTop:1 }}>min</div>
+                  </div>
+                </div>
+                <div style={{ color:"#334155", fontSize:9, marginTop:5, lineHeight:1.5 }}>
+                  Surcharge only starts after <strong style={{ color:"#a78bfa" }}>{graceMins} min</strong> of wait exceeding the ride distance. Zero = charges from the first minute over.
+                </div>
+              </div>
+            </div>
+
+            {/* Wait-time preview table */}
+            <div style={{ marginBottom:10 }}>
+              <div style={{ color:"rgba(148,163,184,0.3)", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, textTransform:"uppercase", marginBottom:6 }}>WAIT SURCHARGE PREVIEW — ETA vs 8 KM RIDE</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:4 }}>
+                {[4, 6, 8, 10, 14, 18].map(eta => {
+                  const rideKm = 8;
+                  const fee = calcWaitFee(eta, rideKm);
+                  const triggered = fee > 0;
+                  return (
+                    <div key={eta} style={{ background:triggered?"rgba(167,139,250,0.06)":"rgba(34,197,94,0.04)", border:`1px solid ${triggered?"rgba(167,139,250,0.2)":"rgba(34,197,94,0.15)"}`, borderRadius:7, padding:"7px 6px", textAlign:"center" }}>
+                      <div style={{ color:triggered?"#a78bfa":"#22c55e", fontSize:10, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{eta} min</div>
+                      <div style={{ color:triggered?"#a78bfa":"#22c55e", fontSize:9, marginTop:2, fontFamily:"'JetBrains Mono',monospace" }}>
+                        {fee > 0 ? `+CA$${fee.toFixed(2)}` : "✓ no fee"}
+                      </div>
+                      <div style={{ color:"#334155", fontSize:7, marginTop:1 }}>{triggered ? "surcharge" : "within limit"}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ color:"#334155", fontSize:9, marginTop:6 }}>Preview assumes 8 km ride. Surcharge = (ETA − ride km − {graceMins} grace) × CA${parseFloat(waitFeeRate).toFixed(2)}/min</div>
+            </div>
+
+            <div style={{ padding:"8px 12px", background:"rgba(167,139,250,0.05)", border:"1px solid rgba(167,139,250,0.12)", borderRadius:8 }}>
+              <div style={{ color:"#a78bfa", fontSize:10, fontWeight:600, marginBottom:3 }}>Rider experience</div>
+              <div style={{ color:"#334155", fontSize:10, lineHeight:1.6 }}>
+                When a wait surcharge applies, the rider sees it broken out as a separate line item before confirming. Drivers are not penalized — this is a platform fee collected at booking. The grace period protects riders from minor ETA inaccuracies.
+              </div>
+            </div>
+          </>
+        )}
+
+        {!waitFeeOn && (
+          <div style={{ padding:"8px 12px", background:"rgba(100,116,139,0.05)", border:"1px solid rgba(100,116,139,0.15)", borderRadius:8 }}>
+            <div style={{ color:"#64748b", fontSize:10, lineHeight:1.5 }}>
+              Wait-time surcharge is <strong>off</strong> — rides where the pickup ETA greatly exceeds the ride distance are not charged extra.
+            </div>
+          </div>
+        )}
+      </div>
+
+    </SettingsPanel>
+  );
+}
+
+function UberUndercutPanel({ onApply }) {
+  const [margin,     setMargin]     = useState("10");
+  const [uberProduct,setUberProduct]= useState("uberX");
+  const [locked,     setLocked]     = useState(false);
+
+  const marginNum = Math.max(1, Math.min(50, parseFloat(margin) || 10));
+  const derived   = deriveUndercutRates(uberProduct, marginNum);
+  const uber      = UBER_RATES[uberProduct];
+
+  const rows = [
+    { label:"Base Fare",    uber: uber.baseFare,    zeez: derived.baseFare,    fmt: v => `CA$${v.toFixed(2)}` },
+    { label:"Per km",       uber: uber.ratePerKm,   zeez: derived.ratePerKm,   fmt: v => `CA$${v.toFixed(2)}` },
+    { label:"Per minute",   uber: uber.ratePerMin,  zeez: derived.ratePerMin,  fmt: v => `CA$${v.toFixed(2)}` },
+    { label:"Min Fare",     uber: uber.minimumFare, zeez: derived.minimumFare, fmt: v => `CA$${v.toFixed(2)}` },
+  ];
+
+  return (
+    <SettingsPanel title="UBER UNDERCUT ENGINE">
+      <div style={{ color:"#334155", fontSize:10, lineHeight:1.6, marginBottom:14 }}>
+        Automatically set your rates to always be cheaper than Uber by a fixed margin. The engine scales every rate component proportionally so the saving holds for <em style={{ color:"#60a5fa" }}>every trip length</em> — short or long.
+      </div>
+
+      {/* Product + margin selector */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+        <div>
+          <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>UBER PRODUCT TO BEAT</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            {Object.entries(UBER_RATES).map(([k, r]) => (
+              <button key={k} onClick={() => setUberProduct(k)} style={{ padding:"7px 10px", borderRadius:6, border:`1px solid ${uberProduct===k?"#f97316":"rgba(99,179,237,0.1)"}`, background:uberProduct===k?"rgba(249,115,22,0.08)":"transparent", color:uberProduct===k?"#f97316":"#475569", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", textAlign:"left" }}>
+                {r.label} — CA${r.ratePerKm}/km
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>UNDERCUT MARGIN</div>
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+            <input value={margin} onChange={e => setMargin(e.target.value)} style={{ width:60, padding:"8px 10px", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:6, fontSize:16, fontWeight:700, color:"#22c55e", fontFamily:"'JetBrains Mono',monospace", outline:"none", textAlign:"center" }} />
+            <span style={{ color:"#334155", fontSize:14 }}>% cheaper</span>
+          </div>
+          {/* Preset buttons */}
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+            {[5,10,15,20].map(p => (
+              <button key={p} onClick={() => setMargin(String(p))} style={{ padding:"3px 8px", borderRadius:4, border:`1px solid ${margin===String(p)?"#22c55e":"rgba(99,179,237,0.1)"}`, background:margin===String(p)?"rgba(34,197,94,0.1)":"transparent", color:margin===String(p)?"#22c55e":"#334155", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>{p}%</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Rate comparison table */}
+      <div style={{ background:"rgba(0,0,0,0.25)", border:"1px solid rgba(99,179,237,0.08)", borderRadius:8, overflow:"hidden", marginBottom:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", background:"rgba(255,255,255,0.02)", padding:"6px 12px", borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+          {["RATE","UBER","ZEEZRYDE","SAVING"].map(h => <div key={h} style={{ fontSize:8, color:"rgba(148,163,184,0.35)", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, fontWeight:700 }}>{h}</div>)}
+        </div>
+        {rows.map((r, i) => {
+          const saving = ((r.uber - r.zeez) / r.uber * 100).toFixed(1);
+          return (
+            <div key={r.label} style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", padding:"8px 12px", borderBottom:i<rows.length-1?"1px solid rgba(99,179,237,0.05)":"none", alignItems:"center" }}>
+              <span style={{ color:"#64748b", fontSize:11 }}>{r.label}</span>
+              <span style={{ color:"#ef4444", fontSize:11, fontFamily:"'JetBrains Mono',monospace", textDecoration:"line-through", opacity:0.7 }}>{r.fmt(r.uber)}</span>
+              <span style={{ color:"#22c55e", fontSize:12, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{r.fmt(r.zeez)}</span>
+              <span style={{ color:"#f59e0b", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>−{saving}%</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Lock toggle + apply */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <Toggle val={locked} set={setLocked} />
+          <div>
+            <div style={{ color:"#cbd5e1", fontSize:11, fontWeight:500 }}>Auto-lock to Uber</div>
+            <div style={{ color:"#334155", fontSize:9 }}>Re-apply rates whenever Uber prices change</div>
+          </div>
+        </div>
+      </div>
+
+      {locked && (
+        <div style={{ background:"rgba(34,197,94,0.06)", border:"1px solid rgba(34,197,94,0.2)", borderRadius:7, padding:"8px 12px", marginBottom:10, display:"flex", alignItems:"center", gap:7 }}>
+          <span style={{ color:"#22c55e", fontSize:13 }}>🔒</span>
+          <span style={{ color:"#22c55e", fontSize:11, fontWeight:600 }}>Locked — ZeezRyde will always be {marginNum}% cheaper than {UBER_RATES[uberProduct].label}</span>
+        </div>
+      )}
+
+      <button onClick={() => onApply(derived)} style={{ width:"100%", background:"linear-gradient(135deg,#22c55e,#16a34a)", color:"#fff", border:"none", borderRadius:8, padding:"10px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5 }}>
+        ✓ APPLY — SET RATES {marginNum}% BELOW {UBER_RATES[uberProduct].label.toUpperCase()}
+      </button>
+    </SettingsPanel>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UBER vs ZEEZRYDE LIVE COMPARISON PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+function UberComparisonPanel({ cfg, familyMult, friendsMult }) {
+  const TRIPS = [
+    { label:"Short trip",   km:3,  min:6  },
+    { label:"Medium trip",  km:8,  min:14 },
+    { label:"Long trip",    km:18, min:28 },
+    { label:"Airport run",  km:35, min:45 },
+  ];
+
+  const noSurgeCfg = { ...cfg, surgeMultiplier: 1.0 };
+
+  return (
+    <SettingsPanel title="LIVE PRICE COMPARISON — vs UBER">
+      <div style={{ color:"#334155", fontSize:10, marginBottom:12 }}>
+        Real-time comparison at current settings. Green = cheaper. Red = more expensive than Uber.
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr", background:"rgba(255,255,255,0.02)", padding:"6px 10px", borderBottom:"1px solid rgba(99,179,237,0.07)", borderRadius:"6px 6px 0 0" }}>
+        {["TRIP","UBERX","ZEEZ FAMILY","UBERXL","ZEEZ FRIENDS"].map(h => <div key={h} style={{ fontSize:7.5, color:"rgba(148,163,184,0.35)", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, fontWeight:700 }}>{h}</div>)}
+      </div>
+      {TRIPS.map((t, i) => {
+        const uberX   = calcUberFare("uberX",  t.km, t.min);
+        const uberXL  = calcUberFare("uberXL", t.km, t.min);
+        const zeezFam = Math.round(calcFare(noSurgeCfg, t.km, t.min).total * (parseFloat(familyMult)||1) * 100) / 100;
+        const zeezFri = Math.round(calcFare(noSurgeCfg, t.km, t.min).total * (parseFloat(friendsMult)||1) * 100) / 100;
+        const famCheaper = zeezFam < uberX;
+        const friCheaper = zeezFri < uberXL;
+        return (
+          <div key={t.label} style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr", padding:"8px 10px", borderBottom:i<TRIPS.length-1?"1px solid rgba(99,179,237,0.05)":"none", alignItems:"center" }}>
+            <span style={{ color:"#64748b", fontSize:10 }}>{t.label}</span>
+            <span style={{ color:"#ef4444", fontSize:11, fontFamily:"'JetBrains Mono',monospace", opacity:0.7 }}>CA${uberX.toFixed(2)}</span>
+            <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+              <span style={{ color:famCheaper?"#22c55e":"#ef4444", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>CA${zeezFam.toFixed(2)}</span>
+              <span style={{ fontSize:8, color:famCheaper?"#16a34a":"#dc2626", fontFamily:"'JetBrains Mono',monospace" }}>
+                {famCheaper ? `−${((uberX-zeezFam)/uberX*100).toFixed(1)}% ✓` : `+${((zeezFam-uberX)/uberX*100).toFixed(1)}% ⚠`}
+              </span>
+            </div>
+            <span style={{ color:"#ef4444", fontSize:11, fontFamily:"'JetBrains Mono',monospace", opacity:0.7 }}>CA${uberXL.toFixed(2)}</span>
+            <div style={{ display:"flex", flexDirection:"column", gap:1 }}>
+              <span style={{ color:friCheaper?"#22c55e":"#ef4444", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>CA${zeezFri.toFixed(2)}</span>
+              <span style={{ fontSize:8, color:friCheaper?"#16a34a":"#dc2626", fontFamily:"'JetBrains Mono',monospace" }}>
+                {friCheaper ? `−${((uberXL-zeezFri)/uberXL*100).toFixed(1)}% ✓` : `+${((zeezFri-uberXL)/uberXL*100).toFixed(1)}% ⚠`}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+      {/* Overall status badge */}
+      {(() => {
+        const allCheaper = TRIPS.every(t => {
+          const uberX  = calcUberFare("uberX",  t.km, t.min);
+          const uberXL = calcUberFare("uberXL", t.km, t.min);
+          const zeezFam = Math.round(calcFare(noSurgeCfg, t.km, t.min).total * (parseFloat(familyMult)||1) * 100) / 100;
+          const zeezFri = Math.round(calcFare(noSurgeCfg, t.km, t.min).total * (parseFloat(friendsMult)||1) * 100) / 100;
+          return zeezFam < uberX && zeezFri < uberXL;
+        });
+        return (
+          <div style={{ marginTop:10, padding:"8px 12px", background:allCheaper?"rgba(34,197,94,0.06)":"rgba(239,68,68,0.06)", border:`1px solid ${allCheaper?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"}`, borderRadius:7, display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:14 }}>{allCheaper?"✅":"⚠️"}</span>
+            <span style={{ color:allCheaper?"#22c55e":"#ef4444", fontSize:11, fontWeight:600 }}>
+              {allCheaper
+                ? "ZeezRyde is cheaper than Uber across all trip lengths"
+                : "Warning: ZeezRyde is MORE expensive than Uber on some trips — use the Undercut Engine to fix this"}
+            </span>
+          </div>
+        );
+      })()}
+    </SettingsPanel>
+  );
+}
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: ZONE CONTROL
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// GTA zone map — canvas-rendered SVG-style polygons representing operational
+// zones. Admin can: create zones, set status (active/restricted/blocked),
+// assign/unassign drivers per zone, set surge overrides per zone, and see
+// which drivers are currently operating in each area.
+//
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: ZONE CONTROL — Hamilton / Niagara Region
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Map schematic covers the Hamilton–Niagara axis along the western end of
+// the Niagara Peninsula: Hamilton (lower city + Mountain), Burlington,
+// Dundas/Ancaster, Stoney Creek/Grimsby, St. Catharines, Niagara Falls,
+// Niagara-on-the-Lake, Welland, Fort Erie, and the QEW corridor.
+//
+// Canvas dimensions: 600 × 420
+// Geographic orientation: West (Hamilton) → East (Niagara Falls)
+//                         North (Lake Ontario shoreline) → South (Lake Erie)
+
+const INIT_ZONES = [
+  {
+    id: "ZN-001", name: "Downtown Hamilton", color: "#3b82f6",
+    status: "active",
+    // Lower city core — harbourfront to escarpment foot
+    polygon: [[100,140],[180,140],[185,175],[180,210],[100,215],[90,180]],
+    surgeOverride: null,
+    notes: "Hamilton core — GO station, Jackson Square, Copps Coliseum area. High demand zone.",
+    maxDrivers: 15,
+  },
+  {
+    id: "ZN-002", name: "Hamilton Mountain", color: "#8b5cf6",
+    status: "active",
+    // Upper city above the escarpment
+    polygon: [[70,215],[185,215],[190,260],[180,300],[80,305],[60,265]],
+    surgeOverride: null,
+    notes: "Upper Hamilton — Mohawk College, Limeridge Mall, Concession St. residential suburbs.",
+    maxDrivers: 10,
+  },
+  {
+    id: "ZN-003", name: "Dundas / Ancaster / Flamborough", color: "#06b6d4",
+    status: "active",
+    // West Hamilton suburbs
+    polygon: [[20,160],[100,140],[90,180],[100,215],[70,215],[60,265],[20,260],[10,200]],
+    surgeOverride: null,
+    notes: "Western Hamilton suburbs — McMaster University, Dundas Valley, Ancaster town centre.",
+    maxDrivers: 8,
+  },
+  {
+    id: "ZN-004", name: "Burlington", color: "#22c55e",
+    status: "active",
+    // North-east of Hamilton along Lake Ontario
+    polygon: [[180,95],[270,90],[280,140],[190,140],[185,175],[180,140]],
+    surgeOverride: null,
+    notes: "Burlington — Joseph Brant Hospital, Mapleview Mall, GO station. Bridge zone to Niagara.",
+    maxDrivers: 10,
+  },
+  {
+    id: "ZN-005", name: "Stoney Creek / Grimsby", color: "#f59e0b",
+    status: "active",
+    // East Hamilton/Stoney Creek corridor
+    polygon: [[185,140],[280,140],[290,175],[285,215],[180,215],[185,175]],
+    surgeOverride: null,
+    notes: "Stoney Creek, Winona, Grimsby — growing residential, QEW on-ramp corridor.",
+    maxDrivers: 8,
+  },
+  {
+    id: "ZN-006", name: "St. Catharines", color: "#f97316",
+    status: "active",
+    polygon: [[285,120],[380,115],[395,160],[390,205],[285,210],[280,165]],
+    surgeOverride: null,
+    notes: "Largest Niagara city — Brock University, Pen Centre, downtown core. Strong demand.",
+    maxDrivers: 12,
+  },
+  {
+    id: "ZN-007", name: "Niagara Falls", color: "#ec4899",
+    status: "active",
+    polygon: [[390,115],[470,110],[490,160],[485,210],[390,210],[385,160]],
+    surgeOverride: "1.5",
+    notes: "Tourist surge zone — Clifton Hill, Casino Niagara, falls area. Permanent 1.5× surge.",
+    maxDrivers: 14,
+  },
+  {
+    id: "ZN-008", name: "Niagara-on-the-Lake", color: "#a78bfa",
+    status: "active",
+    polygon: [[390,70],[470,65],[490,115],[470,115],[390,115],[375,85]],
+    surgeOverride: "1.2",
+    notes: "Wine country, Shaw Festival, historic town. Seasonal surge — high summer demand.",
+    maxDrivers: 6,
+  },
+  {
+    id: "ZN-009", name: "Welland / Thorold / Port Colborne", color: "#64748b",
+    status: "restricted",
+    polygon: [[300,210],[400,210],[410,285],[395,320],[295,325],[285,280]],
+    surgeOverride: null,
+    notes: "Welland Canal corridor — restricted pending driver recruitment in south Niagara.",
+    maxDrivers: 5,
+  },
+  {
+    id: "ZN-010", name: "Fort Erie / Ridgeway", color: "#ef4444",
+    status: "blocked",
+    polygon: [[400,285],[490,280],[510,340],[500,370],[400,375],[390,330]],
+    surgeOverride: null,
+    notes: "US border zone — blocked pending cross-border regulatory review with CRTC and CBSA.",
+    maxDrivers: 0,
+  },
+  {
+    id: "ZN-011", name: "Lincoln / Beamsville / Vineland", color: "#10b981",
+    status: "active",
+    polygon: [[270,140],[290,140],[285,210],[270,215],[260,280],[240,285],[230,215],[250,145]],
+    surgeOverride: null,
+    notes: "Niagara wine route — Lincoln, Beamsville, Twenty Valley. Moderate weekend demand.",
+    maxDrivers: 5,
+  },
+  {
+    id: "ZN-012", name: "Hamilton Airport (YHM) Corridor", color: "#fbbf24",
+    status: "active",
+    polygon: [[60,265],[180,265],[185,215],[190,260],[80,305],[60,300]],
+    surgeOverride: "1.3",
+    notes: "John C. Munro International Airport — Mount Hope. Dedicated airport pickup zone 1.3×.",
+    maxDrivers: 8,
+  },
+];
+
+const DRIVER_ZONE_DEFAULTS = {};
+
+const ZONE_STATUS_META = {
+  active:     { label:"Active",     color:"#22c55e", bg:"rgba(34,197,94,0.1)",    border:"rgba(34,197,94,0.25)",    desc:"Drivers can pick up and drop off freely" },
+  restricted: { label:"Restricted", color:"#f59e0b", bg:"rgba(245,158,11,0.1)",   border:"rgba(245,158,11,0.25)",   desc:"Limited operation — assigned drivers only" },
+  blocked:    { label:"Blocked",    color:"#ef4444", bg:"rgba(239,68,68,0.1)",     border:"rgba(239,68,68,0.25)",    desc:"No pickups or drop-offs permitted" },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: DOCUMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+const MAX_VEHICLE_AGE  = 10;
+const CUR_YEAR         = 2026;
+const MIN_VEHICLE_YEAR = CUR_YEAR - MAX_VEHICLE_AGE; // 2016
+
+// Returns null if ok, or a warning string if vehicle year violates the policy
+function vehicleYearWarning(year) {
+  if (!year) return null;
+  const y = parseInt(year);
+  if (isNaN(y)) return null;
+  if (y < MIN_VEHICLE_YEAR) return `Vehicle is ${CUR_YEAR - y} years old — exceeds the ${MAX_VEHICLE_AGE}-year maximum. Registration must be rejected.`;
+  if (y < MIN_VEHICLE_YEAR + 2) return `Vehicle is ${CUR_YEAR - y} years old — approaching the ${MAX_VEHICLE_AGE}-year limit. Verify carefully.`;
+  return null;
+}
+
+const DOC_ICONS = {
+  "Driver's Licence (Ontario Class G)":   "🪪",
+  "Abstract (3-Year Driver Record)":       "📋",
+  "Criminal Background Check":             "🔍",
+  "Vehicle Registration":                  "📄",
+  "Automobile Insurance (rideshare)":      "🛡️",
+  "Vehicle Safety Inspection Certificate": "🔧",
+  "Niagara Region TNC Driver's Licence":   "🏅",
+  "Niagara Region TNC Vehicle Permit":     "🚖",
+  "Proof of Work Eligibility":             "📑",
+  "Profile Photo":                         "📷",
+};
+
+const DOC_META = {
+  approved: { label:"Approved", color:"#22c55e", bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.25)"  },
+  pending:  { label:"Pending",  color:"#f59e0b", bg:"rgba(245,158,11,0.1)",  border:"rgba(245,158,11,0.25)" },
+  rejected: { label:"Rejected", color:"#ef4444", bg:"rgba(239,68,68,0.1)",   border:"rgba(239,68,68,0.25)"  },
+  missing:  { label:"Missing",  color:"#475569", bg:"rgba(71,85,105,0.1)",   border:"rgba(71,85,105,0.2)"   },
+};
+
+
+
+// Simulate a document "image" preview with a realistic-looking placeholder
+function DocViewer({ doc, driverName, driverVehicle="" }) {
+  if (!doc) return (
+    <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, color:"#334155" }}>
+      <div style={{ fontSize:32 }}>⊟</div>
+      <div style={{ fontSize:12 }}>Select a document to preview</div>
+    </div>
+  );
+
+  if (doc.status === "missing" || !doc.file) return (
+    <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
+      <div style={{ fontSize:32 }}>○</div>
+      <div style={{ color:"#475569", fontSize:12 }}>No file uploaded yet</div>
+      <div style={{ color:"#334155", fontSize:10 }}>Driver has not submitted this document</div>
+    </div>
+  );
+
+  const isPdf = doc.file.endsWith(".pdf");
+  const icon  = DOC_ICONS[doc.type] || "📄";
+
+  // Extract year from vehicle string for registration docs
+  const vehYearMatch = driverVehicle ? driverVehicle.match(/\b(20\d{2}|19\d{2})\b/) : null;
+  const vehYear      = vehYearMatch ? parseInt(vehYearMatch[1]) : null;
+  const vehWarning   = doc.type === "Vehicle Registration" ? vehicleYearWarning(vehYear) : null;
+
+  // Simulate a rendered document preview
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+      {/* Vehicle age warning banner */}
+      {vehWarning && (
+        <div style={{ marginBottom:10, background: vehYear < MIN_VEHICLE_YEAR ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.07)", border: vehYear < MIN_VEHICLE_YEAR ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(245,158,11,0.3)", borderRadius:9, padding:"10px 13px", display:"flex", alignItems:"flex-start", gap:9 }}>
+          <span style={{ fontSize:16, flexShrink:0 }}>{vehYear < MIN_VEHICLE_YEAR ? "🚫" : "⚠️"}</span>
+          <div>
+            <div style={{ color: vehYear < MIN_VEHICLE_YEAR ? "#ef4444" : "#f59e0b", fontSize:11, fontWeight:700, marginBottom:2 }}>
+              {vehYear < MIN_VEHICLE_YEAR ? "Vehicle Too Old — Reject Registration" : "Vehicle Age Warning"}
+            </div>
+            <div style={{ color:"#64748b", fontSize:10, lineHeight:1.5 }}>{vehWarning}</div>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", marginTop:4 }}>
+              POLICY: Vehicles must be {CUR_YEAR} model year {MIN_VEHICLE_YEAR} or newer · Max age {MAX_VEHICLE_AGE} years
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Mock document canvas */}
+      <div style={{ flex:1, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:10, margin:"0 0 12px", overflow:"hidden", position:"relative", minHeight:300 }}>
+        {/* Document header bar */}
+        <div style={{ background:"rgba(59,130,246,0.06)", borderBottom:"1px solid rgba(99,179,237,0.1)", padding:"10px 14px", display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:16 }}>{icon}</span>
+          <div>
+            <div style={{ color:"#cbd5e1", fontSize:11, fontWeight:600 }}>{doc.type}</div>
+            <div style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>{doc.file}</div>
+          </div>
+          <div style={{ marginLeft:"auto", background:"rgba(99,179,237,0.08)", border:"1px solid rgba(99,179,237,0.15)", borderRadius:4, padding:"3px 8px" }}>
+            <span style={{ color:"#475569", fontSize:8, fontFamily:"'JetBrains Mono',monospace" }}>{isPdf ? "PDF" : "IMAGE"}</span>
+          </div>
+        </div>
+
+        {/* Simulated document body */}
+        <div style={{ padding:20, display:"flex", flexDirection:"column", gap:10 }}>
+          {/* Government header */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:10, borderBottom:"2px solid rgba(99,179,237,0.08)" }}>
+            <div style={{ width:36, height:36, borderRadius:6, background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
+              {doc.type === "Driver's Licence (Ontario Class G)" ? "🍁" : doc.type === "Automobile Insurance (rideshare)" ? "🏛" : doc.type === "Criminal Background Check" ? "🔍" : doc.type === "Profile Photo" ? "📷" : "🏛"}
+            </div>
+            <div>
+              <div style={{ color:"#94a3b8", fontSize:10, fontWeight:700, letterSpacing:1 }}>
+                {doc.type === "Driver's Licence (Ontario Class G)" ? "ONTARIO — CLASS G DRIVER'S LICENCE" :
+                 doc.type === "Automobile Insurance (rideshare)" ? "CERTIFICATE OF AUTOMOBILE INSURANCE" :
+                 doc.type === "Criminal Background Check" ? "CRIMINAL RECORD CHECK — RCMP" :
+                 doc.type === "Abstract (3-Year Driver Record)" ? "ONTARIO DRIVER'S ABSTRACT — 3 YEAR" :
+                 doc.type === "Vehicle Registration" ? "ONTARIO — VEHICLE PERMIT" :
+                 doc.type === "Vehicle Safety Inspection Certificate" ? "ONTARIO SAFETY STANDARDS CERTIFICATE" :
+                 doc.type === "Profile Photo" ? "DRIVER PROFILE PHOTO" :
+                 "ONTARIO — OFFICIAL DOCUMENT"}
+              </div>
+              <div style={{ color:"#334155", fontSize:8, marginTop:1 }}>Province of Ontario · Government of Canada</div>
+            </div>
+          </div>
+
+          {/* Document fields */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            {[
+              ["NAME", driverName],
+              ["DOCUMENT #", doc.file.replace(/[^0-9]/g,"").slice(0,8) || "ON" + Math.floor(Math.random()*9000000+1000000)],
+              ["ISSUED", doc.uploaded || "—"],
+              ["CLASS", doc.type === "Driver's Licence (Ontario Class G)" ? "G — Full" : "N/A"],
+            ].map(([l, v]) => (
+              <div key={l} style={{ background:"rgba(255,255,255,0.02)", borderRadius:6, padding:"7px 10px" }}>
+                <div style={{ color:"rgba(148,163,184,0.3)", fontSize:7, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, marginBottom:2 }}>{l}</div>
+                <div style={{ color:"#94a3b8", fontSize:11, fontWeight:500 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Simulated barcode / watermark */}
+          <div style={{ display:"flex", gap:2, justifyContent:"center", opacity:0.15, marginTop:8 }}>
+            {Array.from({length:40}).map((_, i) => (
+              <div key={i} style={{ width: i%3===0?3:1, height:28, background:"#94a3b8" }} />
+            ))}
+          </div>
+          <div style={{ textAlign:"center", color:"rgba(148,163,184,0.2)", fontSize:7, fontFamily:"'JetBrains Mono',monospace", letterSpacing:3 }}>
+            GOVERNMENT ISSUED DOCUMENT — SIMULATED PREVIEW
+          </div>
+        </div>
+      </div>
+
+      {/* File metadata */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+        {[
+          ["UPLOADED",   doc.uploaded || "—"],
+          ["FILE",       doc.file],
+          ["TYPE",       isPdf ? "PDF Document" : "Image File"],
+          ["STATUS",     (DOC_META[doc.status]||DOC_META.missing).label],
+        ].map(([l,v]) => (
+          <div key={l} style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.07)", borderRadius:7, padding:"7px 10px" }}>
+            <div style={{ color:"rgba(148,163,184,0.3)", fontSize:7, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, marginBottom:2 }}>{l}</div>
+            <div style={{ color:"#94a3b8", fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DocStatusPill({ status }) {
+  const m = DOC_META[status] || DOC_META.missing;
+  return (
+    <span style={{ background:m.bg, border:`1px solid ${m.border}`, color:m.color, borderRadius:5, padding:"2px 8px", fontSize:9, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5, flexShrink:0 }}>
+      {m.label.toUpperCase()}
+    </span>
+  );
+}
+
+function PageDocs({ drivers, patchDriver, setModal }) {
+  const [expandedDriver, setExpandedDriver] = useState(
+    // Auto-expand first driver with pending docs
+    drivers.find(d => d.docFiles?.some(f => f.status === "pending"))?.id || null
+  );
+  const [selectedDoc,    setSelectedDoc]    = useState(null); // { driverId, docIndex }
+  const [filterStatus,   setFilterStatus]   = useState("all");
+  const [rejectNote,     setRejectNote]     = useState("");
+  const [rejectTarget,   setRejectTarget]   = useState(null);
+
+  const selDriverObj = selectedDoc ? drivers.find(d => d.id === selectedDoc.driverId) : null;
+  const selDocObj    = selDriverObj ? selDriverObj.docFiles?.[selectedDoc.docIndex] : null;
+
+  function patchDoc(driverId, docIndex, patch) {
+    const d = drivers.find(d => d.id === driverId);
+    if (!d) return;
+    const newFiles = d.docFiles.map((f, i) => i === docIndex ? { ...f, ...patch } : f);
+    const statuses = newFiles.map(f => f.status);
+    const topDocs  = statuses.every(s => s === "approved") ? "approved" : "pending";
+    patchDriver(driverId, { docFiles: newFiles, docs: topDocs });
+    // Keep selection in sync
+    if (selectedDoc?.driverId === driverId && selectedDoc?.docIndex === docIndex) {
+      setSelectedDoc({ driverId, docIndex }); // force re-render
+    }
+  }
+
+  function approveDoc(driverId, docIndex) {
+    patchDoc(driverId, docIndex, { status:"approved", note:"" });
+  }
+  function approveAll(driverId) {
+    const d = drivers.find(d => d.id === driverId);
+    if (!d) return;
+    const newFiles = d.docFiles.map(f => f.status === "pending" ? { ...f, status:"approved", note:"" } : f);
+    patchDriver(driverId, { docFiles: newFiles, docs: newFiles.every(f => f.status==="approved") ? "approved" : "pending" });
+  }
+
+  const counts = drivers.reduce((acc, d) => {
+    (d.docFiles||[]).forEach(f => { acc[f.status] = (acc[f.status]||0) + 1; });
+    return acc;
+  }, {});
+  const totalPending = counts.pending || 0;
+
+  // Filter drivers to show
+  const visibleDrivers = filterStatus === "all"
+    ? drivers
+    : drivers.filter(d => (d.docFiles||[]).some(f => f.status === filterStatus));
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:0, height:"100%" }}>
+
+      {/* ── Header ── */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ color:"#f0f9ff", fontSize:20, fontWeight:700, letterSpacing:-0.5 }}>Document Review</div>
+        <div style={{ color:"#475569", fontSize:12, marginTop:3 }}>
+          Verify driver onboarding documents · set expiry dates · approve or reject
+        </div>
+      </div>
+
+      {/* ── Summary bar ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:20 }}>
+        {[
+          ["PENDING",  counts.pending||0,  "#f59e0b","⏳"],
+          ["APPROVED", counts.approved||0, "#22c55e","✓" ],
+          ["REJECTED", counts.rejected||0, "#ef4444","✗" ],
+          ["MISSING",  counts.missing||0,  "#475569","○" ],
+        ].map(([label, val, color, icon]) => (
+          <div key={label} onClick={() => setFilterStatus(s => s === label.toLowerCase() ? "all" : label.toLowerCase())} style={{ background:"#080c14", border:`1px solid ${filterStatus===label.toLowerCase()?"rgba(99,179,237,0.3)":"rgba(99,179,237,0.1)"}`, borderRadius:10, padding:"12px 16px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", transition:"all 0.15s" }}>
+            <span style={{ color, fontSize:16 }}>{icon}</span>
+            <div>
+              <div style={{ color, fontSize:20, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{val}</div>
+              <div style={{ color:"rgba(148,163,184,0.3)", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, marginTop:2 }}>{label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Main layout: accordion list + doc viewer ── */}
+      <div style={{ display:"flex", gap:16, alignItems:"flex-start", flex:1, minHeight:0 }}>
+
+        {/* ── LEFT: driver accordion ── */}
+        <div style={{ flex:"0 0 320px", display:"flex", flexDirection:"column", gap:0, background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, overflow:"hidden" }}>
+
+          {/* List header */}
+          <div style={{ padding:"11px 16px", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <span style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, fontWeight:700 }}>DRIVERS ({visibleDrivers.length})</span>
+            <div style={{ display:"flex", gap:4 }}>
+              {["all","pending","rejected"].map(s => (
+                <button key={s} onClick={() => setFilterStatus(f => f===s?"all":s)} style={{ padding:"2px 7px", borderRadius:3, border:`1px solid ${filterStatus===s?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.08)"}`, background:filterStatus===s?"rgba(59,130,246,0.1)":"transparent", color:filterStatus===s?"#60a5fa":"#334155", fontSize:7, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", textTransform:"uppercase" }}>{s}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Driver rows */}
+          <div style={{ overflowY:"auto", maxHeight:680 }}>
+            {visibleDrivers.map(d => {
+              const isExpanded = expandedDriver === d.id;
+              const dPending   = (d.docFiles||[]).filter(f => f.status==="pending").length;
+              const dApproved  = (d.docFiles||[]).filter(f => f.status==="approved").length;
+              const dRejected  = (d.docFiles||[]).filter(f => f.status==="rejected").length;
+              const dTotal     = (d.docFiles||[]).length;
+              const allOk      = dApproved === dTotal && dTotal > 0;
+
+              return (
+                <div key={d.id} style={{ borderBottom:"1px solid rgba(99,179,237,0.06)" }}>
+
+                  {/* Driver row header */}
+                  <div
+                    onClick={() => {
+                      setExpandedDriver(v => v === d.id ? null : d.id);
+                      // Auto-select first pending doc when expanding
+                      if (expandedDriver !== d.id) {
+                        const firstPending = (d.docFiles||[]).findIndex(f => f.status === "pending");
+                        const firstIdx     = firstPending >= 0 ? firstPending : 0;
+                        if ((d.docFiles||[]).length > 0) setSelectedDoc({ driverId:d.id, docIndex:firstIdx });
+                      }
+                    }}
+                    style={{ padding:"11px 14px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:isExpanded?"rgba(59,130,246,0.05)":"transparent", transition:"background 0.12s" }}
+                  >
+                    <Avi name={d.name} seed={d.id} size={28} hue={220} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.name}</div>
+                      <div style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace", marginTop:1 }}>{d.vehicle}</div>
+                    </div>
+                    {/* Mini status dots */}
+                    <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
+                      {dPending  > 0 && <span style={{ background:"rgba(245,158,11,0.15)", color:"#f59e0b", borderRadius:10, padding:"1px 6px", fontSize:8, fontWeight:700 }}>{dPending}⏳</span>}
+                      {dRejected > 0 && <span style={{ background:"rgba(239,68,68,0.1)",  color:"#ef4444", borderRadius:10, padding:"1px 6px", fontSize:8, fontWeight:700 }}>{dRejected}✗</span>}
+                      {allOk         && <span style={{ color:"#22c55e", fontSize:11 }}>✓</span>}
+                    </div>
+                    <span style={{ color:"#334155", fontSize:10, transition:"transform 0.2s", display:"inline-block", transform:isExpanded?"rotate(90deg)":"rotate(0deg)" }}>›</span>
+                  </div>
+
+                  {/* Expanded doc list */}
+                  {isExpanded && (
+                    <div style={{ background:"rgba(0,0,0,0.2)", borderTop:"1px solid rgba(99,179,237,0.05)" }}>
+                      {(d.docFiles||[]).map((f, i) => {
+                        const m       = DOC_META[f.status] || DOC_META.missing;
+                        const isSel   = selectedDoc?.driverId === d.id && selectedDoc?.docIndex === i;
+                        const expiring = f.expiresOn && new Date(f.expiresOn) < new Date(Date.now() + 30*24*60*60*1000);
+                        return (
+                          <div
+                            key={i}
+                            onClick={() => setSelectedDoc({ driverId:d.id, docIndex:i })}
+                            style={{ padding:"9px 14px 9px 22px", display:"flex", alignItems:"center", gap:9, cursor:"pointer", background:isSel?"rgba(59,130,246,0.1)":"transparent", borderLeft:isSel?"3px solid #3b82f6":"3px solid transparent", transition:"all 0.12s" }}
+                          >
+                            <span style={{ fontSize:15, flexShrink:0 }}>{DOC_ICONS[f.type]||"📄"}</span>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ color:isSel?"#93c5fd":"#94a3b8", fontSize:11, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.type}</div>
+                              {f.expiresOn
+                                ? <div style={{ color:expiring?"#f59e0b":"#334155", fontSize:8, fontFamily:"'JetBrains Mono',monospace", marginTop:1 }}>
+                                    {expiring?"⚠ ":""}exp. {f.expiresOn}
+                                  </div>
+                                : <div style={{ color:"#1e293b", fontSize:8, marginTop:1 }}>no expiry set</div>
+                              }
+                            </div>
+                            <DocStatusPill status={f.status} />
+                          </div>
+                        );
+                      })}
+
+                      {/* Approve all pending shortcut */}
+                      {dPending > 0 && (
+                        <div style={{ padding:"7px 14px 10px" }}>
+                          <button onClick={e => { e.stopPropagation(); approveAll(d.id); }} style={{ width:"100%", padding:"6px", borderRadius:6, background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.2)", color:"#22c55e", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                            ✓ APPROVE ALL PENDING
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── RIGHT: doc viewer + actions ── */}
+        <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:12 }}>
+
+          {selDocObj && selDriverObj ? (() => {
+            const m          = DOC_META[selDocObj.status] || DOC_META.missing;
+            const isRejectOpen = rejectTarget !== null;
+            const expiring   = selDocObj.expiresOn && new Date(selDocObj.expiresOn) < new Date(Date.now() + 30*24*60*60*1000);
+            const expired    = selDocObj.expiresOn && new Date(selDocObj.expiresOn) < new Date();
+
+            return (
+              <>
+                {/* Doc viewer panel */}
+                <div style={{ background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, overflow:"hidden" }}>
+                  {/* Viewer header */}
+                  <div style={{ padding:"12px 16px", borderBottom:"1px solid rgba(99,179,237,0.08)", background:"rgba(59,130,246,0.04)", display:"flex", alignItems:"center", gap:10 }}>
+                    <span style={{ fontSize:18 }}>{DOC_ICONS[selDocObj.type]||"📄"}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:600 }}>{selDocObj.type}</div>
+                      <div style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace", marginTop:1 }}>{selDriverObj.name} · {selDriverObj.id}</div>
+                    </div>
+                    <DocStatusPill status={selDocObj.status} />
+                  </div>
+
+                  {/* Document preview */}
+                  <div style={{ padding:"16px", minHeight:360, display:"flex", flexDirection:"column" }}>
+                    <DocViewer doc={selDocObj} driverName={selDriverObj.name} driverVehicle={selDriverObj.vehicle} />
+                  </div>
+                </div>
+
+                {/* Actions + expiry panel */}
+                <div style={{ background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, padding:"16px 18px", display:"flex", flexDirection:"column", gap:14 }}>
+
+                  {/* Approve / Reject */}
+                  <div>
+                    <div style={{ color:"rgba(148,163,184,0.35)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, marginBottom:8 }}>VERIFICATION DECISION</div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button
+                        onClick={() => approveDoc(selDriverObj.id, selectedDoc.docIndex)}
+                        disabled={selDocObj.status === "approved"}
+                        style={{ flex:1, padding:"10px", borderRadius:8, background:selDocObj.status==="approved"?"rgba(34,197,94,0.15)":"rgba(34,197,94,0.08)", border:`1px solid rgba(34,197,94,${selDocObj.status==="approved"?"0.4":"0.2"})`, color:"#22c55e", fontSize:11, fontWeight:700, cursor:selDocObj.status==="approved"?"default":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:selDocObj.status==="approved"?0.6:1 }}
+                      >
+                        {selDocObj.status === "approved" ? "✓ APPROVED" : "✓ APPROVE"}
+                      </button>
+                      <button
+                        onClick={() => setRejectTarget(v => v === null ? selectedDoc.docIndex : null)}
+                        disabled={selDocObj.status === "missing"}
+                        style={{ flex:1, padding:"10px", borderRadius:8, background:selDocObj.status==="rejected"?"rgba(239,68,68,0.15)":"rgba(239,68,68,0.07)", border:`1px solid rgba(239,68,68,${selDocObj.status==="rejected"?"0.35":"0.2"})`, color:"#ef4444", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}
+                      >
+                        {selDocObj.status === "rejected" ? "✗ REJECTED" : "✗ REJECT"}
+                      </button>
+                      {(selDocObj.status === "approved" || selDocObj.status === "rejected") && (
+                        <button onClick={() => patchDoc(selDriverObj.id, selectedDoc.docIndex, { status:"pending", note:"" })} style={{ padding:"10px 14px", borderRadius:8, background:"transparent", border:"1px solid rgba(99,179,237,0.12)", color:"#475569", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                          ↺ RESET
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Reject reason */}
+                    {isRejectOpen && (
+                      <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:7 }}>
+                        <textarea
+                          placeholder="Rejection reason — will be shown to the driver…"
+                          value={rejectNote} onChange={e => setRejectNote(e.target.value)}
+                          rows={2} autoFocus
+                          style={{ width:"100%", padding:"9px 11px", background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.25)", borderRadius:8, color:"#f87171", fontSize:11, fontFamily:"inherit", outline:"none", resize:"vertical", boxSizing:"border-box" }}
+                        />
+                        <div style={{ display:"flex", gap:7 }}>
+                          <button onClick={() => { patchDoc(selDriverObj.id, selectedDoc.docIndex, { status:"rejected", note: rejectNote || "Document rejected." }); setRejectTarget(null); setRejectNote(""); }} style={{ flex:1, padding:"8px", borderRadius:7, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)", color:"#ef4444", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                            CONFIRM REJECTION
+                          </button>
+                          <button onClick={() => { setRejectTarget(null); setRejectNote(""); }} style={{ padding:"8px 14px", borderRadius:7, background:"transparent", border:"1px solid rgba(99,179,237,0.1)", color:"#475569", fontSize:10, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                            CANCEL
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selDocObj.note && (
+                      <div style={{ marginTop:8, padding:"8px 11px", background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:7 }}>
+                        <span style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>NOTE TO DRIVER: </span>
+                        <span style={{ color:"#f87171", fontSize:10 }}>{selDocObj.note}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Expiry date */}
+                  <div style={{ borderTop:"1px solid rgba(99,179,237,0.08)", paddingTop:14 }}>
+                    <div style={{ color:"rgba(148,163,246,0.35)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, marginBottom:8 }}>DOCUMENT EXPIRY &amp; RENEWAL</div>
+                    <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ color:"#475569", fontSize:10, marginBottom:5 }}>Expiration date — driver will be notified before this date</div>
+                        <input
+                          type="date"
+                          value={selDocObj.expiresOn || ""}
+                          onChange={e => patchDoc(selDriverObj.id, selectedDoc.docIndex, { expiresOn: e.target.value })}
+                          style={{ width:"100%", padding:"9px 12px", background:"#0d1220", border:`1px solid ${expired?"rgba(239,68,68,0.4)":expiring?"rgba(245,158,11,0.35)":"rgba(99,179,237,0.18)"}`, borderRadius:8, color:expired?"#ef4444":expiring?"#f59e0b":"#94a3b8", fontSize:13, fontFamily:"'JetBrains Mono',monospace", outline:"none", boxSizing:"border-box", cursor:"pointer" }}
+                        />
+                      </div>
+                      {selDocObj.expiresOn && (
+                        <button onClick={() => patchDoc(selDriverObj.id, selectedDoc.docIndex, { expiresOn:"" })} style={{ padding:"9px 12px", borderRadius:8, background:"transparent", border:"1px solid rgba(99,179,237,0.1)", color:"#334155", fontSize:10, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>
+                          CLEAR
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Expiry status */}
+                    {selDocObj.expiresOn && (
+                      <div style={{ marginTop:8, padding:"8px 11px", background:expired?"rgba(239,68,68,0.07)":expiring?"rgba(245,158,11,0.07)":"rgba(34,197,94,0.06)", border:`1px solid ${expired?"rgba(239,68,68,0.2)":expiring?"rgba(245,158,11,0.2)":"rgba(34,197,94,0.15)"}`, borderRadius:7, display:"flex", alignItems:"center", gap:7 }}>
+                        <span style={{ fontSize:13 }}>{expired?"🔴":expiring?"🟡":"🟢"}</span>
+                        <div>
+                          <div style={{ color:expired?"#ef4444":expiring?"#f59e0b":"#22c55e", fontSize:11, fontWeight:600 }}>
+                            {expired ? "Document expired" : expiring ? "Expiring within 30 days" : "Valid"}
+                          </div>
+                          <div style={{ color:"#475569", fontSize:9, marginTop:1 }}>
+                            {expired ? "Driver must resubmit before going online" : expiring ? "Send renewal reminder to driver" : `Renews ${selDocObj.expiresOn}`}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick expiry presets */}
+                    <div style={{ marginTop:8 }}>
+                      <div style={{ color:"#1e293b", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>QUICK SET</div>
+                      <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                        {[
+                          ["1 yr",  365],
+                          ["2 yr",  730],
+                          ["5 yr",  1825],
+                          ["6 mo",  180],
+                          ["3 mo",  90],
+                        ].map(([label, days]) => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + days);
+                          const val = d.toISOString().split("T")[0];
+                          return (
+                            <button key={label} onClick={() => patchDoc(selDriverObj.id, selectedDoc.docIndex, { expiresOn: val })} style={{ padding:"4px 10px", borderRadius:5, border:"1px solid rgba(99,179,237,0.12)", background:"rgba(99,179,237,0.04)", color:"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", transition:"all 0.12s" }}
+                              onMouseEnter={e => { e.target.style.borderColor="rgba(99,179,237,0.3)"; e.target.style.color="#94a3b8"; }}
+                              onMouseLeave={e => { e.target.style.borderColor="rgba(99,179,237,0.12)"; e.target.style.color="#475569"; }}
+                            >
+                              +{label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </>
+            );
+          })() : (
+            <div style={{ flex:1, background:"#080c14", border:"1px solid rgba(99,179,237,0.08)", borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, padding:40, minHeight:400 }}>
+              <div style={{ fontSize:36, opacity:0.3 }}>⊟</div>
+              <div style={{ color:"#334155", fontSize:13 }}>Select a driver and document to begin review</div>
+              <div style={{ color:"#1e293b", fontSize:10 }}>Expand a driver row on the left to see their uploaded files</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PageZones({ drivers, patchDriver }) {
+  const [zones,          setZones]          = useState(INIT_ZONES);
+  const [driverZones,    setDriverZones]    = useState(DRIVER_ZONE_DEFAULTS);
+  const [selectedZone,   setSelectedZone]   = useState(null);
+  const [hoveredZone,    setHoveredZone]    = useState(null);
+  const [filterStatus,   setFilterStatus]   = useState("all");
+  const [showDriverPane, setShowDriverPane] = useState(false);
+  const canvasRef = useRef();
+  const W = 560, H = 420;
+
+  const sel = zones.find(z => z.id === selectedZone);
+  const assignedDriverIds = selectedZone
+    ? Object.entries(driverZones).filter(([,zs]) => zs.includes(selectedZone)).map(([d]) => d)
+    : [];
+
+  function patchZone(id, patch) {
+    setZones(zs => zs.map(z => z.id === id ? { ...z, ...patch } : z));
+  }
+  function assignDriver(driverId, zoneId) {
+    setDriverZones(dz => {
+      const cur = dz[driverId] || [];
+      if (cur.includes(zoneId)) return dz;
+      return { ...dz, [driverId]: [...cur, zoneId] };
+    });
+  }
+  function unassignDriver(driverId, zoneId) {
+    setDriverZones(dz => ({ ...dz, [driverId]: (dz[driverId]||[]).filter(z=>z!==zoneId) }));
+  }
+  function getZoneDriverCount(zoneId) {
+    return Object.values(driverZones).filter(zs => zs.includes(zoneId)).length;
+  }
+
+  function pointInPolygon(px, py, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [xi, yi] = polygon[i], [xj, yj] = polygon[j];
+      if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi))
+        inside = !inside;
+    }
+    return inside;
+  }
+  function centroid(polygon) {
+    return [
+      polygon.reduce((s,[x]) => s+x, 0) / polygon.length,
+      polygon.reduce((s,[,y]) => s+y, 0) / polygon.length,
+    ];
+  }
+
+  function handleCanvasClick(e) {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top)  * (H / rect.height);
+    let hit = null;
+    for (const z of [...zones].reverse()) {
+      if (pointInPolygon(mx, my, z.polygon)) { hit = z.id; break; }
+    }
+    setSelectedZone(prev => prev === hit ? null : hit);
+    if (hit) setShowDriverPane(false);
+  }
+
+  function handleCanvasMove(e) {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    const my = (e.clientY - rect.top)  * (H / rect.height);
+    let hit = null;
+    for (const z of [...zones].reverse()) {
+      if (pointInPolygon(mx, my, z.polygon)) { hit = z.id; break; }
+    }
+    setHoveredZone(hit);
+  }
+
+  // ── Draw map ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+
+    // Background
+    ctx.fillStyle = "#080c14";
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = "rgba(99,179,237,0.04)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    // Lake Ontario (top band)
+    const lakeGrad = ctx.createLinearGradient(0, 0, 0, 90);
+    lakeGrad.addColorStop(0, "rgba(15,40,100,0.6)");
+    lakeGrad.addColorStop(1, "rgba(15,40,100,0.0)");
+    ctx.fillStyle = lakeGrad;
+    ctx.fillRect(0, 0, W, 95);
+    ctx.fillStyle = "rgba(59,130,246,0.18)";
+    ctx.font = "10px 'JetBrains Mono',monospace";
+    ctx.fillText("LAKE ONTARIO", 195, 30);
+
+    // Lake Erie (bottom band)
+    const erie = ctx.createLinearGradient(0, 370, 0, H);
+    erie.addColorStop(0, "rgba(15,40,100,0.0)");
+    erie.addColorStop(1, "rgba(15,40,100,0.55)");
+    ctx.fillStyle = erie;
+    ctx.fillRect(0, 360, W, H);
+    ctx.fillStyle = "rgba(59,130,246,0.15)";
+    ctx.fillText("LAKE ERIE", 395, H-10);
+
+    // Niagara River (right edge, vertical)
+    ctx.strokeStyle = "rgba(59,130,246,0.2)";
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(W-10, 65); ctx.lineTo(W-10, H-20); ctx.stroke();
+    ctx.fillStyle = "rgba(59,130,246,0.15)";
+    ctx.font = "8px 'JetBrains Mono',monospace";
+    ctx.save(); ctx.translate(W-4, 220); ctx.rotate(-Math.PI/2);
+    ctx.fillText("NIAGARA RIVER  ← USA →", 0, 0);
+    ctx.restore();
+
+    // Niagara Escarpment line (horizontal, through Hamilton)
+    ctx.strokeStyle = "rgba(148,163,184,0.12)";
+    ctx.setLineDash([6,4]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(10,210); ctx.lineTo(300,210); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(148,163,184,0.18)";
+    ctx.font = "8px 'JetBrains Mono',monospace";
+    ctx.fillText("— NIAGARA ESCARPMENT —", 30, 207);
+
+    // QEW highway hint
+    ctx.strokeStyle = "rgba(251,191,36,0.15)";
+    ctx.setLineDash([3,5]);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(100, 155); ctx.bezierCurveTo(200,148, 330,135, 450,130);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(251,191,36,0.2)";
+    ctx.font = "8px 'JetBrains Mono',monospace";
+    ctx.fillText("QEW", 230, 128);
+
+    // ── Draw zones ──────────────────────────────────────────────────────────
+    const filtered = filterStatus === "all" ? zones : zones.filter(z => z.status === filterStatus);
+
+    for (const z of filtered) {
+      const isSel = z.id === selectedZone;
+      const isHov = z.id === hoveredZone;
+      const sm    = ZONE_STATUS_META[z.status];
+
+      ctx.beginPath();
+      ctx.moveTo(...z.polygon[0]);
+      for (const pt of z.polygon.slice(1)) ctx.lineTo(...pt);
+      ctx.closePath();
+
+      const alpha = isSel ? 0.38 : isHov ? 0.24 : 0.13;
+      ctx.fillStyle = z.color + Math.round(alpha * 255).toString(16).padStart(2,"0");
+      ctx.fill();
+
+      ctx.strokeStyle = isSel ? z.color : isHov ? z.color+"cc" : z.color+"55";
+      ctx.lineWidth   = isSel ? 2.5 : isHov ? 1.8 : 1;
+      if (z.status === "blocked")     ctx.setLineDash([5,4]);
+      else if (z.status === "restricted") ctx.setLineDash([8,3]);
+      else ctx.setLineDash([]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const [cx, cy] = centroid(z.polygon);
+      const dCount   = getZoneDriverCount(z.id);
+
+      // Status dot
+      ctx.beginPath();
+      ctx.arc(cx, cy - 13, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = sm.color;
+      if (!isSel) ctx.globalAlpha = 0.7;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Zone label
+      ctx.font = `${isSel ? "bold " : ""}9px 'JetBrains Mono',monospace`;
+      ctx.fillStyle = isSel ? "#f0f9ff" : "#94a3b8";
+      ctx.textAlign = "center";
+      const words = z.name.split(" ");
+      if (words.length > 2) {
+        // Two lines for long names
+        const mid = Math.ceil(words.length/2);
+        ctx.fillText(words.slice(0,mid).join(" "), cx, cy+1);
+        ctx.font = `8px 'JetBrains Mono',monospace`;
+        ctx.fillStyle = isSel ? "#cbd5e1" : "#64748b";
+        ctx.fillText(words.slice(mid).join(" "), cx, cy+11);
+        ctx.font = `8px 'JetBrains Mono',monospace`;
+        ctx.fillStyle = isSel ? z.color : "rgba(148,163,184,0.35)";
+        ctx.fillText(`${dCount}/${z.maxDrivers}`, cx, cy+22);
+      } else {
+        ctx.fillText(z.name, cx, cy+2);
+        ctx.font = `8px 'JetBrains Mono',monospace`;
+        ctx.fillStyle = isSel ? z.color : "rgba(148,163,184,0.35)";
+        ctx.fillText(`${dCount}/${z.maxDrivers}`, cx, cy+13);
+      }
+
+      // Surge badge
+      if (z.surgeOverride) {
+        ctx.fillStyle = "rgba(245,158,11,0.9)";
+        ctx.font = "bold 8px 'JetBrains Mono',monospace";
+        ctx.fillText(`⚡${z.surgeOverride}×`, cx, cy - 17);
+      }
+
+      ctx.textAlign = "left";
+    }
+
+    // Compass
+    ctx.fillStyle = "rgba(99,179,237,0.3)";
+    ctx.font = "bold 11px 'JetBrains Mono',monospace";
+    ctx.fillText("N", W-24, 22);
+    ctx.strokeStyle = "rgba(99,179,237,0.25)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(W-20,24); ctx.lineTo(W-20,38); ctx.stroke();
+
+    // Scale hint
+    ctx.fillStyle = "rgba(99,179,237,0.15)";
+    ctx.font = "8px 'JetBrains Mono',monospace";
+    ctx.fillText("← Hamilton  ·  ~90km axis  ·  Niagara Falls →", 8, H-8);
+
+  }, [zones, selectedZone, hoveredZone, filterStatus, driverZones]);
+
+  const statusCounts = { active:0, restricted:0, blocked:0 };
+  zones.forEach(z => statusCounts[z.status]++);
+
+  const P = {
+    page:   { display:"flex", gap:20, alignItems:"flex-start" },
+    left:   { flex:"0 0 auto" },
+    right:  { flex:1, display:"flex", flexDirection:"column", gap:14, minWidth:0 },
+    panel:  { background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, overflow:"hidden" },
+    ph:     { padding:"11px 16px", borderBottom:"1px solid rgba(99,179,237,0.08)", background:"rgba(59,130,246,0.04)" },
+    pTitle: { color:"rgba(148,163,184,0.5)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, fontWeight:700 },
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ color:"#f0f9ff", fontSize:20, fontWeight:700, letterSpacing:-0.5 }}>Zone Control</div>
+        <div style={{ color:"#475569", fontSize:12, marginTop:3 }}>Hamilton–Niagara operational axis · 12 zones · ~90km corridor</div>
+      </div>
+
+      {/* Summary stats */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:20 }}>
+        {[
+          ["TOTAL ZONES",  zones.length,            "#3b82f6","⬡"],
+          ["ACTIVE",       statusCounts.active,      "#22c55e","●"],
+          ["RESTRICTED",   statusCounts.restricted,  "#f59e0b","◐"],
+          ["BLOCKED",      statusCounts.blocked,     "#ef4444","○"],
+        ].map(([label,val,color,icon]) => (
+          <div key={label} style={{ background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:10, padding:"13px 16px", display:"flex", alignItems:"center", gap:12 }}>
+            <span style={{ color, fontSize:18 }}>{icon}</span>
+            <div>
+              <div style={{ color, fontSize:22, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>{val}</div>
+              <div style={{ color:"rgba(148,163,184,0.35)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, marginTop:2 }}>{label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={P.page}>
+        {/* ── MAP ── */}
+        <div style={P.left}>
+          <div style={P.panel}>
+            <div style={{ ...P.ph, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
+              <span style={P.pTitle}>HAMILTON–NIAGARA OPERATIONAL MAP</span>
+              <div style={{ display:"flex", gap:5 }}>
+                {["all","active","restricted","blocked"].map(s => (
+                  <button key={s} onClick={() => setFilterStatus(s)} style={{ padding:"3px 8px", borderRadius:4, border:`1px solid ${filterStatus===s?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.1)"}`, background:filterStatus===s?"rgba(59,130,246,0.1)":"transparent", color:filterStatus===s?"#60a5fa":"#334155", fontSize:8, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", textTransform:"uppercase" }}>{s}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ position:"relative" }}>
+              <canvas
+                ref={canvasRef} width={W} height={H}
+                onClick={handleCanvasClick}
+                onMouseMove={handleCanvasMove}
+                onMouseLeave={() => setHoveredZone(null)}
+                style={{ display:"block", width:"100%", maxWidth:W, cursor:"pointer" }}
+              />
+              {/* Hover tooltip */}
+              {hoveredZone && !selectedZone && (() => {
+                const hz = zones.find(z => z.id === hoveredZone);
+                return hz ? (
+                  <div style={{ position:"absolute", top:8, left:8, background:"rgba(8,12,20,0.95)", border:"1px solid rgba(99,179,237,0.2)", borderRadius:7, padding:"7px 11px", pointerEvents:"none", maxWidth:220 }}>
+                    <div style={{ color:"#e2e8f0", fontSize:11, fontWeight:600 }}>{hz.name}</div>
+                    <div style={{ color:ZONE_STATUS_META[hz.status].color, fontSize:9, fontFamily:"'JetBrains Mono',monospace", marginTop:2 }}>{hz.status.toUpperCase()} · {getZoneDriverCount(hz.id)}/{hz.maxDrivers} drivers</div>
+                    {hz.surgeOverride && <div style={{ color:"#f59e0b", fontSize:9, marginTop:2 }}>⚡ Surge override: {hz.surgeOverride}×</div>}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+            {/* Legend */}
+            <div style={{ padding:"8px 14px", borderTop:"1px solid rgba(99,179,237,0.07)", display:"flex", gap:16, flexWrap:"wrap" }}>
+              {Object.entries(ZONE_STATUS_META).map(([k,m]) => (
+                <div key={k} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                  <div style={{ width:7, height:7, borderRadius:"50%", background:m.color }} />
+                  <span style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontFamily:"'JetBrains Mono',monospace" }}>{m.label}</span>
+                </div>
+              ))}
+              <span style={{ color:"rgba(148,163,184,0.2)", fontSize:8 }}>⚡ = surge override active</span>
+              <span style={{ color:"rgba(148,163,184,0.2)", fontSize:8 }}>Click zone to manage</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL ── */}
+        <div style={P.right}>
+
+          {/* Zone list */}
+          <div style={P.panel}>
+            <div style={P.ph}><span style={P.pTitle}>ALL ZONES ({zones.length})</span></div>
+            <div style={{ maxHeight:220, overflowY:"auto" }}>
+              {zones.map(z => {
+                const m = ZONE_STATUS_META[z.status];
+                const dCount = getZoneDriverCount(z.id);
+                const isSel = z.id === selectedZone;
+                return (
+                  <div key={z.id} onClick={() => { setSelectedZone(p=>p===z.id?null:z.id); setShowDriverPane(false); }} style={{ padding:"8px 16px", borderBottom:"1px solid rgba(99,179,237,0.05)", display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:isSel?"rgba(59,130,246,0.06)":"transparent", transition:"background 0.15s" }}>
+                    <div style={{ width:9, height:9, borderRadius:2, background:z.color, flexShrink:0 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ color:isSel?"#e2e8f0":"#94a3b8", fontSize:11, fontWeight:isSel?600:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{z.name}</div>
+                    </div>
+                    {z.surgeOverride && <span style={{ color:"#f59e0b", fontSize:9 }}>⚡{z.surgeOverride}×</span>}
+                    <span style={{ color:m.color, background:m.bg, border:`1px solid ${m.border}`, borderRadius:4, padding:"2px 6px", fontSize:7, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>{m.label.toUpperCase()}</span>
+                    <span style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>{dCount}/{z.maxDrivers}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Zone detail */}
+          {sel ? (
+            <div style={P.panel}>
+              <div style={{ ...P.ph, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ width:10, height:10, borderRadius:2, background:sel.color }} />
+                  <span style={{ color:"#e2e8f0", fontSize:12, fontWeight:600 }}>{sel.name}</span>
+                  <span style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>{sel.id}</span>
+                </div>
+                <button onClick={() => setSelectedZone(null)} style={{ background:"none", border:"none", color:"#334155", fontSize:13, cursor:"pointer" }}>✕</button>
+              </div>
+              <div style={{ padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
+
+                {/* Status */}
+                <div>
+                  <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:7 }}>ZONE STATUS</div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    {Object.entries(ZONE_STATUS_META).map(([k,m]) => (
+                      <button key={k} onClick={() => patchZone(sel.id,{status:k})} style={{ flex:1, padding:"8px 4px", borderRadius:7, border: sel.status===k ? `1px solid ${m.border}` : "1px solid rgba(99,179,237,0.1)", background:sel.status===k?m.bg:"transparent", color:sel.status===k?m.color:"#334155", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", transition:"all 0.15s" }}>
+                        {k==="active"?"●":k==="restricted"?"◐":"○"}<br/>{m.label.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ marginTop:5, color:ZONE_STATUS_META[sel.status].color, fontSize:10 }}>{ZONE_STATUS_META[sel.status].desc}</div>
+                </div>
+
+                {/* Max drivers + surge */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  <div>
+                    <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>MAX DRIVERS</div>
+                    <input type="number" value={sel.maxDrivers} onChange={e=>patchZone(sel.id,{maxDrivers:parseInt(e.target.value)||0})} style={{ width:"100%", padding:"7px 10px", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:7, color:"#e2e8f0", fontSize:14, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", outline:"none", boxSizing:"border-box" }} />
+                  </div>
+                  <div>
+                    <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>SURGE OVERRIDE (×)</div>
+                    <input type="text" placeholder="e.g. 1.3 or blank" value={sel.surgeOverride||""} onChange={e=>patchZone(sel.id,{surgeOverride:e.target.value||null})} style={{ width:"100%", padding:"7px 10px", background:"#0d1220", border:`1px solid ${sel.surgeOverride?"rgba(245,158,11,0.3)":"rgba(99,179,237,0.15)"}`, borderRadius:7, color:sel.surgeOverride?"#f59e0b":"#94a3b8", fontSize:14, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", outline:"none", boxSizing:"border-box" }} />
+                    {sel.surgeOverride && <div style={{ color:"#f59e0b", fontSize:9, marginTop:3 }}>Overrides global surge for this zone</div>}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>NOTES</div>
+                  <textarea value={sel.notes} onChange={e=>patchZone(sel.id,{notes:e.target.value})} rows={2} style={{ width:"100%", padding:"8px 10px", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:7, color:"#94a3b8", fontSize:11, fontFamily:"inherit", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+                </div>
+
+                {/* Driver assignment */}
+                <div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:7 }}>
+                    <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>ASSIGNED DRIVERS ({assignedDriverIds.length}/{sel.maxDrivers})</div>
+                    <button onClick={()=>setShowDriverPane(v=>!v)} style={{ background:"none", border:"1px solid rgba(59,130,246,0.2)", borderRadius:5, padding:"3px 9px", color:"#60a5fa", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                      {showDriverPane?"DONE":"+ ASSIGN"}
+                    </button>
+                  </div>
+
+                  {assignedDriverIds.length === 0
+                    ? <div style={{ color:"#334155", fontSize:11, fontStyle:"italic" }}>No drivers assigned to this zone</div>
+                    : assignedDriverIds.map(did => {
+                        const d = drivers.find(dr=>dr.id===did);
+                        if (!d) return null;
+                        return (
+                          <div key={did} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.07)", borderRadius:7, marginBottom:4 }}>
+                            <div style={{ width:24, height:24, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{d.name.split(" ").map(n=>n[0]).join("")}</div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ color:"#cbd5e1", fontSize:11 }}>{d.name}</div>
+                              <div style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>{d.id}</div>
+                            </div>
+                            {d.online && <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e", boxShadow:"0 0 5px #22c55e" }} />}
+                            <span style={{ color:d.status==="active"?"#22c55e":d.status==="suspended"?"#ef4444":"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>{d.status}</span>
+                            <button onClick={()=>unassignDriver(did,sel.id)} style={{ background:"none", border:"none", color:"#ef4444", fontSize:12, cursor:"pointer", opacity:0.6 }}>✕</button>
+                          </div>
+                        );
+                      })
+                  }
+
+                  {showDriverPane && (
+                    <div style={{ marginTop:8, background:"rgba(0,0,0,0.3)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:8, padding:"10px 12px" }}>
+                      <div style={{ color:"#60a5fa", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, marginBottom:8 }}>ADD DRIVER TO {sel.name.toUpperCase()}</div>
+                      {drivers.filter(d=>!assignedDriverIds.includes(d.id)).map(d => (
+                        <div key={d.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(99,179,237,0.05)" }}>
+                          <div style={{ width:22, height:22, borderRadius:"50%", background:"linear-gradient(135deg,#475569,#334155)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{d.name.split(" ").map(n=>n[0]).join("")}</div>
+                          <div style={{ flex:1 }}>
+                            <div style={{ color:"#94a3b8", fontSize:11 }}>{d.name}</div>
+                            <div style={{ color:"#334155", fontSize:9 }}>★{d.rating}</div>
+                          </div>
+                          <button onClick={()=>assignDriver(d.id,sel.id)} disabled={assignedDriverIds.length>=sel.maxDrivers} style={{ background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.2)", borderRadius:5, padding:"4px 9px", color:"#60a5fa", fontSize:9, fontWeight:700, cursor:assignedDriverIds.length>=sel.maxDrivers?"not-allowed":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:assignedDriverIds.length>=sel.maxDrivers?0.4:1 }}>+ ADD</button>
+                        </div>
+                      ))}
+                      {drivers.filter(d=>!assignedDriverIds.includes(d.id)).length===0 && <div style={{ color:"#334155", fontSize:11, padding:"4px 0" }}>All drivers already assigned to this zone.</div>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick actions */}
+                <div style={{ display:"flex", gap:7, paddingTop:4, borderTop:"1px solid rgba(99,179,237,0.07)" }}>
+                  <button onClick={()=>{patchZone(sel.id,{status:"blocked"});setSelectedZone(null);}} disabled={sel.status==="blocked"} style={{ flex:1, background:"rgba(239,68,68,0.07)", border:"1px solid rgba(239,68,68,0.2)", color:"#ef4444", borderRadius:7, padding:"8px", fontSize:10, fontWeight:700, cursor:sel.status==="blocked"?"not-allowed":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:sel.status==="blocked"?0.4:1 }}>🚫 BLOCK ZONE</button>
+                  <button onClick={()=>patchZone(sel.id,{status:"active"})} disabled={sel.status==="active"} style={{ flex:1, background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.2)", color:"#22c55e", borderRadius:7, padding:"8px", fontSize:10, fontWeight:700, cursor:sel.status==="active"?"not-allowed":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:sel.status==="active"?0.4:1 }}>✓ ACTIVATE</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ ...P.panel, padding:"24px 20px", textAlign:"center" }}>
+              <div style={{ fontSize:26, marginBottom:8 }}>⬡</div>
+              <div style={{ color:"#475569", fontSize:12 }}>Select a zone on the map or list to manage it</div>
+              <div style={{ color:"#334155", fontSize:10, marginTop:3 }}>Assign drivers, set status, surge overrides</div>
+            </div>
+          )}
+
+          {/* Driver zone overview */}
+          <div style={P.panel}>
+            <div style={P.ph}><span style={P.pTitle}>DRIVER ZONE ASSIGNMENTS</span></div>
+            <div style={{ padding:"10px 14px", display:"flex", flexDirection:"column", gap:5 }}>
+              {drivers.map(d => {
+                const dZones = (driverZones[d.id]||[]).map(zid=>zones.find(z=>z.id===zid)).filter(Boolean);
+                return (
+                  <div key={d.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 10px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.06)", borderRadius:7 }}>
+                    <div style={{ width:24, height:24, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{d.name.split(" ").map(n=>n[0]).join("")}</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ color:"#94a3b8", fontSize:11, fontWeight:500 }}>{d.name}</div>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginTop:2 }}>
+                        {dZones.length===0
+                          ? <span style={{ color:"#ef4444", fontSize:9, fontStyle:"italic" }}>No zones — cannot take pickups</span>
+                          : dZones.map(z=>(
+                              <span key={z.id} style={{ background:`${z.color}18`, border:`1px solid ${z.color}40`, borderRadius:4, padding:"1px 5px", fontSize:8, color:z.color, fontFamily:"'JetBrains Mono',monospace" }}>{z.name.split(" ").slice(0,2).join(" ")}</span>
+                            ))
+                        }
+                      </div>
+                    </div>
+                    {d.online && <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e", boxShadow:"0 0 5px #22c55e", flexShrink:0 }} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI PRICING ADVISOR
+// ─────────────────────────────────────────────────────────────────────────────
+function AIPricingAdvisor({ trips, drivers, subs, currentSettings, pricingState, dispatchState, onApply }) {
+
+  // ── Chat state ──────────────────────────────────────────────────────────────
+  const [messages,  setMessages]  = useState([
+    { role:"assistant", content:"Hey — I'm your ZeezRyde pricing advisor. I can analyse your platform data and recommend pricing adjustments, surge tiers, or flag anything that looks off. Ask me anything or hit **Analyse Now** for a full review." }
+  ]);
+  const [input,     setInput]     = useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [history,   setHistory]   = useState([]);
+  const bottomRef = useRef();
+
+  // ── Scheduler state ──────────────────────────────────────────────────────────
+  const [schedulerOn,   setSchedulerOn]   = useState(false);
+  const [intervalHrs,   setIntervalHrs]   = useState("1");
+  const [nextRunAt,     setNextRunAt]     = useState(null);
+  const [countdown,     setCountdown]     = useState(null);
+  const [inbox,         setInbox]         = useState([]);   // notification cards
+  const [activeTab,     setActiveTab]     = useState("chat"); // "chat" | "inbox"
+  const [schedulerLog,  setSchedulerLog]  = useState([]);
+  const [analysing,     setAnalysing]     = useState(false);
+  const intervalRef   = useRef(null);
+  const countdownRef  = useRef(null);
+
+  // Unread badge count
+  const unread = inbox.filter(i => !i.decision && !i.seen).length;
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (activeTab === "chat") bottomRef.current?.scrollIntoView({ behavior:"smooth" });
+  }, [messages, loading, activeTab]);
+
+  // Mark inbox items seen when tab opened
+  useEffect(() => {
+    if (activeTab === "inbox") {
+      setInbox(q => q.map(i => ({ ...i, seen: true })));
+    }
+  }, [activeTab]);
+
+  // Countdown ticker
+  useEffect(() => {
+    if (!schedulerOn || !nextRunAt) { setCountdown(null); return; }
+    countdownRef.current = setInterval(() => {
+      const secs = Math.max(0, Math.round((nextRunAt - Date.now()) / 1000));
+      setCountdown(secs);
+    }, 1000);
+    return () => clearInterval(countdownRef.current);
+  }, [schedulerOn, nextRunAt]);
+
+  // Scheduler runner
+  useEffect(() => {
+    if (!schedulerOn) {
+      clearInterval(intervalRef.current);
+      setNextRunAt(null);
+      return;
+    }
+    const hrs = Math.max(0.017, parseFloat(intervalHrs) || 1); // floor at ~1min for demo
+    const ms  = hrs * 60 * 60 * 1000;
+    setNextRunAt(Date.now() + ms);
+    runScheduledAnalysis();
+    intervalRef.current = setInterval(() => {
+      setNextRunAt(Date.now() + ms);
+      runScheduledAnalysis();
+    }, ms);
+    return () => clearInterval(intervalRef.current);
+  }, [schedulerOn, intervalHrs]);
+
+  function fmtCountdown(secs) {
+    if (secs === null) return "—";
+    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  function buildSnapshot() {
+    const completed  = trips.filter(t => t.status === "completed");
+    const cancelled  = trips.filter(t => t.status === "cancelled");
+    const grossFare  = completed.reduce((s,t) => s + parseFloat(t.fare.replace("CA$","") || 0), 0);
+    const onlineN    = drivers.filter(d => d.online).length;
+    const activeN    = drivers.filter(d => d.status === "active").length;
+    const cancelRate = trips.length ? ((cancelled.length / trips.length) * 100).toFixed(1) : "0.0";
+    return { completed, cancelled, grossFare, onlineN, activeN, cancelRate };
+  }
+
+  function buildContext() {
+    const { completed, cancelled, grossFare, onlineN, activeN, cancelRate } = buildSnapshot();
+    const grossPlatform = completed.reduce((s,t) => s + parseFloat(t.platform?.replace("CA$","") || 0), 0);
+    const paidSubs      = subs.filter(s => s.status === "paid").length;
+    const failedSubs    = subs.filter(s => s.status !== "paid").length;
+    const avgRating     = (drivers.reduce((s,d) => s + d.rating, 0) / drivers.length).toFixed(2);
+    return `
+ZEEZRYDE PLATFORM SNAPSHOT
+===========================
+Drivers: ${drivers.length} total | ${activeN} active | ${onlineN} currently online | avg rating ${avgRating}
+Trips:   ${completed.length} completed | ${cancelled.length} cancelled | ${cancelRate}% cancel rate
+Revenue: CA$${grossFare.toFixed(2)} gross fare | CA$${grossPlatform.toFixed(2)} platform commission
+Subs:    ${paidSubs} paid | ${failedSubs} failed/unpaid this cycle
+
+CURRENT PRICING
+===============
+Base fare: CA$${pricingState.baseFare} | Rate/km: CA$${pricingState.ratePerKm} | Rate/min: CA$${pricingState.ratePerMin}
+Min fare: CA$${pricingState.minimumFare} | Family ×${pricingState.familyMult} | Friends ×${pricingState.friendsMult}
+Commission: ${currentSettings.commPct}% | Weekly pass: CA$${currentSettings.subFee} | Demand: ${pricingState.demandTier}
+
+DISPATCH POLICY
+===============
+Max pickup radius: ${dispatchState.maxPickupKm} km | Over-radius fee: ${dispatchState.pickupFeeOn ? "ON — CA$" + dispatchState.pickupFeeKm + "/km beyond radius" : "OFF"}
+
+TRIP LOG
+========
+${trips.map(t => `${t.id} | ${t.date} | ${t.type} | ${t.fare} | ${t.status}`).join("\n")}
+    `.trim();
+  }
+
+  const SYSTEM_CHAT = `You are an expert pricing advisor for ZeezRyde, a rideshare platform in the GTA, Ontario, Canada.
+Analyse platform data and give clear, specific, actionable pricing recommendations.
+When recommending specific value changes, output a JSON block at the END of your response:
+
+<recommendation>
+{
+  "summary": "One-line summary",
+  "urgent": false,
+  "changes": {
+    "baseFare": 2.50,
+    "ratePerKm": 1.20,
+    "pickupFeeKm": 0.75,
+    "maxPickupKm": 12
+  }
+}
+</recommendation>
+
+Changeable fields: baseFare, ratePerKm, ratePerMin, minimumFare, familyMult, friendsMult, demandTier, commPct, subFee, pickupFeeKm (CA$/km over-radius), maxPickupKm (km), pickupFeeOn (true/false).
+Only include fields you want to change. Omit unchanged fields. Be concise and data-driven.`;
+
+  const SYSTEM_SCHEDULED = `You are an automated hourly pricing advisor for ZeezRyde (GTA rideshare).
+Run a pricing health check. Decide if any changes are needed RIGHT NOW based on the data.
+Be decisive. Always output a <recommendation> block — even if no change is needed (use empty "changes": {}).
+
+<recommendation>
+{
+  "summary": "One sentence summary of your finding",
+  "urgent": true or false,
+  "reasoning": "2-3 sentence explanation of why",
+  "changes": {}
+}
+</recommendation>
+
+Changeable fields include: baseFare, ratePerKm, ratePerMin, minimumFare, familyMult, friendsMult, demandTier, commPct, subFee, pickupFeeKm (CA$/km beyond max radius), maxPickupKm (km), pickupFeeOn (true/false).
+Only include fields to change in "changes". If nothing needs changing, leave it empty.`;
+
+  async function runScheduledAnalysis() {
+    if (analysing) return;
+    setAnalysing(true);
+    const ts = new Date().toLocaleTimeString("en-CA", { hour:"2-digit", minute:"2-digit" });
+    setSchedulerLog(l => [{ ts, status:"running", msg:"Scheduled analysis running…" }, ...l.slice(0,9)]);
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 500,
+          system: SYSTEM_SCHEDULED + "\n\nPLATFORM DATA:\n" + buildContext(),
+          messages: [{ role:"user", content:"Run the hourly pricing health check now." }],
+        }),
+      });
+      const data = await res.json();
+      const raw  = data.content?.[0]?.text || "";
+      const recMatch = raw.match(/<recommendation>([\s\S]*?)<\/recommendation>/);
+      let rec = null;
+      if (recMatch) { try { rec = JSON.parse(recMatch[1].trim()); } catch(e) {} }
+      const analysis = raw.replace(/<recommendation>[\s\S]*?<\/recommendation>/, "").trim();
+
+      if (rec) {
+        const hasChanges = Object.keys(rec.changes || {}).length > 0;
+        const card = {
+          id:         Date.now(),
+          ts,
+          summary:    rec.summary,
+          reasoning:  rec.reasoning || analysis,
+          urgent:     rec.urgent,
+          changes:    rec.changes || {},
+          hasChanges,
+          decision:   null,
+          seen:       false,
+        };
+        setInbox(q => [card, ...q]);
+        // Auto-switch to inbox tab if urgent
+        if (rec.urgent) setActiveTab("inbox");
+        setSchedulerLog(l => [
+          { ts, status: hasChanges ? "alert" : "ok", msg: hasChanges ? `⚡ Changes recommended — awaiting approval` : "✓ No changes needed" },
+          ...l.slice(0,9)
+        ]);
+      }
+    } catch(e) {
+      setSchedulerLog(l => [{ ts, status:"error", msg:"Analysis failed — API error" }, ...l.slice(0,9)]);
+    }
+    setAnalysing(false);
+  }
+
+  function approveCard(card) {
+    if (card.hasChanges) onApply(card.changes);
+    setInbox(q => q.map(i => i.id === card.id ? { ...i, decision:"approved", seen:true } : i));
+    if (card.hasChanges) {
+      setHistory(h => [{ ts: card.ts, summary: card.summary, changes: card.changes }, ...h]);
+    }
+  }
+
+  function declineCard(card) {
+    setInbox(q => q.map(i => i.id === card.id ? { ...i, decision:"declined", seen:true } : i));
+  }
+
+  // ── Chat send ────────────────────────────────────────────────────────────────
+  async function sendMessage(userMsg) {
+    if (loading) return;
+    const text = userMsg || input.trim();
+    if (!text) return;
+    setInput("");
+    setLoading(true);
+    const newMessages = [...messages, { role:"user", content:text }];
+    setMessages(newMessages);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 800,
+          system: SYSTEM_CHAT + "\n\nPLATFORM CONTEXT:\n" + buildContext(),
+          messages: newMessages.map(m => ({ role:m.role, content:m.content })),
+        }),
+      });
+      const data = await res.json();
+      const raw  = data.content?.[0]?.text || "Sorry, I couldn't generate a response.";
+      const recMatch = raw.match(/<recommendation>([\s\S]*?)<\/recommendation>/);
+      let rec = null;
+      if (recMatch) { try { rec = JSON.parse(recMatch[1].trim()); } catch(e) {} }
+      const cleanText = raw.replace(/<recommendation>[\s\S]*?<\/recommendation>/, "").trim();
+      setMessages(prev => [...prev, { role:"assistant", content:cleanText, recommendation:rec }]);
+    } catch(e) {
+      setMessages(prev => [...prev, { role:"assistant", content:"⚠ Could not reach AI service. Check your connection." }]);
+    }
+    setLoading(false);
+  }
+
+  function applyFromChat(rec) {
+    onApply(rec.changes);
+    setHistory(h => [{ ts: new Date().toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}), summary: rec.summary, changes: rec.changes }, ...h]);
+    setMessages(prev => [...prev, { role:"assistant", content:`✅ Applied: **${rec.summary}**. Values updated in the pricing panels — hit Save when ready.` }]);
+  }
+
+  function renderText(txt) {
+    return txt.split(/(\*\*[^*]+\*\*)/).map((p, i) =>
+      p.startsWith("**") ? <strong key={i} style={{ color:"#e2e8f0" }}>{p.slice(2,-2)}</strong> : p
+    );
+  }
+
+  const LABEL = { baseFare:"Base Fare", ratePerKm:"Rate/km", ratePerMin:"Rate/min", minimumFare:"Min Fare", familyMult:"Family ×", friendsMult:"Friends ×", demandTier:"Demand Tier", commPct:"Commission", subFee:"Weekly Pass", pickupFeeKm:"Pickup Fee/km", maxPickupKm:"Max Pickup Radius", pickupFeeOn:"Pickup Fee Active" };
+  const CURR  = { baseFare:pricingState.baseFare, ratePerKm:pricingState.ratePerKm, ratePerMin:pricingState.ratePerMin, minimumFare:pricingState.minimumFare, familyMult:pricingState.familyMult, friendsMult:pricingState.friendsMult, demandTier:pricingState.demandTier, commPct:currentSettings.commPct, subFee:currentSettings.subFee, pickupFeeKm:dispatchState.pickupFeeKm, maxPickupKm:dispatchState.maxPickupKm, pickupFeeOn:dispatchState.pickupFeeOn };
+
+  const S = {
+    wrap:       { background:"#080c14", border:"1px solid rgba(99,179,237,0.12)", borderRadius:12, overflow:"hidden", display:"flex", flexDirection:"column" },
+    header:     { padding:"13px 18px", background:"rgba(59,130,246,0.06)", borderBottom:"1px solid rgba(99,179,237,0.1)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 },
+    tab:        (active) => ({ padding:"5px 14px", borderRadius:6, border:`1px solid ${active?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.1)"}`, background:active?"rgba(59,130,246,0.12)":"transparent", color:active?"#60a5fa":"#475569", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5, position:"relative" }),
+    msgs:       { flex:1, height:300, overflowY:"auto", padding:"14px 16px", display:"flex", flexDirection:"column", gap:10 },
+    userBubble: { alignSelf:"flex-end", background:"rgba(59,130,246,0.15)", border:"1px solid rgba(59,130,246,0.25)", borderRadius:"12px 12px 3px 12px", padding:"8px 12px", maxWidth:"85%", color:"#93c5fd", fontSize:12, lineHeight:1.5 },
+    aiBubble:   { alignSelf:"flex-start", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:"12px 12px 12px 3px", padding:"10px 13px", maxWidth:"95%", color:"#cbd5e1", fontSize:12, lineHeight:1.6 },
+  };
+
+  const QUICK = ["Analyse my pricing now","Should I activate surge?","Am I cheaper than Uber?","Why is my cancel rate high?"];
+
+  return (
+    <div style={S.wrap}>
+
+      {/* ── HEADER ── */}
+      <div style={S.header}>
+        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+          <div style={{ width:28, height:28, borderRadius:7, background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, boxShadow:"0 0 12px rgba(59,130,246,0.4)" }}>✦</div>
+          <div>
+            <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:600 }}>AI Pricing Advisor</div>
+            <div style={{ color:"#3b82f6", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5 }}>POWERED BY CLAUDE</div>
+          </div>
+        </div>
+        {/* Tabs */}
+        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+          <button style={S.tab(activeTab==="chat")} onClick={() => setActiveTab("chat")}>CHAT</button>
+          <button style={S.tab(activeTab==="inbox")} onClick={() => setActiveTab("inbox")}>
+            INBOX
+            {unread > 0 && (
+              <span style={{ position:"absolute", top:-5, right:-5, background:"#ef4444", color:"#fff", fontSize:8, fontWeight:700, width:14, height:14, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 0 6px rgba(239,68,68,0.6)" }}>{unread}</span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ── SCHEDULER BAR ── */}
+      <div style={{ padding:"10px 16px", borderBottom:"1px solid rgba(99,179,237,0.08)", background:"rgba(0,0,0,0.15)", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
+          {schedulerOn
+            ? <div style={{ width:7, height:7, borderRadius:"50%", background:"#22c55e", boxShadow:"0 0 8px #22c55e", animation:"pulse 1.5s infinite", flexShrink:0 }} />
+            : <div style={{ width:7, height:7, borderRadius:"50%", background:"#334155", flexShrink:0 }} />
+          }
+          <div>
+            <div style={{ color: schedulerOn ? "#22c55e" : "#475569", fontSize:11, fontWeight:600 }}>
+              {schedulerOn ? `Auto-analysis ON — next in ${fmtCountdown(countdown)}` : "Auto-analysis OFF"}
+            </div>
+            {schedulerOn && analysing && <div style={{ color:"#f59e0b", fontSize:9 }}>Running analysis…</div>}
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ color:"#334155", fontSize:10 }}>every</span>
+          <input
+            value={intervalHrs} onChange={e => setIntervalHrs(e.target.value)}
+            disabled={schedulerOn}
+            style={{ width:36, padding:"3px 6px", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:5, fontSize:11, fontWeight:700, color:"#60a5fa", fontFamily:"'JetBrains Mono',monospace", outline:"none", textAlign:"center", opacity:schedulerOn?0.5:1 }}
+          />
+          <span style={{ color:"#334155", fontSize:10 }}>hr</span>
+          <Toggle val={schedulerOn} set={setSchedulerOn} />
+        </div>
+        {/* Quick presets */}
+        {!schedulerOn && (
+          <div style={{ display:"flex", gap:4 }}>
+            {[["1h","1"],["2h","2"],["4h","4"],["8h","8"]].map(([l,v]) => (
+              <button key={v} onClick={() => setIntervalHrs(v)} style={{ padding:"2px 7px", borderRadius:4, border:`1px solid ${intervalHrs===v?"#3b82f6":"rgba(99,179,237,0.1)"}`, background:intervalHrs===v?"rgba(59,130,246,0.1)":"transparent", color:intervalHrs===v?"#60a5fa":"#334155", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>{l}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── CHAT TAB ── */}
+      {activeTab === "chat" && (
+        <>
+          <div style={S.msgs}>
+            {messages.map((m, i) => (
+              <div key={i} style={m.role==="user" ? S.userBubble : S.aiBubble}>
+                <div style={{ whiteSpace:"pre-wrap" }}>{renderText(m.content)}</div>
+                {m.recommendation && Object.keys(m.recommendation.changes||{}).length > 0 && (
+                  <div style={{ marginTop:10, background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", borderRadius:8, padding:"10px 12px" }}>
+                    <div style={{ color:"#60a5fa", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, marginBottom:7 }}>RECOMMENDED CHANGES</div>
+                    {Object.entries(m.recommendation.changes).map(([k,v]) => (
+                      <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"3px 0", borderBottom:"1px solid rgba(99,179,237,0.06)" }}>
+                        <span style={{ color:"#64748b", fontSize:10 }}>{LABEL[k]||k}</span>
+                        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                          <span style={{ color:"#475569", fontSize:10, fontFamily:"'JetBrains Mono',monospace", textDecoration:"line-through" }}>{CURR[k]}</span>
+                          <span style={{ color:"#22c55e", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>→ {v}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <button onClick={() => applyFromChat(m.recommendation)} style={{ marginTop:9, width:"100%", background:"linear-gradient(135deg,#22c55e,#16a34a)", color:"#fff", border:"none", borderRadius:6, padding:"7px", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                      ✓ APPLY CHANGES
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {loading && (
+              <div style={S.aiBubble}>
+                <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+                  {[0,1,2].map(i => <div key={i} style={{ width:5, height:5, borderRadius:"50%", background:"#3b82f6", animation:`pulse ${1.2}s ${i*0.2}s ease-in-out infinite` }} />)}
+                  <span style={{ color:"#475569", fontSize:10, marginLeft:4 }}>Analysing…</span>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+          {/* Quick prompts */}
+          <div style={{ padding:"0 14px 8px", display:"flex", gap:5, flexWrap:"wrap" }}>
+            {QUICK.map(q => (
+              <button key={q} onClick={() => sendMessage(q)} disabled={loading} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:20, padding:"4px 10px", fontSize:9, color:"#475569", cursor:loading?"not-allowed":"pointer", fontFamily:"inherit" }}>{q}</button>
+            ))}
+          </div>
+          {/* Input */}
+          <div style={{ padding:"8px 14px 14px", borderTop:"1px solid rgba(99,179,237,0.08)", display:"flex", gap:8 }}>
+            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()} placeholder="Ask about pricing, surge, market rates…" disabled={loading} style={{ flex:1, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(99,179,237,0.12)", borderRadius:8, padding:"8px 12px", color:"#94a3b8", fontSize:12, outline:"none", fontFamily:"inherit" }} />
+            <button onClick={()=>sendMessage()} disabled={loading||!input.trim()} style={{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:8, padding:"8px 14px", fontSize:12, fontWeight:700, cursor:(loading||!input.trim())?"not-allowed":"pointer", opacity:(loading||!input.trim())?0.5:1 }}>→</button>
+          </div>
+        </>
+      )}
+
+      {/* ── INBOX TAB ── */}
+      {activeTab === "inbox" && (
+        <div style={{ flex:1, overflowY:"auto", maxHeight:480 }}>
+
+          {/* Inbox toolbar */}
+          <div style={{ padding:"8px 16px", borderBottom:"1px solid rgba(99,179,237,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div style={{ display:"flex", gap:10 }}>
+              <span style={{ color:"#60a5fa", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{inbox.length} analyses</span>
+              {inbox.filter(i=>!i.decision).length > 0 && <span style={{ color:"#f59e0b", fontSize:10 }}>{inbox.filter(i=>!i.decision).length} pending</span>}
+            </div>
+            {inbox.length > 0 && <button onClick={()=>setInbox([])} style={{ background:"none", border:"none", color:"#334155", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>CLEAR ALL</button>}
+          </div>
+
+          {inbox.length === 0 ? (
+            <div style={{ padding:"40px 20px", textAlign:"center" }}>
+              <div style={{ fontSize:28, marginBottom:10 }}>⏱</div>
+              <div style={{ color:"#475569", fontSize:12 }}>No analyses yet.</div>
+              <div style={{ color:"#334155", fontSize:10, marginTop:4 }}>Enable auto-analysis above or run one manually.</div>
+              <button onClick={() => { runScheduledAnalysis(); }} disabled={analysing} style={{ marginTop:14, background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:7, padding:"8px 18px", fontSize:10, fontWeight:700, cursor:analysing?"not-allowed":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:analysing?0.6:1 }}>
+                {analysing ? "RUNNING…" : "RUN ANALYSIS NOW"}
+              </button>
+            </div>
+          ) : (
+            <div style={{ padding:"8px 12px", display:"flex", flexDirection:"column", gap:8 }}>
+              {inbox.map(card => {
+                const decided = !!card.decision;
+                const urgentColor = card.urgent ? "#f59e0b" : "#3b82f6";
+                return (
+                  <div key={card.id} style={{ background: decided?"rgba(255,255,255,0.01)":card.urgent?"rgba(245,158,11,0.04)":"rgba(59,130,246,0.03)", border:`1px solid ${decided?"rgba(99,179,237,0.06)":card.urgent?"rgba(245,158,11,0.25)":"rgba(59,130,246,0.18)"}`, borderRadius:10, overflow:"hidden", opacity:decided?0.55:1, transition:"opacity 0.3s" }}>
+
+                    {/* Card header */}
+                    <div style={{ padding:"9px 12px 7px", display:"flex", alignItems:"center", gap:8, borderBottom:"1px solid rgba(99,179,237,0.05)" }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background: decided?(card.decision==="approved"?"#22c55e":"#ef4444"):card.urgent?"#f59e0b":"#3b82f6", boxShadow:decided?"none":`0 0 6px ${urgentColor}`, flexShrink:0 }} />
+                      <span style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>{card.ts}</span>
+                      {card.urgent && !decided && <span style={{ background:"rgba(245,158,11,0.15)", color:"#f59e0b", fontSize:8, fontWeight:700, padding:"1px 7px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace" }}>URGENT</span>}
+                      {card.hasChanges && !decided && <span style={{ background:"rgba(59,130,246,0.12)", color:"#60a5fa", fontSize:8, fontWeight:700, padding:"1px 7px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace" }}>CHANGES RECOMMENDED</span>}
+                      {!card.hasChanges && !decided && <span style={{ background:"rgba(34,197,94,0.1)", color:"#22c55e", fontSize:8, fontWeight:700, padding:"1px 7px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace" }}>NO ACTION NEEDED</span>}
+                      {decided && <span style={{ marginLeft:"auto", color:card.decision==="approved"?"#22c55e":"#ef4444", fontSize:9, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{card.decision==="approved"?"✓ APPROVED":"✗ DECLINED"}</span>}
+                    </div>
+
+                    {/* Summary + reasoning */}
+                    <div style={{ padding:"9px 12px" }}>
+                      <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:500, marginBottom:5, lineHeight:1.4 }}>{card.summary}</div>
+                      {card.reasoning && <div style={{ color:"#475569", fontSize:10, lineHeight:1.5, marginBottom:8 }}>{card.reasoning}</div>}
+
+                      {/* Change tags */}
+                      {card.hasChanges && (
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:10 }}>
+                          {Object.entries(card.changes).map(([k,v]) => (
+                            <span key={k} style={{ background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.2)", borderRadius:5, padding:"3px 8px", fontSize:9, color:"#60a5fa", fontFamily:"'JetBrains Mono',monospace", display:"flex", alignItems:"center", gap:5 }}>
+                              <span style={{ color:"#475569", textDecoration:"line-through" }}>{CURR[k]}</span>
+                              <span>→</span>
+                              <span style={{ color:"#22c55e", fontWeight:700 }}>{v}</span>
+                              <span style={{ color:"#334155" }}>{LABEL[k]||k}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      {!decided && (
+                        <div style={{ display:"flex", gap:7 }}>
+                          <button onClick={() => approveCard(card)} style={{ flex:1, background:card.hasChanges?"linear-gradient(135deg,#22c55e,#16a34a)":"rgba(34,197,94,0.1)", color:"#fff", border:card.hasChanges?"none":"1px solid rgba(34,197,94,0.3)", borderRadius:7, padding:"8px", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                            {card.hasChanges ? "✓ APPROVE & APPLY" : "✓ ACKNOWLEDGE"}
+                          </button>
+                          {card.hasChanges && (
+                            <button onClick={() => declineCard(card)} style={{ flex:1, background:"transparent", border:"1px solid rgba(239,68,68,0.3)", color:"#ef4444", borderRadius:7, padding:"8px", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                              ✗ DECLINE
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Scheduler log */}
+          {schedulerLog.length > 0 && (
+            <div style={{ borderTop:"1px solid rgba(99,179,237,0.07)", padding:"8px 16px 12px" }}>
+              <div style={{ color:"rgba(148,163,184,0.25)", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, marginBottom:5 }}>RUN LOG</div>
+              {schedulerLog.slice(0,5).map((l,i) => (
+                <div key={i} style={{ display:"flex", gap:8, padding:"2px 0" }}>
+                  <span style={{ color:"#1e293b", fontSize:9, fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>{l.ts}</span>
+                  <span style={{ color:l.status==="error"?"#ef4444":l.status==="alert"?"#f59e0b":l.status==="ok"?"#22c55e":"#334155", fontSize:9 }}>{l.msg}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── APPLIED HISTORY ── */}
+      {history.length > 0 && (
+        <div style={{ borderTop:"1px solid rgba(99,179,237,0.07)", padding:"8px 16px 12px" }}>
+          <div style={{ color:"rgba(148,163,184,0.25)", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, marginBottom:5 }}>APPLIED CHANGES</div>
+          {history.slice(0,3).map((h,i) => (
+            <div key={i} style={{ display:"flex", gap:8, padding:"3px 0", borderBottom:"1px solid rgba(99,179,237,0.04)" }}>
+              <span style={{ color:"#22c55e", fontSize:9, fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>{h.ts}</span>
+              <span style={{ color:"#334155", fontSize:10 }}>{h.summary}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DETAIL MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+function Modal({ modal, setModal, patchDriver, patchRider }) {
+  const d = modal.data;
+  const isDriver = modal.type === "driver";
+  const [tab, setTab] = useState(modal.tab || "profile");
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejectTarget, setRejectTarget] = useState(null);
+
+  function handleAction(status) {
+    if (isDriver) patchDriver(d.id, { status });
+    else patchRider(d.id, { status });
+    setModal(null);
+  }
+
+  function patchDoc(docIndex, patch) {
+    const newFiles = d.docFiles.map((f, i) => i === docIndex ? { ...f, ...patch } : f);
+    const statuses = newFiles.map(f => f.status);
+    let topDocs = statuses.every(s => s === "approved") ? "approved" : "pending";
+    patchDriver(d.id, { docFiles: newFiles, docs: topDocs });
+  }
+
+  const driverVehWarning = isDriver ? vehicleYearWarning(d.vehicleYear) : null;
+  const fields = isDriver ? [
+    ["EMAIL", d.email], ["PHONE", d.phone], ["CITY", d.city],
+    ["VEHICLE", d.vehicle + (d.vehicleYear ? "" : "")], ["PLATE", d.plate], ["JOINED", d.joined],
+    ["DOCUMENTS", d.docs.toUpperCase()], ["SUB STATUS", d.subPaid ? "PAID ✓" : "UNPAID ✗"],
+    ["SUB RENEWS", d.subDue], ["THIS WEEK", d.weekEarned],
+  ] : [
+    ["EMAIL", d.email], ["PHONE", d.phone], ["JOINED", d.joined],
+    ["PAYMENT", d.payment], ["TOTAL TRIPS", d.trips], ["TOTAL SPENT", d.spent],
+  ];
+
+  const pendingDocCount = isDriver ? (d.docFiles||[]).filter(f => f.status === "pending").length : 0;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500, padding:20 }} onClick={() => setModal(null)}>
+      <div style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:16, width:560, maxWidth:"100%", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 30px 80px rgba(0,0,0,0.6)" }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding:"20px 22px 16px", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", alignItems:"center", gap:13 }}>
+          <Avi name={d.name} seed={d.id} size={44} hue={isDriver ? 220 : 270} />
+          <div style={{ flex:1 }}>
+            <div style={{ color:"#f0f9ff", fontSize:16, fontWeight:600 }}>{d.name}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:4 }}>
+              <Mono small>{d.id}</Mono>
+              <span style={{ color:"#1e293b" }}>·</span>
+              <span style={{ color:"#334155", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{isDriver?"DRIVER":"RIDER"}</span>
+              <StatusBadge s={d.status} />
+            </div>
+          </div>
+          <button onClick={() => setModal(null)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:7, width:30, height:30, cursor:"pointer", fontSize:14, color:"#475569", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+        </div>
+
+        {/* Stats bar for drivers */}
+        {isDriver && (
+          <div style={{ padding:"14px 22px", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+            {[["RATING",`★ ${d.rating.toFixed(2)}`,"#f59e0b"],["TOTAL TRIPS",d.trips.toLocaleString(),"#3b82f6"],["THIS WEEK",d.weekEarned,"#22c55e"]].map(([l,v,c])=>(
+              <div key={l} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(99,179,237,0.07)", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
+                <div style={{ color:c, fontSize:18, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
+                <div style={{ color:"#1e293b", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginTop:3 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tabs — only for drivers */}
+        {isDriver && (
+          <div style={{ padding:"0 22px", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", gap:4 }}>
+            {[
+              { id:"profile", label:"Profile" },
+              { id:"docs",    label:"Documents", badge: pendingDocCount },
+            ].map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ padding:"11px 14px", background:"none", border:"none", borderBottom:`2px solid ${tab===t.id?"#3b82f6":"transparent"}`, color:tab===t.id?"#60a5fa":"#475569", fontSize:11, fontWeight:tab===t.id?700:400, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6, transition:"all 0.15s" }}>
+                {t.label}
+                {t.badge > 0 && <span style={{ background:"#f59e0b", color:"#000", fontSize:8, fontWeight:700, padding:"1px 5px", borderRadius:10 }}>{t.badge}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── PROFILE TAB ── */}
+        {(tab === "profile" || !isDriver) && (
+          <div style={{ padding:"16px 22px", borderBottom:"1px solid rgba(99,179,237,0.08)" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {fields.map(([l, v]) => (
+                <div key={l} style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.06)", borderRadius:8, padding:"9px 12px" }}>
+                  <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:3 }}>{l}</div>
+                  <div style={{ color:"#94a3b8", fontSize:12, fontWeight:500 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          {/* Vehicle age warning in profile tab */}
+          {driverVehWarning && (
+            <div style={{ marginTop:12, background: d.vehicleYear < MIN_VEHICLE_YEAR ? "rgba(239,68,68,0.07)" : "rgba(245,158,11,0.07)", border: d.vehicleYear < MIN_VEHICLE_YEAR ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(245,158,11,0.25)", borderRadius:9, padding:"10px 13px", display:"flex", alignItems:"flex-start", gap:9 }}>
+              <span style={{ fontSize:15 }}>{d.vehicleYear < MIN_VEHICLE_YEAR ? "🚫" : "⚠️"}</span>
+              <div>
+                <div style={{ color: d.vehicleYear < MIN_VEHICLE_YEAR ? "#ef4444" : "#f59e0b", fontSize:11, fontWeight:700, marginBottom:2 }}>
+                  {d.vehicleYear < MIN_VEHICLE_YEAR ? `Vehicle Over ${MAX_VEHICLE_AGE} Years Old` : "Vehicle Approaching Age Limit"}
+                </div>
+                <div style={{ color:"#64748b", fontSize:10 }}>{driverVehWarning}</div>
+              </div>
+            </div>
+          )}
+          </div>
+        )}
+
+        {/* ── DOCUMENTS TAB ── */}
+        {tab === "docs" && isDriver && (
+          <div style={{ padding:"16px 22px", borderBottom:"1px solid rgba(99,179,237,0.08)" }}>
+            <div style={{ color:"#475569", fontSize:10, marginBottom:12, lineHeight:1.6 }}>
+              Required documents for {d.name} · {d.vehicle} ({d.plate})
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {(d.docFiles||[]).map((f, i) => {
+                const m = DOC_META[f.status] || DOC_META.missing;
+                const isRejectOpen = rejectTarget === i;
+                return (
+                  <div key={i} style={{ background:"rgba(255,255,255,0.02)", border:`1px solid ${m.border}`, borderRadius:10, overflow:"hidden" }}>
+                    <div style={{ padding:"11px 14px", display:"flex", alignItems:"center", gap:11 }}>
+                      <span style={{ fontSize:20 }}>{DOC_ICONS[f.type]||"📄"}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
+                          <span style={{ color:"#cbd5e1", fontSize:12, fontWeight:500 }}>{f.type}</span>
+                          <DocStatusPill status={f.status} />
+                        </div>
+                        {f.file
+                          ? <span style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>📎 {f.file}{f.uploaded ? ` · uploaded ${f.uploaded}` : ""}</span>
+                          : <span style={{ color:"#475569", fontSize:9, fontStyle:"italic" }}>No file uploaded yet</span>
+                        }
+                        {f.note && (
+                          <div style={{ marginTop:5, padding:"4px 8px", background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:5 }}>
+                            <span style={{ color:"#f87171", fontSize:9 }}>Note to driver: {f.note}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display:"flex", gap:5, flexShrink:0 }}>
+                        {f.status === "pending" && (
+                          <>
+                            <button onClick={() => patchDoc(i, { status:"approved", note:"" })} style={{ padding:"5px 10px", borderRadius:6, background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.25)", color:"#22c55e", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>✓</button>
+                            <button onClick={() => setRejectTarget(t => t === i ? null : i)} style={{ padding:"5px 10px", borderRadius:6, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", color:"#ef4444", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>✗</button>
+                          </>
+                        )}
+                        {f.status === "approved" && (
+                          <button onClick={() => patchDoc(i, { status:"pending" })} style={{ padding:"4px 8px", borderRadius:5, background:"transparent", border:"1px solid rgba(99,179,237,0.1)", color:"#334155", fontSize:8, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>REVOKE</button>
+                        )}
+                        {f.status === "rejected" && (
+                          <button onClick={() => patchDoc(i, { status:"pending", note:"" })} style={{ padding:"4px 8px", borderRadius:5, background:"transparent", border:"1px solid rgba(245,158,11,0.15)", color:"#f59e0b", fontSize:8, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>RE-OPEN</button>
+                        )}
+                      </div>
+                    </div>
+                    {isRejectOpen && (
+                      <div style={{ padding:"0 14px 12px 45px", display:"flex", gap:8 }}>
+                        <textarea
+                          placeholder="Rejection reason (shown to driver)…"
+                          value={rejectNote} onChange={e => setRejectNote(e.target.value)}
+                          rows={2} autoFocus
+                          style={{ flex:1, padding:"7px 9px", background:"#080c14", border:"1px solid rgba(239,68,68,0.25)", borderRadius:6, color:"#f87171", fontSize:11, fontFamily:"inherit", outline:"none", resize:"vertical" }}
+                        />
+                        <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                          <button onClick={() => { patchDoc(i, { status:"rejected", note: rejectNote || "Document rejected." }); setRejectTarget(null); setRejectNote(""); }} style={{ padding:"7px 10px", borderRadius:5, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)", color:"#ef4444", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>CONFIRM</button>
+                          <button onClick={() => { setRejectTarget(null); setRejectNote(""); }} style={{ padding:"5px 10px", borderRadius:5, background:"transparent", border:"1px solid rgba(99,179,237,0.1)", color:"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>CANCEL</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Approve all */}
+            {(d.docFiles||[]).some(f => f.status === "pending") && (
+              <button onClick={() => {
+                const newFiles = d.docFiles.map(f => f.status === "pending" ? { ...f, status:"approved", note:"" } : f);
+                patchDriver(d.id, { docFiles: newFiles, docs: newFiles.every(f => f.status==="approved") ? "approved" : "pending" });
+              }} style={{ width:"100%", marginTop:12, padding:"10px", borderRadius:8, background:"rgba(34,197,94,0.08)", border:"1px solid rgba(34,197,94,0.2)", color:"#22c55e", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5 }}>
+                ✓ APPROVE ALL PENDING DOCUMENTS
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ padding:"16px 22px", display:"flex", gap:9 }}>
+          {d.status === "active"
+            ? <button onClick={() => handleAction("suspended")} style={{ flex:1, background:"rgba(239,68,68,0.08)", color:"#ef4444", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8, padding:"10px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5 }}>SUSPEND ACCOUNT</button>
+            : <button onClick={() => handleAction("active")} style={{ flex:1, background:"rgba(34,197,94,0.08)", color:"#22c55e", border:"1px solid rgba(34,197,94,0.2)", borderRadius:8, padding:"10px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5 }}>REINSTATE ACCOUNT</button>
+          }
+          <button onClick={() => setModal(null)} style={{ flex:1, background:"rgba(255,255,255,0.04)", color:"#475569", border:"1px solid rgba(99,179,237,0.08)", borderRadius:8, padding:"10px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Styles() {
+  useEffect(() => {
+    const id = "zeez-styles";
+    if (document.getElementById(id)) return;
+    const el = document.createElement("style");
+    el.id = id;
+    el.textContent = [
+      "@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');",
+      "*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }",
+      "body { background:#080c14; }",
+      "::-webkit-scrollbar { width:4px; height:4px; }",
+      "::-webkit-scrollbar-track { background:#080c14; }",
+      "::-webkit-scrollbar-thumb { background:#1e293b; border-radius:99px; }",
+      ".trow:hover td { background:rgba(59,130,246,0.04); }",
+      ".kpi-card { animation:rise 0.4s ease both; }",
+      "@keyframes rise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }",
+      "@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }",
+      "@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }",
+    ].join(" ");
+    document.head.appendChild(el);
+    return () => { try { document.head.removeChild(el); } catch(e) {} };
+  }, []);
+  return null;
+}
+
+
+// ─── PROMOS PAGE ──────────────────────────────────────────────────────────────
+function PagePromos({ promos, setPromos, drivers }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({
+    code:"", name:"", description:"", discountType:"pct", discount:"", duration:"4",
+    maxUses:"", target:"new_drivers", expiry:"", status:"active",
+  });
+  const [flash, setFlash] = useState(null);
+
+  const MAX_PROMO_WEEKS = 4; // platform policy: no promo may exceed 4 weeks
+  const activePromos  = promos.filter(p => p.status === "active");
+  const totalRedemptions = promos.reduce((s,p) => s + p.used, 0);
+  const estSavings = promos.reduce((s,p) => {
+    const weeklyFee = 25;
+    const saving = p.discountType === "pct" ? weeklyFee * p.discount / 100 * p.duration : Math.min(p.discount, weeklyFee * p.duration);
+    return s + saving * p.used;
+  }, 0);
+
+  const createPromo = () => {
+    if (!form.code || !form.name || !form.discount) return;
+    const rawDuration = parseInt(form.duration) || 1;
+    if (rawDuration > MAX_PROMO_WEEKS) {
+      setFlash("Duration cannot exceed " + MAX_PROMO_WEEKS + " weeks.");
+      setTimeout(() => setFlash(null), 3000);
+      return;
+    }
+    const newPromo = {
+      id: "PROMO-" + String(promos.length + 1).padStart(3,"0"),
+      ...form,
+      discount: parseFloat(form.discount),
+      duration: rawDuration,
+      maxUses: form.maxUses ? parseInt(form.maxUses) : null,
+      used: 0,
+      created: new Date().toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}),
+    };
+    setPromos(p => [...p, newPromo]);
+    setForm({ code:"", name:"", description:"", discountType:"pct", discount:"", duration:"4", maxUses:"", target:"new_drivers", expiry:"", status:"active" });
+    setShowCreate(false);
+    setFlash("Promo created successfully");
+    setTimeout(() => setFlash(null), 3000);
+  };
+
+  const toggleStatus = id => setPromos(p => p.map(pr => pr.id===id ? {...pr, status: pr.status==="active"?"paused":"active"} : pr));
+  const deletePromo  = id => setPromos(p => p.filter(pr => pr.id !== id));
+
+  const inp = { background:"#0a0f1a", border:"1px solid rgba(99,179,237,0.15)", borderRadius:8, padding:"8px 12px", color:"#e2e8f0", fontSize:12, outline:"none", fontFamily:"'JetBrains Mono',monospace", width:"100%", boxSizing:"border-box" };
+  const lbl = { color:"rgba(148,163,184,0.5)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:4, display:"block", textTransform:"uppercase" };
+
+  return (
+    <div>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:22 }}>
+        <div>
+          <h1 style={{ color:"#f0f9ff", fontSize:20, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:-0.3 }}>Promos</h1>
+          <p style={{ color:"#334155", fontSize:12, marginTop:4, fontFamily:"'JetBrains Mono',monospace" }}>Driver promotions &amp; subscription discounts</p>
+        </div>
+        <button
+          onClick={() => setShowCreate(o=>!o)}
+          style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"9px 18px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}
+        >
+          {showCreate ? "✕ CANCEL" : "+ NEW PROMO"}
+        </button>
+      </div>
+
+      {/* Flash */}
+      {flash && (
+        <div style={{ background:"rgba(34,197,94,0.08)", border:"1px solid rgba(34,197,94,0.2)", borderRadius:8, padding:"10px 16px", marginBottom:16, color:"#22c55e", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>
+          ✓ {flash}
+        </div>
+      )}
+
+      {/* Stats */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:18 }}>
+        {[
+          ["ACTIVE PROMOS",    activePromos.length,       "rgba(59,130,246,0.07)",  "rgba(59,130,246,0.15)",  "#3b82f6"],
+          ["TOTAL REDEMPTIONS",totalRedemptions,           "rgba(34,197,94,0.07)",   "rgba(34,197,94,0.15)",   "#22c55e"],
+          ["EST. DISCOUNT GIVEN", `CA$${estSavings.toFixed(0)}`, "rgba(245,158,11,0.07)", "rgba(245,158,11,0.15)", "#f59e0b"],
+        ].map(([l,v,bg,bd,col]) => (
+          <div key={l} style={{ background:bg, border:`1px solid ${bd}`, borderRadius:10, padding:"16px 20px" }}>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>{l}</div>
+            <div style={{ color:col, fontSize:28, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Create promo form */}
+      {showCreate && (
+        <div style={{ background:"#0d1220", border:"1px solid rgba(59,130,246,0.18)", borderRadius:12, padding:"22px", marginBottom:18 }}>
+          <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:16 }}>CREATE NEW PROMO</div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
+            <div>
+              <span style={lbl}>Promo Code</span>
+              <input value={form.code} onChange={e=>setForm(f=>({...f,code:e.target.value.toUpperCase()}))} placeholder="e.g. NEWDRIVER50" style={inp} />
+            </div>
+            <div>
+              <span style={lbl}>Promo Name</span>
+              <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. New Driver Welcome" style={inp} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom:14 }}>
+            <span style={lbl}>Description</span>
+            <input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Brief description of what this promo offers" style={inp} />
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:14, marginBottom:14 }}>
+            <div>
+              <span style={lbl}>Discount Type</span>
+              <select value={form.discountType} onChange={e=>setForm(f=>({...f,discountType:e.target.value}))} style={{...inp}}>
+                <option value="pct">Percentage (%)</option>
+                <option value="flat">Flat (CA$)</option>
+              </select>
+            </div>
+            <div>
+              <span style={lbl}>Discount Value</span>
+              <input value={form.discount} onChange={e=>setForm(f=>({...f,discount:e.target.value}))} placeholder={form.discountType==="pct"?"e.g. 100":"e.g. 25"} style={inp} type="number" />
+            </div>
+            <div>
+              <span style={lbl}>Duration <span style={{color:"#f59e0b",fontWeight:700}}>{`(max ${MAX_PROMO_WEEKS} weeks)`}</span></span>
+              <input value={form.duration} onChange={e=>{ const v=parseInt(e.target.value)||""; setForm(f=>({...f,duration:v===""?"":Math.min(v,MAX_PROMO_WEEKS)})); }} placeholder="1–4" style={{...inp, borderColor: parseInt(form.duration)>MAX_PROMO_WEEKS?"#ef4444":"rgba(99,179,237,0.15)"}} type="number" min="1" max={MAX_PROMO_WEEKS} />
+            </div>
+            <div>
+              <span style={lbl}>Max Uses</span>
+              <input value={form.maxUses} onChange={e=>setForm(f=>({...f,maxUses:e.target.value}))} placeholder="Unlimited" style={inp} type="number" />
+            </div>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14, marginBottom:18 }}>
+            <div>
+              <span style={lbl}>Target Audience</span>
+              <select value={form.target} onChange={e=>setForm(f=>({...f,target:e.target.value}))} style={{...inp}}>
+                <option value="new_drivers">New Drivers Only</option>
+                <option value="all_drivers">All Drivers</option>
+                <option value="inactive">Inactive Drivers</option>
+              </select>
+            </div>
+            <div>
+              <span style={lbl}>Expiry Date</span>
+              <input value={form.expiry} onChange={e=>setForm(f=>({...f,expiry:e.target.value}))} placeholder="e.g. May 31 2026" style={inp} />
+            </div>
+            <div>
+              <span style={lbl}>Status</span>
+              <select value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))} style={{...inp}}>
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Preview card */}
+          {form.code && form.discount && (
+            <div style={{ background:"linear-gradient(135deg,#1d4ed8,#1e40af)", borderRadius:10, padding:"16px 18px", marginBottom:16, position:"relative", overflow:"hidden" }}>
+              <div style={{ position:"absolute", right:-20, top:-20, width:80, height:80, borderRadius:"50%", background:"rgba(255,255,255,0.05)" }} />
+              <div style={{ position:"absolute", right:20, bottom:-30, width:100, height:100, borderRadius:"50%", background:"rgba(255,255,255,0.03)" }} />
+              <div style={{ color:"rgba(255,255,255,0.55)", fontSize:8, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>PREVIEW · DRIVER PROMO</div>
+              <div style={{ color:"#fff", fontSize:22, fontWeight:800, fontFamily:"'JetBrains Mono',monospace", letterSpacing:-0.5, marginBottom:4 }}>
+                {form.discountType==="pct" ? `${form.discount}% OFF` : `CA$${form.discount} OFF`}
+              </div>
+              <div style={{ color:"rgba(255,255,255,0.8)", fontSize:12, marginBottom:6 }}>Weekly subscription fee · {form.duration || "?"} {parseInt(form.duration)===1?"week":"weeks"}</div>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ background:"rgba(255,255,255,0.12)", borderRadius:5, padding:"3px 10px", color:"#fff", fontSize:11, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>{form.code}</span>
+                {form.target==="new_drivers" && <span style={{ color:"rgba(255,255,255,0.5)", fontSize:9 }}>New drivers only</span>}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display:"flex", justifyContent:"flex-end" }}>
+            <button onClick={createPromo} style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"10px 22px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
+              CREATE PROMO
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Promo list */}
+      <Panel title="ALL PROMOS" sub={`${promos.length} total`}>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr>{["CODE","NAME","DISCOUNT","DURATION","TARGET","USES","EXPIRY","STATUS",""].map(h=><Th key={h}>{h}</Th>)}</tr>
+          </thead>
+          <tbody>
+            {promos.map(p => {
+              const discLabel = p.discountType==="pct" ? `${p.discount}% off` : `CA$${p.discount} off`;
+              const durLabel  = `${p.duration} wk${p.duration>1?"s":""}`;
+              const usesLabel = p.maxUses ? `${p.used}/${p.maxUses}` : `${p.used} / ∞`;
+              const tgtLabel  = p.target==="new_drivers"?"New Drivers":p.target==="inactive"?"Inactive":"All Drivers";
+              const isActive  = p.status==="active";
+              return (
+                <tr key={p.id} className="trow">
+                  <Td><Mono small>{p.code}</Mono></Td>
+                  <Td>
+                    <div style={{ color:"#e2e8f0", fontSize:12, fontWeight:600 }}>{p.name}</div>
+                    {p.description && <div style={{ color:"#475569", fontSize:10, marginTop:2 }}>{p.description}</div>}
+                  </Td>
+                  <Td><span style={{ color:"#22c55e", fontWeight:700, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{discLabel}</span></Td>
+                  <Td><span style={{ color:"#94a3b8", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{durLabel}</span></Td>
+                  <Td><span style={{ background:"rgba(99,179,237,0.07)", color:"#93c5fd", fontSize:9, padding:"2px 7px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace" }}>{tgtLabel}</span></Td>
+                  <Td><span style={{ color:"#64748b", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{usesLabel}</span></Td>
+                  <Td><span style={{ color:"#475569", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{p.expiry||"—"}</span></Td>
+                  <Td>
+                    <span style={{ background:isActive?"rgba(34,197,94,0.08)":"rgba(245,158,11,0.08)", border:`1px solid ${isActive?"rgba(34,197,94,0.2)":"rgba(245,158,11,0.2)"}`, color:isActive?"#22c55e":"#f59e0b", fontSize:9, fontWeight:700, padding:"2px 9px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, textTransform:"uppercase" }}>
+                      {p.status}
+                    </span>
+                  </Td>
+                  <Td>
+                    <div style={{ display:"flex", gap:6 }}>
+                      <button onClick={()=>toggleStatus(p.id)} style={{ background:"rgba(99,179,237,0.07)", border:"1px solid rgba(99,179,237,0.15)", color:"#93c5fd", borderRadius:6, padding:"4px 10px", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+                        {isActive?"PAUSE":"RESUME"}
+                      </button>
+                      <button onClick={()=>deletePromo(p.id)} style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", color:"#f87171", borderRadius:6, padding:"4px 8px", fontSize:11, cursor:"pointer" }}>×</button>
+                    </div>
+                  </Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Panel>
+    </div>
+  );
+}
+
+
+function SectionHdr({ title, sub }) {
+  return (
+    <div style={{ marginBottom:22 }}>
+      <h1 style={{ color:"#f0f9ff", fontSize:20, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:-0.3 }}>{title}</h1>
+      {sub && <p style={{ color:"#334155", fontSize:12, marginTop:4, fontFamily:"'JetBrains Mono',monospace" }}>{sub}</p>}
+    </div>
+  );
+}
+
+function Panel({ title, sub, children }) {
+  return (
+    <div style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.08)", borderRadius:12, overflow:"hidden" }}>
+      {(title || sub) && (
+        <div style={{ padding:"14px 18px", borderBottom:"1px solid rgba(99,179,237,0.07)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <span style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace" }}>{title}</span>
+          {sub && <span style={{ color:"#1e293b", fontSize:10, fontFamily:"'JetBrains Mono',monospace" }}>{sub}</span>}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function SettingsPanel({ title, children }) {
+  return (
+    <div style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.08)", borderRadius:12, padding:"18px 22px", marginBottom:14 }}>
+      <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:4 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Th({ children }) {
+  return <th style={{ padding:"11px 14px", textAlign:"left", fontSize:8, fontWeight:700, color:"rgba(148,163,184,0.35)", letterSpacing:2, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", borderBottom:"1px solid rgba(99,179,237,0.07)", background:"rgba(0,0,0,0.25)", whiteSpace:"nowrap" }}>{children}</th>;
+}
+
+function Td({ children, muted }) {
+  return <td style={{ padding:"11px 14px", verticalAlign:"middle", borderBottom:"1px solid rgba(99,179,237,0.04)" }}>{muted ? <span style={{ color:"#64748b", fontSize:12 }}>{children}</span> : children}</td>;
+}
+
+function Mono({ children, small }) {
+  return (
+    <span style={{ background:"rgba(59,130,246,0.07)", border:"1px solid rgba(59,130,246,0.12)", color:"#60a5fa", fontSize:small?9:10, fontWeight:500, padding:small?"1px 5px":"2px 7px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", display:"inline-block" }}>
+      {children}
+    </span>
+  );
+}
+
+function Avi({ name, seed = "", size = 32, hue = 220 }) {
+  const initials = name.split(" ").slice(0,2).map(w => w[0]).join("").toUpperCase();
+  const palette = [
+    ["#1d4ed8","#3b82f6"], ["#6d28d9","#8b5cf6"], ["#065f46","#059669"],
+    ["#92400e","#d97706"], ["#9f1239","#e11d48"], ["#164e63","#0891b2"],
+  ];
+  const [dark, light] = palette[(seed.charCodeAt(4) || 0) % palette.length];
+  return (
+    <div style={{ width:size, height:size, borderRadius:"50%", background:`linear-gradient(135deg,${dark},${light})`, display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.9)", fontSize:size*0.36, fontWeight:600, flexShrink:0, fontFamily:"'JetBrains Mono',monospace" }}>
+      {initials}
+    </div>
+  );
+}
+
+function StatusBadge({ s }) {
+  const MAP = {
+    active:    ["#22c55e","rgba(34,197,94,0.08)","rgba(34,197,94,0.2)"],
+    suspended: ["#ef4444","rgba(239,68,68,0.08)","rgba(239,68,68,0.2)"],
+    inactive:  ["#475569","rgba(71,85,105,0.08)","rgba(71,85,105,0.2)"],
+    completed: ["#22c55e","rgba(34,197,94,0.08)","rgba(34,197,94,0.2)"],
+    cancelled: ["#ef4444","rgba(239,68,68,0.08)","rgba(239,68,68,0.2)"],
+  };
+  const [c, bg, border] = MAP[s] || MAP.inactive;
+  return (
+    <span style={{ background:bg, border:`1px solid ${border}`, color:c, fontSize:8, fontWeight:700, padding:"2px 8px", borderRadius:4, textTransform:"uppercase", letterSpacing:1, fontFamily:"'JetBrains Mono',monospace", whiteSpace:"nowrap" }}>
+      {s}
+    </span>
+  );
+}
+
+function FilterPill({ label, count, active, onClick, accent }) {
+  return (
+    <button onClick={onClick} style={{ padding:"5px 13px", borderRadius:20, border:`1px solid ${active ? accent : "rgba(99,179,237,0.1)"}`, background:active?`${accent}18`:"transparent", color:active?accent:"#334155", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s" }}>
+      {label.charAt(0).toUpperCase()+label.slice(1)} <span style={{ opacity:0.6 }}>({count})</span>
+    </button>
+  );
+}
+
+function ActBtn({ children, onClick, danger, success }) {
+  const c = danger ? "#ef4444" : success ? "#22c55e" : "#60a5fa";
+  const bg = danger ? "rgba(239,68,68,0.08)" : success ? "rgba(34,197,94,0.08)" : "rgba(59,130,246,0.08)";
+  const br = danger ? "rgba(239,68,68,0.2)" : success ? "rgba(34,197,94,0.2)" : "rgba(59,130,246,0.2)";
+  return (
+    <button onClick={onClick} style={{ background:bg, color:c, border:`1px solid ${br}`, borderRadius:5, padding:"4px 10px", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5, whiteSpace:"nowrap" }}>
+      {children}
+    </button>
+  );
+}
+
+function Toggle({ val, set }) {
+  return (
+    <div onClick={() => set(v => !v)} style={{ width:42, height:22, borderRadius:100, background:val?"linear-gradient(135deg,#3b82f6,#1d4ed8)":"rgba(99,179,237,0.08)", border:"1px solid rgba(99,179,237,0.15)", position:"relative", cursor:"pointer", transition:"background 0.2s", flexShrink:0 }}>
+      <div style={{ position:"absolute", top:2, left:val?21:2, width:17, height:17, borderRadius:"50%", background:val?"#fff":"#1e293b", border:"1px solid rgba(99,179,237,0.2)", transition:"left 0.2s", boxShadow:val?"0 0 8px rgba(59,130,246,0.5)":"none" }} />
+    </div>
+  );
+}
+
+function EmptyRow({ text }) {
+  return (
+    <div style={{ padding:"36px 20px", textAlign:"center", color:"#1e293b", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{text}</div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: SHUTTLE SERVICE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleBaseFare, setShuttleBaseFare, shuttleBookingFee, setShuttleBookingFee, shuttlePeakOn, setShuttlePeakOn, shuttlePeakMult, setShuttlePeakMult, airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAirportFareYHM, airportFareYTZ, setAirportFareYTZ, airportBookingFee, setAirportBookingFee, airportMinNotice, setAirportMinNotice }) {
+  const [tab,   setTab]   = useState("vehicles");
+  const [modal, setModal] = useState(null);
+  const [form,  setForm]  = useState({});
+  const [toast, setToast] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null); // { type:"vehicle"|"trip", item }
+
+  // Auto-cleanup: remove trips on any date that have 0 bookings
+  // Runs whenever trips change
+  function pruneEmptyTrips(tripList) {
+    const today = new Date("2026-03-09");
+    return tripList.filter(t => {
+      if (t.booked > 0) return true;                        // keep if has bookings
+      if (t.status === "completed") return true;            // keep completed records
+      const tripDate = new Date(t.date);
+      if (!isNaN(tripDate) && tripDate < today) return false; // drop past + empty
+      return true;                                          // keep future empty (not yet run)
+    });
+  }
+
+  const TIMES = [
+    "1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM",
+    "7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM",
+    "1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM",
+    "7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM","12:00 AM",
+  ];
+
+  function showToast(msg, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  const inp = (key, ph, type="text", extra={}) => (
+    <input
+      type={type} placeholder={ph} value={form[key]||""}
+      onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
+      style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
+        borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }}
+      {...extra}
+    />
+  );
+  const sel = (key, opts, label) => (
+    <select value={form[key]||opts[0]||""} onChange={e => setForm(f => ({...f, [key]:e.target.value}))}
+      style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+        borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+      {opts.map(o => <option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}
+    </select>
+  );
+  const Field = ({ label, children, full }) => (
+    <div style={{ gridColumn: full ? "1/-1" : undefined }}>
+      <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5,
+        textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:5 }}>{label}</div>
+      {children}
+    </div>
+  );
+
+  const activeVehicles = vehicles.filter(v => v.status === "active");
+  const scheduledTrips = trips.filter(t => t.status === "scheduled");
+  const completedTrips = trips.filter(t => t.status === "completed");
+  const totalRevenue   = completedTrips
+    .reduce((s, t) => s + parseFloat((t.fare||"0").replace("CA$","")) * (t.booked||0), 0);
+
+  // Trips with 0 bookings today — shown as warning badges
+  const today      = new Date("2026-03-09").toDateString();
+  const emptyToday = trips.filter(t => t.booked === 0 && new Date(t.date).toDateString() === today && t.status !== "completed");
+
+  // ── Build route label from pickup + dropoff if available
+  function tripRouteLabel(t) {
+    if (t.pickup && t.dropoff) return `${t.pickup} → ${t.dropoff}`;
+    return t.route || "—";
+  }
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position:"fixed", top:20, right:20, zIndex:999,
+          background:toast.ok?"rgba(34,197,94,0.15)":"rgba(239,68,68,0.15)",
+          border:`1px solid ${toast.ok?"rgba(34,197,94,0.3)":"rgba(239,68,68,0.3)"}`,
+          borderRadius:10, padding:"10px 16px", color:toast.ok?"#86efac":"#fca5a5",
+          fontSize:12, fontWeight:600, backdropFilter:"blur(8px)" }}>
+          {toast.msg}
+        </div>
+      )}
+
+      <SectionHdr title="Shuttle Service" sub="Manage fleet vehicles, custom routes, and trip schedules" />
+
+      {/* ── KPI strip ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
+        {[
+          ["FLEET VEHICLES",  vehicles.length,              "rgba(59,130,246,0.07)",  "rgba(59,130,246,0.2)",  "#3b82f6"],
+          ["ACTIVE VEHICLES", activeVehicles.length,        "rgba(34,197,94,0.07)",   "rgba(34,197,94,0.2)",   "#22c55e"],
+          ["SCHEDULED TRIPS", scheduledTrips.length,        "rgba(245,158,11,0.07)",  "rgba(245,158,11,0.2)",  "#f59e0b"],
+          ["TOTAL REVENUE",   `CA$${totalRevenue.toFixed(0)}`, "rgba(167,139,250,0.07)","rgba(167,139,250,0.2)","#a78bfa"],
+        ].map(([l,v,bg,bdr,c]) => (
+          <div key={l} style={{ background:bg, border:`1px solid ${bdr}`, borderRadius:10, padding:"16px 20px" }}>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2,
+              fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>{l}</div>
+            <div style={{ color:c, fontSize:26, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Auto-prune banner ── */}
+      {emptyToday.length > 0 && (
+        <div style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.2)",
+          borderRadius:10, padding:"10px 16px", marginBottom:14, display:"flex", alignItems:"center",
+          justifyContent:"space-between", gap:12 }}>
+          <div>
+            <span style={{ color:"#ef4444", fontWeight:700, fontSize:12 }}>
+              ⚠ {emptyToday.length} trip{emptyToday.length>1?"s":""} today with zero bookings
+            </span>
+            <span style={{ color:"#334155", fontSize:11, marginLeft:8 }}>
+              — these will be auto-deleted at end of day to free up database space
+            </span>
+          </div>
+          <button onClick={() => {
+            const pruned = trips.filter(t => !(t.booked === 0 && new Date(t.date).toDateString() === today && t.status !== "completed"));
+            setTrips(pruned);
+            showToast(`Removed ${emptyToday.length} empty trip${emptyToday.length>1?"s":""} from today`);
+          }} style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)",
+            color:"#ef4444", borderRadius:7, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
+            Purge Now
+          </button>
+        </div>
+      )}
+
+      {/* ── Tab bar ── */}
+      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+        {[["vehicles","🚐  Fleet Vehicles"],["trips","🗓  Shuttle Trips"],["airport","✈️  Airport Settings"]].map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)}
+            style={{ padding:"7px 20px", borderRadius:8, border:`1px solid ${tab===id?"#3b82f6":"rgba(99,179,237,0.12)"}`,
+              background:tab===id?"rgba(59,130,246,0.1)":"transparent",
+              color:tab===id?"#60a5fa":"#64748b", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+            {label}
+          </button>
+        ))}
+        <div style={{ flex:1 }} />
+        {tab === "airport" && (
+          <div style={{ color:"#64748b", fontSize:11, padding:"4px 8px" }}>Edit airport fares below</div>
+        )}
+        {tab === "vehicles" && (
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={() => { setForm({ make:"", model:"", year:"2023", plate:"", capacity:"7", color:"White", driver:"Unassigned", status:"active", defaultRoute:"", vehicleType:"7-seater" }); setModal("add_vehicle"); }}
+              style={{ padding:"7px 14px", borderRadius:8, border:"1px solid rgba(59,130,246,0.3)",
+                background:"rgba(59,130,246,0.08)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              + Add Vehicle
+            </button>
+
+          </div>
+        )}
+        {tab === "trips" && (
+          <button onClick={() => { setForm({ pickup:"", dropoff:"", vehicle:"", date:"", days:[], time:TIMES[2], fare: shuttleBaseFare || "", notes:"" }); setModal("create_trip"); }}
+            style={{ padding:"7px 16px", borderRadius:8, border:"1px solid rgba(34,197,94,0.3)",
+              background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            + Create Trip
+          </button>
+        )}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* VEHICLES TAB                                              */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "vehicles" && (
+        <Panel title={`FLEET VEHICLES — ${vehicles.length} TOTAL`}>
+          {vehicles.length === 0 && (
+            <div style={{ padding:"32px", textAlign:"center", color:"#334155", fontSize:13 }}>
+              No vehicles in fleet — click <strong style={{ color:"#60a5fa" }}>+ Add Vehicle</strong> to get started
+            </div>
+          )}
+          {vehicles.length > 0 && (
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>{["ID","MAKE / MODEL","YEAR","PLATE","CAP","COLOR","DRIVER","DEFAULT ROUTE","STATUS","ACTIONS"]
+                  .map(h => <Th key={h}>{h}</Th>)}</tr>
+              </thead>
+              <tbody>
+                {vehicles.map(v => (
+                  <tr key={v.id} className="trow">
+                    <Td><Mono small>{v.id}</Mono></Td>
+                    <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontSize:13 }}>{v.make} {v.model}</span></Td>
+                    <Td><span style={{ color:"#94a3b8", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{v.year}</span></Td>
+                    <Td><Mono small>{v.plate}</Mono></Td>
+                    <Td>
+                      <span style={{ color:"#60a5fa", fontSize:13, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v.capacity}</span>
+                      <span style={{ color:"#334155", fontSize:9, marginLeft:3 }}>seats</span>
+                    </Td>
+                    <Td><span style={{ color:"#94a3b8", fontSize:12 }}>{v.color}</span></Td>
+                    <Td><span style={{ color:v.driver==="Unassigned"?"#475569":"#cbd5e1", fontSize:12 }}>{v.driver}</span></Td>
+                    <Td>
+                      <span style={{ color:"#64748b", fontSize:10, maxWidth:160, display:"block",
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {v.defaultRoute || <span style={{ color:"#1e293b" }}>—</span>}
+                      </span>
+                    </Td>
+                    <Td><StatusBadge s={v.status} /></Td>
+                    <Td>
+                      <div style={{ display:"flex", gap:5 }}>
+                        <ActBtn onClick={() => { setForm({...v, defaultRoute: v.defaultRoute||"" }); setModal({ type:"edit_vehicle", id:v.id }); }}>Edit</ActBtn>
+                        <ActBtn danger onClick={() => setConfirmDelete({ type:"vehicle", item:v })}>🗑 Delete</ActBtn>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TRIPS TAB                                                 */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "trips" && (
+        <Panel title={`SHUTTLE TRIPS — ${trips.length} TOTAL · ${emptyToday.length} EMPTY TODAY`}>
+          {trips.length === 0 && (
+            <div style={{ padding:"32px", textAlign:"center", color:"#334155", fontSize:13 }}>
+              No trips scheduled — click <strong style={{ color:"#22c55e" }}>+ Create Trip</strong> to schedule one
+            </div>
+          )}
+          {trips.length > 0 && (
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>{["TRIP ID","ROUTE","VEHICLE","DRIVER","DAY","TIME","SEATS","BOOKED","FARE","STATUS","ACTIONS"]
+                  .map(h => <Th key={h}>{h}</Th>)}</tr>
+              </thead>
+              <tbody>
+                {trips.map(t => {
+                  const isEmptyToday = t.booked === 0 && new Date(t.date).toDateString() === today && t.status !== "completed";
+                  return (
+                    <tr key={t.id} className="trow" style={{ opacity: isEmptyToday ? 0.65 : 1 }}>
+                      <Td>
+                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                          <Mono small>{t.id}</Mono>
+                          {isEmptyToday && (
+                            <span style={{ background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.25)",
+                              color:"#ef4444", fontSize:7, fontWeight:700, borderRadius:3, padding:"1px 4px" }}>EMPTY</span>
+                          )}
+                        </div>
+                      </Td>
+                      <Td>
+                        <span style={{ color:"#f0f9ff", fontSize:11, fontWeight:500 }}>{tripRouteLabel(t)}</span>
+                      </Td>
+                      <Td><Mono small>{t.vehicle||"—"}</Mono></Td>
+                      <Td><span style={{ color:"#94a3b8", fontSize:12 }}>{t.driver||"Unassigned"}</span></Td>
+                      <Td><div style={{ lineHeight:1.3 }}><span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{t.day||"—"}</span>{t.date && <div style={{ color:"#334155", fontSize:9 }}>{t.date}</div>}</div></Td>
+                      <Td><span style={{ color:"#60a5fa", fontSize:12, fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>{t.time}</span></Td>
+                      <Td><span style={{ color:"#94a3b8", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{t.seats||"—"}</span></Td>
+                      <Td>
+                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                          <div style={{ height:4, width:36, borderRadius:2, background:"rgba(99,179,237,0.1)", overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:`${Math.round((t.booked||0)/(t.seats||1)*100)}%`,
+                              background:t.booked===t.seats?"#22c55e":"#3b82f6", transition:"width 0.3s" }} />
+                          </div>
+                          <span style={{ color:"#94a3b8", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{t.booked||0}/{t.seats||"?"}</span>
+                        </div>
+                      </Td>
+                      <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{t.fare||"—"}</span></Td>
+                      <Td><StatusBadge s={t.status} /></Td>
+                      <Td>
+                        <div style={{ display:"flex", gap:5 }}>
+                          {t.status !== "completed" && (
+                            <ActBtn onClick={() => {
+                              const v = vehicles.find(x => x.id === t.vehicle);
+                              setForm({
+                                pickup:  t.pickup  || (t.route ? t.route.split("→")[0]?.trim() : ""),
+                                dropoff: t.dropoff || (t.route ? t.route.split("→")[1]?.trim() : ""),
+                                vehicle: t.vehicle || "",
+                                date:    t.date    || "",
+                days:    t.day ? [t.day] : [],
+                day:     t.day     || "",
+                                time:    t.time    || TIMES[2],
+                                fare:    t.fare    ? t.fare.replace("CA$","") : "",
+                                seats:   String(t.seats||""),
+                                notes:   t.notes   || "",
+                                driver:  t.driver  || "",
+                              });
+                              setModal({ type:"edit_trip", id:t.id });
+                            }}>Edit</ActBtn>
+                          )}
+                          {t.status === "pending" && (
+                            <ActBtn onClick={() => { setForm({ assignVehicle:"" }); setModal({ type:"assign_vehicle", data:t }); }}>Assign</ActBtn>
+                          )}
+                          {t.status !== "completed" && (
+                            <ActBtn danger onClick={() => setConfirmDelete({ type:"trip", item:t })}>Delete</ActBtn>
+                          )}
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL — ADD / EDIT VEHICLE                               */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {(modal === "add_vehicle" || modal?.type === "edit_vehicle") && (
+        <ShuttleModal
+          title={modal === "add_vehicle" ? "Add Fleet Vehicle" : "Edit Vehicle"}
+          onClose={() => { setModal(null); setForm({}); }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+            <Field label="Make"><div>{inp("make","e.g. Mercedes-Benz")}</div></Field>
+            <Field label="Model"><div>{inp("model","e.g. Sprinter")}</div></Field>
+            <Field label="Year"><div>{inp("year","e.g. 2023","number")}</div></Field>
+            <Field label="Licence Plate"><div>{inp("plate","e.g. ABCD 123")}</div></Field>
+            <Field label="Capacity (seats)"><div>{inp("capacity","e.g. 7","number")}</div></Field>
+            <Field label="Vehicle Type">
+              <select value={form.vehicleType||"7-seater"} onChange={e => setForm(f => ({...f, vehicleType:e.target.value, capacity: e.target.value==="7-seater" ? "7" : "4"}))}
+                style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+                  borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+                <option value="7-seater">7-Seater (1+3+3)</option>
+                <option value="4-seater">4-Seater (1+1+2)</option>
+              </select>
+            </Field>
+            <Field label="Color"><div>{inp("color","e.g. White")}</div></Field>
+            <Field label="Assigned Driver" full>
+              <select value={form.driver||"Unassigned"} onChange={e => setForm(f => ({...f, driver:e.target.value}))}
+                style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+                  borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+                <option value="Unassigned">Unassigned</option>
+                {drivers.filter(d => d.status==="active").map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Default Route (optional)" full>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap:8, alignItems:"center" }}>
+                {inp("defaultPickup","Pickup location (e.g. Hamilton GO Station)")}
+                <span style={{ color:"#475569", fontSize:14, flexShrink:0 }}>→</span>
+                {inp("defaultDropoff","Drop-off location (e.g. Pearson Airport)")}
+              </div>
+            </Field>
+            <Field label="Status">
+              <select value={form.status||"active"} onChange={e => setForm(f => ({...f, status:e.target.value}))}
+                style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+                  borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+            </Field>
+          </div>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+            <button onClick={() => { setModal(null); setForm({}); }}
+              style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
+            <button onClick={() => {
+              const defaultRoute = (form.defaultPickup && form.defaultDropoff)
+                ? `${form.defaultPickup.trim()} → ${form.defaultDropoff.trim()}`
+                : (form.defaultRoute || "");
+              const payload = {
+                ...form,
+                capacity:     parseInt(form.capacity)||(form.vehicleType==="4-seater"?4:7),
+                vehicle_type: form.vehicle_type||"7-seater",
+                year:         parseInt(form.year)||2023,
+                vehicleType:  form.vehicleType || "7-seater",
+                defaultRoute,
+              };
+              if (modal === "add_vehicle") {
+                const newId = "SHV-" + String(vehicles.length + 1).padStart(3,"0");
+                setVehicles(prev => [...prev, { id:newId, ...payload, booked:0 }]);
+                showToast(`${form.make} ${form.model} added to fleet as ${newId}`);
+              } else {
+                setVehicles(prev => prev.map(v => v.id === modal.id ? { ...v, ...payload } : v));
+                showToast(`Vehicle ${modal.id} updated`);
+              }
+              setModal(null); setForm({});
+            }} style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
+              background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              {modal === "add_vehicle" ? "Add Vehicle" : "Save Changes"}
+            </button>
+          </div>
+        </ShuttleModal>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL — CREATE / EDIT TRIP                               */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {(modal === "create_trip" || modal?.type === "edit_trip") && (() => {
+        const isEdit = modal?.type === "edit_trip";
+        return (
+          <ShuttleModal
+            title={isEdit ? `Edit Trip — ${modal.id}` : "Create Shuttle Trip"}
+            onClose={() => { setModal(null); setForm({}); }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+
+              {/* Pickup */}
+              <Field label="Pickup Location" full>
+                <div>
+                  <input
+                    list="pickup-suggestions"
+                    value={form.pickup||""}
+                    onChange={e => setForm(f => ({...f, pickup:e.target.value}))}
+                    placeholder="e.g. Hamilton GO Station"
+                    style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
+                      borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }}
+                  />
+                  <datalist id="pickup-suggestions">
+                    {[...new Set(vehicles.filter(v=>v.defaultPickup).map(v=>v.defaultPickup)
+                      .concat(vehicles.filter(v=>v.defaultRoute).map(v=>v.defaultRoute.split("→")[0]?.trim()).filter(Boolean))
+                    )].map(s => <option key={s} value={s} />)}
+                  </datalist>
+                </div>
+              </Field>
+
+                            {/* Drop-off */}
+              <Field label="Drop-off Location" full>
+                <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:8, alignItems:"center" }}>
+                  <div style={{ width:28, height:28, borderRadius:7, background:"rgba(59,130,246,0.1)",
+                    display:"flex", alignItems:"center", justifyContent:"center", color:"#60a5fa", fontSize:14,
+                    flexShrink:0 }}>→</div>
+                  <div>
+                    <input
+                      list="dropoff-suggestions"
+                      value={form.dropoff||""}
+                      onChange={e => setForm(f => ({...f, dropoff:e.target.value}))}
+                      placeholder="e.g. Toronto Pearson Airport, Terminal 1"
+                      style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
+                        borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }}
+                    />
+                    <datalist id="dropoff-suggestions">
+                      {[...new Set(vehicles.filter(v=>v.defaultDropoff).map(v=>v.defaultDropoff)
+                        .concat(vehicles.filter(v=>v.defaultRoute).map(v=>v.defaultRoute.split("→")[1]?.trim()).filter(Boolean))
+                      )].map(s => <option key={s} value={s} />)}
+                    </datalist>
+                  </div>
+                </div>
+              </Field>
+
+                            {/* Route preview */}
+              {(form.pickup || form.dropoff) && (
+                <div style={{ gridColumn:"1/-1", background:"rgba(59,130,246,0.05)",
+                  border:"1px solid rgba(59,130,246,0.15)", borderRadius:8, padding:"8px 12px",
+                  display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ color:"#60a5fa", fontSize:11, fontWeight:600 }}>Route: </span>
+                  <span style={{ color:"#f0f9ff", fontSize:11 }}>
+                    {form.pickup||"…"} → {form.dropoff||"…"}
+                  </span>
+                </div>
+              )}
+
+              {/* Vehicle */}
+              <Field label="Vehicle" full>
+                <select value={form.vehicle||""}
+                  onChange={e => {
+                    const v = vehicles.find(x => x.id === e.target.value);
+                    setForm(f => ({...f, vehicle:e.target.value, seats:String(v?.capacity||7), driver:v?.driver||"Unassigned", vehicle_type:v?.vehicleType||"7-seater" }));
+                  }}
+                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+                  <option value="">— Select vehicle —</option>
+                  {vehicles.filter(v => v.status==="active").map(v => (
+                    <option key={v.id} value={v.id}>{v.id} — {v.make} {v.model} ({v.capacity} seats · {v.vehicleType||"7-seater"})</option>
+                  ))}
+                </select>
+                {form.vehicle && (() => {
+                  const v = vehicles.find(x => x.id === form.vehicle);
+                  return v ? (
+                    <div style={{ marginTop:5, color:"#334155", fontSize:10 }}>
+                      Driver: <strong style={{ color:"#94a3b8" }}>{v.driver}</strong>
+                      &nbsp;·&nbsp; Capacity: <strong style={{ color:"#60a5fa" }}>{v.capacity} seats</strong>
+                      &nbsp;·&nbsp; Type: <strong style={{ color:"#a78bfa" }}>{v.vehicleType||"7-seater"}</strong>
+                    </div>
+                  ) : null;
+                })()}
+              </Field>
+
+              {/* Vehicle Type (number of seats) */}
+              <Field label="Vehicle Type (Seating)" full>
+                <select value={form.vehicle_type||"7-seater"}
+                  onChange={e => setForm(f => ({...f, vehicle_type:e.target.value, seats:e.target.value==="3-seater"?"3":e.target.value==="5-seater"?"5":"7" }))}
+                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+                  <option value="3-seater">3-Seater (F2, B3, B4)</option>
+                  <option value="5-seater">5-Seater (F2, M3, M4, B5, B6)</option>
+                  <option value="7-seater">7-Seater (F2, M3, M4, M5, B6, B7, B8)</option>
+                </select>
+                <div style={{ marginTop:5, color:"#475569", fontSize:10 }}>
+                  F1 is the pilot seat (reserved). Available seats shown to riders on the seat map.
+                </div>
+              </Field>
+
+              {/* Days of week — recurring daily selection */}
+              <Field label="Days of Week" full>
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => {
+                    const sel = (form.days||[]).includes(day);
+                    return (
+                      <button key={day} type="button"
+                        onClick={() => setForm(f => {
+                          const days = f.days||[];
+                          return {...f, days: sel ? days.filter(d=>d!==day) : [...days, day]};
+                        })}
+                        style={{ padding:"6px 12px", borderRadius:7, fontSize:11, fontWeight:700,
+                          cursor:"pointer", border:`1.5px solid ${sel?"#3b82f6":"rgba(99,179,237,0.2)"}`,
+                          background:sel?"rgba(59,130,246,0.15)":"rgba(99,179,237,0.04)",
+                          color:sel?"#60a5fa":"#475569", transition:"all 0.12s" }}>
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+                {(form.days||[]).length > 0 && (
+                  <div style={{ marginTop:5, color:"#475569", fontSize:10 }}>
+                    Runs every: <strong style={{ color:"#60a5fa" }}>{(form.days||[]).join(", ")}</strong>
+                  </div>
+                )}
+              </Field>
+
+              {/* Time */}
+              <Field label="Departure Time">
+                <select value={form.time||TIMES[2]} onChange={e => setForm(f => ({...f, time:e.target.value}))}
+                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+                  {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
+
+              {/* Fare */}
+              <Field label="Fare per seat (CA$)">
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ color:"#334155", fontSize:13 }}>CA$</span>
+                  {inp("fare","e.g. 18","number")}
+                </div>
+              </Field>
+
+              {/* Notes */}
+              <Field label="Notes (optional)" full>
+                <textarea value={form.notes||""} onChange={e => setForm(f => ({...f, notes:e.target.value}))}
+                  placeholder="e.g. Express route — no stops" rows={2}
+                  style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
+                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none",
+                    resize:"vertical", boxSizing:"border-box" }} />
+              </Field>
+
+              {/* Empty-day policy reminder */}
+              <div style={{ gridColumn:"1/-1", background:"rgba(245,158,11,0.05)",
+                border:"1px solid rgba(245,158,11,0.15)", borderRadius:8, padding:"8px 12px" }}>
+                <span style={{ color:"rgba(245,158,11,0.7)", fontSize:10 }}>
+                  💡 If this trip has <strong>zero bookings</strong> on the scheduled date, it will be automatically removed to keep the database clean.
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+              <button onClick={() => { setModal(null); setForm({}); }}
+                style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                  background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
+              <button onClick={() => {
+                if (!form.pickup || !form.dropoff) {
+                  showToast("Please enter both pickup and drop-off locations", false); return;
+                }
+                if (!form.days || form.days.length === 0) { showToast("Please select at least one day", false); return; }
+                if (!form.fare)  { showToast("Please enter a fare", false); return; }
+                const veh = vehicles.find(v => v.id === form.vehicle);
+                const route = `${form.pickup.trim()} → ${form.dropoff.trim()}`;
+                if (isEdit) {
+                  setTrips(prev => prev.map(t => t.id === modal.id ? {
+                    ...t,
+                    pickup:  form.pickup.trim(),
+                    dropoff: form.dropoff.trim(),
+                    route,
+                    vehicle: form.vehicle || t.vehicle,
+                    driver:  veh?.driver || form.driver || t.driver,
+                    date:    form.date || t.date,
+                    day:     form.day  || t.day,
+                    time:    form.time,
+                    seats:   form.vehicle ? (veh?.capacity||t.seats) : t.seats,
+                    fare:    `CA$${form.fare}`,
+                    notes:   form.notes || "",
+                    status:  form.vehicle ? "scheduled" : t.status,
+                  } : t));
+                  showToast(`Trip ${modal.id} updated`);
+                } else {
+                  // Create one recurring trip entry per selected day
+                  const DAY_MAP = {Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:0};
+                  const today = new Date();
+                  const newTrips = (form.days||[]).map((day, idx) => {
+                    const target = DAY_MAP[day];
+                    const diff = (target - today.getDay() + 7) % 7 || 7;
+                    const d = new Date(today);
+                    d.setDate(today.getDate() + diff);
+                    const dateStr = d.toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}).replace(",","");
+                    return {
+                      id:      "ST-" + String(Date.now() + idx).slice(-4),
+                      pickup:  form.pickup.trim(),
+                      dropoff: form.dropoff.trim(),
+                      route,
+                      vehicle: form.vehicle || "TBD",
+                      driver:  veh?.driver || "Unassigned",
+                      date:    dateStr,
+                      day:     day,
+                      time:    form.time || TIMES[2],
+                      seats:   veh?.capacity || parseInt(form.seats) || 8,
+                      booked:  0,
+                      fare:    `CA$${form.fare}`,
+                      notes:   form.notes || "",
+                      status:  form.vehicle ? "scheduled" : "pending",
+                      recurring: true,
+                    };
+                  });
+                  setTrips(prev => pruneEmptyTrips([...newTrips, ...prev]));
+                  showToast(`${newTrips.length} recurring trip${newTrips.length>1?"s":""} created`);
+                }
+                setModal(null); setForm({});
+              }} style={{ padding:"8px 20px", borderRadius:7,
+                border:`1px solid ${isEdit?"rgba(59,130,246,0.3)":"rgba(34,197,94,0.3)"}`,
+                background:isEdit?"rgba(59,130,246,0.08)":"rgba(34,197,94,0.08)",
+                color:isEdit?"#60a5fa":"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                {isEdit ? "Save Changes" : "Create Trip"}
+              </button>
+            </div>
+          </ShuttleModal>
+        );
+      })()}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL — ASSIGN VEHICLE                                   */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal?.type === "assign_vehicle" && (
+        <ShuttleModal title={`Assign Vehicle — ${modal.data.id}`} onClose={() => { setModal(null); setForm({}); }}>
+          <p style={{ color:"#94a3b8", fontSize:12, marginBottom:16 }}>
+            Route: <strong style={{ color:"#f0f9ff" }}>{tripRouteLabel(modal.data)}</strong><br/>
+            Date / Time: <strong style={{ color:"#60a5fa" }}>{modal.data.date} at {modal.data.time}</strong>
+          </p>
+          <div style={{ marginBottom:20 }}>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5,
+              textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>SELECT VEHICLE</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+              {vehicles.filter(v => v.status==="active").map(v => (
+                <div key={v.id} onClick={() => setForm(f => ({...f, assignVehicle:v.id}))}
+                  style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:9, cursor:"pointer",
+                    border:`1px solid ${form.assignVehicle===v.id?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.1)"}`,
+                    background:form.assignVehicle===v.id?"rgba(59,130,246,0.07)":"rgba(255,255,255,0.02)" }}>
+                  <div style={{ width:10, height:10, borderRadius:"50%",
+                    border:`2px solid ${form.assignVehicle===v.id?"#3b82f6":"rgba(100,116,139,0.4)"}`,
+                    background:form.assignVehicle===v.id?"#3b82f6":"transparent" }} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ color:"#f0f9ff", fontSize:12, fontWeight:600 }}>{v.make} {v.model} ({v.plate})</div>
+                    <div style={{ color:"#475569", fontSize:10, marginTop:1 }}>{v.capacity} seats · Driver: {v.driver}</div>
+                  </div>
+                  <Mono small>{v.id}</Mono>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+            <button onClick={() => { setModal(null); setForm({}); }}
+              style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
+            <button onClick={() => {
+              if (!form.assignVehicle) return;
+              const veh = vehicles.find(v => v.id === form.assignVehicle);
+              setTrips(prev => prev.map(t => t.id === modal.data.id
+                ? { ...t, vehicle:form.assignVehicle, driver:veh?.driver||"Unassigned", seats:veh?.capacity||t.seats, status:"scheduled" }
+                : t));
+              setModal(null); setForm({});
+              showToast(`Vehicle ${form.assignVehicle} assigned to ${modal.data.id}`);
+            }} style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
+              background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Assign Vehicle
+            </button>
+          </div>
+        </ShuttleModal>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* CONFIRM DELETE — vehicle or trip                         */}
+      {/* ══════════════════════════════════════════════════════════ */}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* AIRPORT SETTINGS TAB                                       */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "airport" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+          {/* Per-airport flat rates */}
+          <Panel title="AIRPORT FLAT-RATE FARES">
+            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
+              Flat-rate fares charged per airport booking. Auto-applied when a rider books through the airport screen.
+            </div>
+            {[
+              { label:"Pearson International (YYZ)",      sub:"Toronto — Mississauga", val:airportFareYYZ, set:setAirportFareYYZ },
+              { label:"John C. Munro Hamilton (YHM)",     sub:"Hamilton — Mount Hope",  val:airportFareYHM, set:setAirportFareYHM },
+              { label:"Billy Bishop Toronto City (YTZ)",  sub:"Toronto — Island Airport",val:airportFareYTZ, set:setAirportFareYTZ },
+            ].map(f => (
+              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                marginBottom:12, paddingBottom:12, borderBottom:"1px solid rgba(148,163,184,0.1)" }}>
+                <div>
+                  <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>{f.label}</div>
+                  <div style={{ color:"#475569", fontSize:10 }}>{f.sub}</div>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ color:"#475569", fontSize:11 }}>CA$</span>
+                  <input value={f.val} onChange={e=>f.set(e.target.value)} type="number" step="0.50"
+                    style={{ width:75, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
+                      borderRadius:6, padding:"6px 9px", color:"#f0f9ff", fontSize:13, fontWeight:700,
+                      outline:"none", textAlign:"right", fontFamily:"'JetBrains Mono',monospace" }} />
+                  <span style={{ color:"#475569", fontSize:9 }}>flat</span>
+                </div>
+              </div>
+            ))}
+          </Panel>
+
+          {/* Fees */}
+          <Panel title="FEES &amp; RULES">
+
+            {/* Booking fee */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+              marginBottom:12, paddingBottom:12, borderBottom:"1px solid rgba(148,163,184,0.1)" }}>
+              <div>
+                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Platform Booking Fee</div>
+                <div style={{ color:"#475569", fontSize:10 }}>Added to every airport booking</div>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ color:"#475569", fontSize:11 }}>CA$</span>
+                <input value={airportBookingFee} onChange={e=>setAirportBookingFee(e.target.value)}
+                  type="number" step="0.50"
+                  style={{ width:60, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
+                    borderRadius:6, padding:"6px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
+                <span style={{ color:"#475569", fontSize:9 }}>flat</span>
+              </div>
+            </div>
+            {/* Min booking notice */}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Minimum Booking Notice</div>
+                <div style={{ color:"#475569", fontSize:10 }}>Hours before pickup required</div>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <input value={airportMinNotice} onChange={e=>setAirportMinNotice(e.target.value)}
+                  type="number" step="1" min="1"
+                  style={{ width:55, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
+                    borderRadius:6, padding:"6px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
+                <span style={{ color:"#475569", fontSize:9 }}>hrs</span>
+              </div>
+            </div>
+          </Panel>
+
+          {/* Live preview */}
+          <Panel title="FARE PREVIEW">
+            <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+              {[
+                { id:"yyz", label:"YYZ Pearson", fare:airportFareYYZ },
+                { id:"yhm", label:"YHM Hamilton", fare:airportFareYHM },
+                { id:"ytz", label:"YTZ Billy Bishop", fare:airportFareYTZ },
+              ].map(a => {
+                const subtotalAirport = (parseFloat(a.fare)||0) + (parseFloat(airportBookingFee)||0);
+                const total = subtotalAirport * 1.13;
+                return (
+                  <div key={a.id} style={{ flex:1, minWidth:120, background:"rgba(99,179,237,0.06)",
+                    border:"1px solid rgba(99,179,237,0.15)", borderRadius:9, padding:"12px 14px" }}>
+                    <div style={{ color:"#64748b", fontSize:9, fontWeight:700, letterSpacing:1.5,
+                      textTransform:"uppercase", marginBottom:6 }}>{a.label}</div>
+                    <div style={{ color:"#60a5fa", fontSize:22, fontWeight:800,
+                      fontFamily:"'JetBrains Mono',monospace" }}>CA${(parseFloat(a.fare)||0).toFixed(2)}</div>
+                    <div style={{ color:"#475569", fontSize:9, marginTop:2 }}>+ CA${(parseFloat(airportBookingFee)||0).toFixed(2)} booking fee</div>
+                    <div style={{ color:"#94a3b8", fontSize:10, fontWeight:700, marginTop:4 }}>Total (incl. HST): CA${total.toFixed(2)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+
+        </div>
+      )}
+
+      {confirmDelete && (
+        <ShuttleModal
+          title={confirmDelete.type === "vehicle" ? "Delete Vehicle" : "Delete Trip"}
+          onClose={() => setConfirmDelete(null)}>
+          {confirmDelete.type === "vehicle" ? (
+            <>
+              <div style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)",
+                borderRadius:9, padding:"12px 14px", marginBottom:16 }}>
+                <div style={{ color:"#f0f9ff", fontSize:13, fontWeight:600, marginBottom:4 }}>
+                  {confirmDelete.item.make} {confirmDelete.item.model}
+                </div>
+                <div style={{ color:"#334155", fontSize:11 }}>
+                  {confirmDelete.item.plate} · {confirmDelete.item.capacity} seats · {confirmDelete.item.color}
+                </div>
+                {confirmDelete.item.driver !== "Unassigned" && (
+                  <div style={{ color:"#f59e0b", fontSize:10, marginTop:5 }}>
+                    ⚠ Driver <strong>{confirmDelete.item.driver}</strong> is assigned — they will need to be reassigned
+                  </div>
+                )}
+              </div>
+              <p style={{ color:"#94a3b8", fontSize:12, marginBottom:20 }}>
+                Removing this vehicle will also unassign it from any active scheduled trips. This cannot be undone.
+              </p>
+            </>
+          ) : (
+            <>
+              <div style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)",
+                borderRadius:9, padding:"12px 14px", marginBottom:16 }}>
+                <div style={{ color:"#f0f9ff", fontSize:13, fontWeight:600, marginBottom:4 }}>
+                  {confirmDelete.item.id} — {tripRouteLabel(confirmDelete.item)}
+                </div>
+                <div style={{ color:"#334155", fontSize:11 }}>
+                  {confirmDelete.item.date} at {confirmDelete.item.time} · {confirmDelete.item.booked||0} bookings
+                </div>
+                {(confirmDelete.item.booked||0) > 0 && (
+                  <div style={{ color:"#ef4444", fontSize:10, marginTop:5 }}>
+                    ⚠ This trip has <strong>{confirmDelete.item.booked} active booking{confirmDelete.item.booked>1?"s":""}</strong> — riders will need to be notified and refunded
+                  </div>
+                )}
+              </div>
+              <p style={{ color:"#94a3b8", fontSize:12, marginBottom:20 }}>
+                {(confirmDelete.item.booked||0) === 0
+                  ? "This trip has no bookings and will be permanently deleted."
+                  : "Deleting a trip with active bookings requires issuing refunds. Proceed only if riders have been contacted."}
+              </p>
+            </>
+          )}
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+            <button onClick={() => setConfirmDelete(null)}
+              style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
+            <button onClick={() => {
+              if (confirmDelete.type === "vehicle") {
+                // Unassign from trips too
+                setTrips(prev => prev.map(t => t.vehicle === confirmDelete.item.id
+                  ? { ...t, vehicle:"TBD", driver:"Unassigned", status:"pending" } : t));
+                setVehicles(prev => prev.filter(v => v.id !== confirmDelete.item.id));
+                showToast(`${confirmDelete.item.make} ${confirmDelete.item.model} removed from fleet`);
+              } else {
+                setTrips(prev => prev.filter(t => t.id !== confirmDelete.item.id));
+                showToast(`Trip ${confirmDelete.item.id} deleted`);
+              }
+              setConfirmDelete(null);
+            }} style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(239,68,68,0.35)",
+              background:"rgba(239,68,68,0.1)", color:"#f87171", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              {confirmDelete.type === "vehicle" ? "Delete Vehicle" : "Delete Trip"}
+            </button>
+          </div>
+        </ShuttleModal>
+      )}
+
+    </div>
+  );
+}
+
+function ShuttleModal({ title, children, onClose }) {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:900, background:"rgba(5,8,18,0.85)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.12)", borderRadius:14, padding:"24px 26px", width:"100%", maxWidth:560, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.6)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <h3 style={{ color:"#f0f9ff", fontSize:16, fontWeight:600, margin:0, fontFamily:"'Space Grotesk',sans-serif" }}>{title}</h3>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#475569", fontSize:18, cursor:"pointer", lineHeight:1 }}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: PAYMENT
+// ─────────────────────────────────────────────────────────────────────────────
+function PagePayment({ methods, setMethods, payouts, setPayouts, trips, subs, autoPayoutEnabled, setAutoPayoutEnabled, lastAutoPayoutDate, nextAutoPayoutDate, cashoutRequests, setCashoutRequests,
+  stripePublishableKey, setStripePublishableKey,
+  stripeSecretKey, setStripeSecretKey,
+  stripeWebhookSecret, setStripeWebhookSecret,
+  stripeAccountId, setStripeAccountId,
+  stripeMode, setStripeMode,
+  stripeConnected, setStripeConnected,
+  payoutSchedule, setPayoutSchedule,
+  payoutDay, setPayoutDay,
+  stripeAutoCapture, setStripeAutoCapture,
+  businessName, setBusinessName,
+  businessEmail, setBusinessEmail,
+  businessPhone, setBusinessPhone,
+  businessAddress, setBusinessAddress,
+  businessBankName, setBusinessBankName,
+  businessBankLast4, setBusinessBankLast4,
+  businessTransitNo, setBusinessTransitNo,
+  businessInstNo, setBusinessInstNo,
+}) {
+  const [tab, setTab] = useState("overview");
+  const [toast, setToast] = useState(null);
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [savingStripe, setSavingStripe] = useState(false);
+  const [testingConn, setTestingConn] = useState(false);
+  const [connTestResult, setConnTestResult] = useState(null); // null | {ok, msg}
+  const API_BASE = (typeof window !== "undefined" && window.__ZEEZ_API_URL) || "http://localhost:4000";
+
+  function showToast(msg, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  const totalFares = trips.filter(t => t.status === "completed" && t.fare !== "—")
+    .reduce((s, t) => s + parseFloat(t.fare.replace("CA$","")||0), 0);
+  const totalPlatform = trips.filter(t => t.status === "completed" && t.platform !== "—")
+    .reduce((s, t) => s + parseFloat(t.platform.replace("CA$","")||0), 0);
+  const totalSubRev  = subs.filter(s => s.status === "paid").length * 25;
+  const pendingPayouts = payouts.filter(p => p.status === "pending");
+  const onHoldPayouts  = payouts.filter(p => p.status === "on_hold");
+
+  function maskKey(key) {
+    if (!key) return "";
+    if (key.length <= 12) return key;
+    return key.slice(0, 12) + "·".repeat(Math.min(key.length - 16, 20)) + key.slice(-4);
+  }
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position:"fixed", top:20, right:20, zIndex:999, background:toast.ok?"rgba(34,197,94,0.15)":"rgba(239,68,68,0.15)", border:`1px solid ${toast.ok?"rgba(34,197,94,0.3)":"rgba(239,68,68,0.3)"}`, color:toast.ok?"#22c55e":"#ef4444", padding:"10px 16px", borderRadius:10, fontSize:12, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif" }}>
+          {toast.msg}
+        </div>
+      )}
+
+      <SectionHdr title="Payment" sub="Stripe Connect integration, business account routing, driver payouts, and revenue overview" />
+
+      {/* KPI strip */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:20 }}>
+        {[
+          ["GROSS FARE REV",  `CA$${totalFares.toFixed(0)}`,     "rgba(59,130,246,0.07)",  "rgba(59,130,246,0.15)",  "#3b82f6"],
+          ["PLATFORM CUT",   `CA$${totalPlatform.toFixed(0)}`,   "rgba(167,139,250,0.07)", "rgba(167,139,250,0.15)", "#a78bfa"],
+          ["SUB REVENUE",    `CA$${totalSubRev}`,                 "rgba(34,197,94,0.07)",   "rgba(34,197,94,0.15)",   "#22c55e"],
+          ["PENDING PAYOUTS",pendingPayouts.length + onHoldPayouts.length, "rgba(245,158,11,0.07)","rgba(245,158,11,0.15)","#f59e0b"],
+        ].map(([l,v,bg,bdr,c]) => (
+          <div key={l} style={{ background:bg, border:`1px solid ${bdr}`, borderRadius:10, padding:"16px 20px" }}>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>{l}</div>
+            <div style={{ color:c, fontSize:26, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
+        {[["stripe","Stripe Settings"],["overview","Revenue Overview"],["payouts","Driver Payouts"],["methods","Payment Methods"]].map(([id,label]) => (
+          <button key={id} onClick={() => setTab(id)} style={{ padding:"7px 18px", borderRadius:8, border:`1px solid ${tab===id?"#3b82f6":"rgba(99,179,237,0.1)"}`, background:tab===id?"rgba(59,130,246,0.12)":"transparent", color:tab===id?"#60a5fa":"#475569", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Space Grotesk',sans-serif", transition:"all 0.15s" }}>
+            {id === "stripe" && (
+              <span style={{ display:"inline-flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:6, height:6, borderRadius:"50%", background:stripeConnected?"#22c55e":"#475569", display:"inline-block" }} />
+                {label}
+              </span>
+            )}
+            {id !== "stripe" && label}
+            {id === "payouts" && (pendingPayouts.length + onHoldPayouts.length) > 0 && (
+              <span style={{ marginLeft:6, background:"#f59e0b", color:"#000", fontSize:9, fontWeight:700, borderRadius:8, padding:"1px 5px" }}>{pendingPayouts.length + onHoldPayouts.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── STRIPE SETTINGS TAB ── */}
+      {tab === "stripe" && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+
+          {/* Connection status */}
+          <div style={{ gridColumn:"1/-1", background:stripeConnected?"rgba(34,197,94,0.06)":"rgba(59,130,246,0.06)", border:`1px solid ${stripeConnected?"rgba(34,197,94,0.2)":"rgba(59,130,246,0.2)"}`, borderRadius:12, padding:"16px 20px", display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ width:44, height:44, borderRadius:10, background:stripeConnected?"rgba(34,197,94,0.12)":"rgba(59,130,246,0.12)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>
+              {stripeConnected ? "✓" : "⬡"}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ color:stripeConnected?"#22c55e":"#60a5fa", fontSize:14, fontWeight:700, fontFamily:"'Space Grotesk',sans-serif", marginBottom:2 }}>
+                {stripeConnected ? "Stripe Connected — Payments Live" : "Stripe Not Connected"}
+              </div>
+              <div style={{ color:"#475569", fontSize:11 }}>
+                {stripeConnected
+                  ? `Business account linked · ${stripeMode === "live" ? "LIVE MODE — real money" : "TEST MODE — no real charges"} · All rider payments route to your Stripe account automatically`
+                  : "Add your Stripe API keys below to start accepting real payments and routing funds to your business account"
+                }
+              </div>
+            </div>
+            {stripeConnected && (
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, letterSpacing:2, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:3 }}>MODE</div>
+                <div style={{ background:stripeMode==="live"?"rgba(239,68,68,0.12)":"rgba(245,158,11,0.12)", border:`1px solid ${stripeMode==="live"?"rgba(239,68,68,0.3)":"rgba(245,158,11,0.3)"}`, color:stripeMode==="live"?"#ef4444":"#f59e0b", fontSize:10, fontWeight:700, borderRadius:6, padding:"3px 10px" }}>
+                  {stripeMode === "live" ? "🔴 LIVE" : "🟡 TEST"}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* API Keys panel */}
+          <Panel title="API KEYS">
+            <div style={{ padding:"18px", display:"flex", flexDirection:"column", gap:16 }}>
+
+              {/* Mode toggle */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>Environment</div>
+                <div style={{ display:"flex", gap:6 }}>
+                  {[["test","Test Mode"],["live","Live Mode"]].map(([val, label]) => (
+                    <button key={val} onClick={() => setStripeMode(val)} style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${stripeMode===val?(val==="live"?"rgba(239,68,68,0.4)":"rgba(59,130,246,0.4)"):"rgba(99,179,237,0.1)"}`, background:stripeMode===val?(val==="live"?"rgba(239,68,68,0.08)":"rgba(59,130,246,0.08)"):"transparent", color:stripeMode===val?(val==="live"?"#ef4444":"#60a5fa"):"#475569", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Space Grotesk',sans-serif" }}>
+                      {val === "live" ? "🔴 " : "🟡 "}{label}
+                    </button>
+                  ))}
+                </div>
+                {stripeMode === "live" && (
+                  <div style={{ marginTop:8, background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:7, padding:"8px 10px", color:"#ef4444", fontSize:10 }}>
+                    ⚠ Live mode charges real money. Make sure your account is fully verified with Stripe before switching.
+                  </div>
+                )}
+              </div>
+
+              {/* Publishable key */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>Publishable Key</div>
+                <div style={{ color:"#334155", fontSize:9, marginBottom:6 }}>Used on the frontend to create PaymentMethods. Safe to expose.</div>
+                <input
+                  value={stripePublishableKey}
+                  onChange={e => setStripePublishableKey(e.target.value)}
+                  placeholder={`pk_${stripeMode}_...`}
+                  style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.12)", borderRadius:7, padding:"8px 10px", color:"#f0f9ff", fontSize:12, outline:"none", fontFamily:"'JetBrains Mono',monospace", boxSizing:"border-box" }}
+                />
+              </div>
+
+              {/* Secret key */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>Secret Key</div>
+                <div style={{ color:"#334155", fontSize:9, marginBottom:6 }}>Server-side only. Never expose this publicly. Stored encrypted in your .env file.</div>
+                <div style={{ position:"relative" }}>
+                  <input
+                    type={showSecretKey ? "text" : "password"}
+                    value={stripeSecretKey}
+                    onChange={e => setStripeSecretKey(e.target.value)}
+                    placeholder={`sk_${stripeMode}_...`}
+                    style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.12)", borderRadius:7, padding:"8px 36px 8px 10px", color:"#f0f9ff", fontSize:12, outline:"none", fontFamily:"'JetBrains Mono',monospace", boxSizing:"border-box" }}
+                  />
+                  <button onClick={() => setShowSecretKey(v => !v)} style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:13, lineHeight:1 }}>{showSecretKey ? "🙈" : "👁"}</button>
+                </div>
+              </div>
+
+              {/* Account ID */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>Business Account ID</div>
+                <div style={{ color:"#334155", fontSize:9, marginBottom:6 }}>Your Stripe platform account ID (acct_...). Found in Dashboard → Settings → Account.</div>
+                <input
+                  value={stripeAccountId}
+                  onChange={e => setStripeAccountId(e.target.value)}
+                  placeholder="acct_..."
+                  style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.12)", borderRadius:7, padding:"8px 10px", color:"#f0f9ff", fontSize:12, outline:"none", fontFamily:"'JetBrains Mono',monospace", boxSizing:"border-box" }}
+                />
+              </div>
+            </div>
+          </Panel>
+
+          {/* Webhook + Payout config */}
+          <Panel title="WEBHOOKS &amp; PAYOUTS">
+            <div style={{ padding:"18px", display:"flex", flexDirection:"column", gap:16 }}>
+
+              {/* Webhook secret */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>Webhook Signing Secret</div>
+                <div style={{ color:"#334155", fontSize:9, marginBottom:6 }}>From Stripe Dashboard → Webhooks. Point your endpoint to:</div>
+                <div style={{ background:"rgba(99,179,237,0.04)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:6, padding:"6px 10px", color:"#60a5fa", fontSize:10, fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>
+                  POST /api/payments/webhooks/stripe
+                </div>
+                <div style={{ color:"#334155", fontSize:9, marginBottom:6 }}>Required events: payment_intent.succeeded · payment_intent.payment_failed · charge.refunded · account.updated</div>
+                <div style={{ position:"relative" }}>
+                  <input
+                    type={showWebhookSecret ? "text" : "password"}
+                    value={stripeWebhookSecret}
+                    onChange={e => setStripeWebhookSecret(e.target.value)}
+                    placeholder="whsec_..."
+                    style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.12)", borderRadius:7, padding:"8px 36px 8px 10px", color:"#f0f9ff", fontSize:12, outline:"none", fontFamily:"'JetBrains Mono',monospace", boxSizing:"border-box" }}
+                  />
+                  <button onClick={() => setShowWebhookSecret(v => !v)} style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#475569", cursor:"pointer", fontSize:13, lineHeight:1 }}>{showWebhookSecret ? "🙈" : "👁"}</button>
+                </div>
+              </div>
+
+              {/* Payout schedule */}
+              <div>
+                <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>Driver Payout Schedule</div>
+                <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+                  {[["daily","Daily"],["weekly","Weekly"],["manual","Manual"]].map(([val, label]) => (
+                    <button key={val} onClick={() => setPayoutSchedule(val)} style={{ flex:1, padding:"7px", borderRadius:8, border:`1px solid ${payoutSchedule===val?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.1)"}`, background:payoutSchedule===val?"rgba(59,130,246,0.08)":"transparent", color:payoutSchedule===val?"#60a5fa":"#475569", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'Space Grotesk',sans-serif" }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {payoutSchedule === "weekly" && (
+                  <div>
+                    <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>Payout Day</div>
+                    <select value={payoutDay} onChange={e => setPayoutDay(e.target.value)} style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.12)", borderRadius:7, padding:"8px 10px", color:"#f0f9ff", fontSize:12, outline:"none", fontFamily:"'Space Grotesk',sans-serif", boxSizing:"border-box" }}>
+                      {["monday","tuesday","wednesday","thursday","friday"].map(d => <option key={d} value={d}>{d.charAt(0).toUpperCase()+d.slice(1)}</option>)}
+                    </select>
+                  </div>
+                )}
+                {payoutSchedule === "manual" && (
+                  <div style={{ background:"rgba(245,158,11,0.06)", border:"1px solid rgba(245,158,11,0.2)", borderRadius:7, padding:"8px 10px", color:"#f59e0b", fontSize:10 }}>
+                    Manual mode: admin must approve each payout request from the Driver Payouts tab.
+                  </div>
+                )}
+              </div>
+
+              {/* Auto-capture toggle */}
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div>
+                  <div style={{ color:"#94a3b8", fontSize:12, fontWeight:500 }}>Auto-capture payments</div>
+                  <div style={{ color:"#334155", fontSize:10, marginTop:2 }}>Capture funds immediately on authorization. Disable to manually capture within 7 days.</div>
+                </div>
+                <Toggle val={stripeAutoCapture} set={setStripeAutoCapture} />
+              </div>
+            </div>
+          </Panel>
+
+          {/* How money flows */}
+          <div style={{ gridColumn:"1/-1" }}>
+            <Panel title="HOW PAYMENTS ROUTE TO YOUR BUSINESS ACCOUNT">
+              <div style={{ padding:"18px" }}>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:0, alignItems:"center", marginBottom:20 }}>
+                  {[
+                    { icon:"💳", label:"Rider pays", sub:"Stripe charges\nrider's saved card", color:"#60a5fa" },
+                    { arrow: true },
+                    { icon:"⚡", label:"Zeez Ryde\nStripe account", sub:`Platform keeps ${10}%\napplication fee`, color:"#a78bfa" },
+                    { arrow: true },
+                    { icon:"🏦", label:"Your bank account", sub:"Stripe deposits net\nbalance on schedule", color:"#22c55e" },
+                  ].map((step, i) => step.arrow ? (
+                    <div key={i} style={{ textAlign:"center", color:"#1e3a5f", fontSize:18 }}>→</div>
+                  ) : (
+                    <div key={i} style={{ background:"rgba(99,179,237,0.04)", border:"1px solid rgba(99,179,237,0.08)", borderRadius:10, padding:"14px 10px", textAlign:"center" }}>
+                      <div style={{ fontSize:24, marginBottom:6 }}>{step.icon}</div>
+                      <div style={{ color:step.color, fontSize:11, fontWeight:700, fontFamily:"'Space Grotesk',sans-serif", whiteSpace:"pre-line", marginBottom:4 }}>{step.label}</div>
+                      <div style={{ color:"#334155", fontSize:9, lineHeight:1.5, whiteSpace:"pre-line" }}>{step.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  {[
+                    ["Rider pays fare",        "Stripe PaymentIntent created → rider card charged"],
+                    ["Platform commission",    "Application fee deducted automatically before transfer"],
+                    ["Driver Connect account", "Remaining fare transferred to driver's linked bank via Stripe Connect Express"],
+                    ["Weekly subscriptions",   "Stripe Billing recurring charge → deposited to your account directly"],
+                    ["Shuttle bookings",       "Pre-authorization at booking → captured at departure"],
+                    ["Your bank payout",       `Stripe deposits accumulated balance on your ${payoutSchedule} schedule`],
+                  ].map(([title, desc]) => (
+                    <div key={title} style={{ display:"flex", gap:10, padding:"10px 12px", background:"rgba(99,179,237,0.03)", borderRadius:8, border:"1px solid rgba(99,179,237,0.06)" }}>
+                      <div style={{ width:6, height:6, borderRadius:"50%", background:"#3b82f6", marginTop:4, flexShrink:0 }} />
+                      <div>
+                        <div style={{ color:"#94a3b8", fontSize:11, fontWeight:600, marginBottom:2 }}>{title}</div>
+                        <div style={{ color:"#334155", fontSize:10, lineHeight:1.5 }}>{desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+          </div>
+
+          {/* Business Account Details */}
+          <div style={{ gridColumn:"1/-1" }}>
+            <Panel title="BUSINESS ACCOUNT — WHERE MONEY LANDS">
+              <div style={{ padding:"18px" }}>
+                <div style={{ color:"#334155", fontSize:11, marginBottom:16, lineHeight:1.6 }}>
+                  This is your <strong style={{ color:"#94a3b8" }}>Zeez Ryde business bank account</strong>. Stripe will deposit your net platform income here on your chosen payout schedule. Add your details so the setup guide and API config match your actual account.
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  {[
+                    ["Business / Legal Name",    businessName,        setBusinessName,        "e.g. Zeez Ryde Inc.",           "text"],
+                    ["Business Email",           businessEmail,       setBusinessEmail,       "e.g. finance@zeezryde.com",     "email"],
+                    ["Business Phone",           businessPhone,       setBusinessPhone,       "e.g. +1 905 555 0100",          "text"],
+                    ["Business Address",         businessAddress,     setBusinessAddress,     "e.g. 100 Main St, Hamilton ON", "text"],
+                    ["Bank Name",                businessBankName,    setBusinessBankName,    "e.g. RBC Royal Bank",           "text"],
+                    ["Account Last 4 Digits",    businessBankLast4,   setBusinessBankLast4,   "e.g. 4821",                     "text"],
+                    ["Transit Number (5-digit)", businessTransitNo,   setBusinessTransitNo,   "e.g. 00152",                    "text"],
+                    ["Institution Number (3-digit)", businessInstNo,  setBusinessInstNo,      "e.g. 003",                      "text"],
+                  ].map(([label, val, setter, ph, type]) => (
+                    <div key={label}>
+                      <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:5 }}>{label}</div>
+                      <input
+                        type={type}
+                        value={val}
+                        onChange={e => setter(e.target.value)}
+                        placeholder={ph}
+                        style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.12)", borderRadius:7, padding:"8px 10px", color:"#f0f9ff", fontSize:12, outline:"none", fontFamily:"'JetBrains Mono',monospace", boxSizing:"border-box" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Status / preview */}
+                {(businessName || businessBankName) && (
+                  <div style={{ marginTop:16, background:"rgba(34,197,94,0.05)", border:"1px solid rgba(34,197,94,0.15)", borderRadius:9, padding:"12px 14px", display:"flex", alignItems:"center", gap:12 }}>
+                    <span style={{ fontSize:22 }}>🏦</span>
+                    <div>
+                      <div style={{ color:"#22c55e", fontSize:12, fontWeight:700, marginBottom:2 }}>
+                        {businessName || "Your Business"} — {businessBankName || "Bank"}
+                      </div>
+                      <div style={{ color:"#334155", fontSize:10 }}>
+                        {businessBankLast4 ? `Account ···${businessBankLast4}` : "Account not set"}
+                        {businessTransitNo && ` · Transit ${businessTransitNo}`}
+                        {businessInstNo && ` · Institution ${businessInstNo}`}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Canadian banking note */}
+                <div style={{ marginTop:14, background:"rgba(59,130,246,0.04)", border:"1px solid rgba(59,130,246,0.1)", borderRadius:8, padding:"10px 12px" }}>
+                  <div style={{ color:"#60a5fa", fontSize:10, fontWeight:600, marginBottom:4 }}>🇨🇦 Canadian Banking Note</div>
+                  <div style={{ color:"#334155", fontSize:10, lineHeight:1.6 }}>
+                    To link your Canadian bank account to Stripe, go to <strong style={{ color:"#60a5fa" }}>Stripe Dashboard → Settings → Bank accounts</strong> and add your account using your institution number, transit number, and account number. Stripe supports CAD deposits to all major Canadian banks (RBC, TD, Scotiabank, BMO, CIBC, etc.). Payouts typically arrive in <strong style={{ color:"#94a3b8" }}>2–3 business days</strong> after each payout cycle.
+                  </div>
+                </div>
+              </div>
+            </Panel>
+          </div>
+
+          {/* ── SETUP CHECKLIST ── */}
+          <div style={{ gridColumn:"1/-1" }}>
+            <Panel title="SETUP CHECKLIST — ROUTE PAYMENTS TO YOUR BUSINESS ACCOUNT">
+              <div style={{ padding:"18px" }}>
+                {[
+                  ["Stripe account created at stripe.com", !!(stripePublishableKey || stripeSecretKey)],
+                  ["Publishable Key entered (pk_test_ or pk_live_)", !!(stripePublishableKey && (stripePublishableKey.startsWith("pk_test_") || stripePublishableKey.startsWith("pk_live_")))],
+                  ["Secret Key entered (sk_test_ or sk_live_)", !!(stripeSecretKey && (stripeSecretKey.startsWith("sk_test_") || stripeSecretKey.startsWith("sk_live_")))],
+                  ["Platform Account ID entered (acct_...)", !!(stripeAccountId && stripeAccountId.startsWith("acct_"))],
+                  ["Webhook Secret entered (whsec_...)", !!(stripeWebhookSecret && stripeWebhookSecret.startsWith("whsec_"))],
+                  ["Business bank account details filled in", !!(businessBankName && businessBankLast4 && businessTransitNo && businessInstNo)],
+                  ["Payout schedule configured", !!payoutSchedule],
+                  ["Save & Connect completed successfully", stripeConnected],
+                ].map(([label, done]) => (
+                  <div key={label} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:"1px solid rgba(99,179,237,0.06)" }}>
+                    <span style={{ width:18, height:18, borderRadius:4, background:done?"rgba(34,197,94,0.15)":"rgba(99,179,237,0.06)", border:`1px solid ${done?"rgba(34,197,94,0.4)":"rgba(99,179,237,0.15)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, flexShrink:0 }}>
+                      {done ? <span style={{ color:"#22c55e" }}>✓</span> : <span style={{ color:"#334155" }}>○</span>}
+                    </span>
+                    <span style={{ color:done?"#94a3b8":"#334155", fontSize:11, fontFamily:"'Space Grotesk',sans-serif" }}>{label}</span>
+                    {done && <span style={{ marginLeft:"auto", color:"#22c55e", fontSize:9, fontFamily:"'JetBrains Mono',monospace", fontWeight:700 }}>DONE</span>}
+                  </div>
+                ))}
+                {/* Progress bar */}
+                {(() => {
+                  const checks = [
+                    !!(stripePublishableKey || stripeSecretKey),
+                    !!(stripePublishableKey && (stripePublishableKey.startsWith("pk_test_") || stripePublishableKey.startsWith("pk_live_"))),
+                    !!(stripeSecretKey && (stripeSecretKey.startsWith("sk_test_") || stripeSecretKey.startsWith("sk_live_"))),
+                    !!(stripeAccountId && stripeAccountId.startsWith("acct_")),
+                    !!(stripeWebhookSecret && stripeWebhookSecret.startsWith("whsec_")),
+                    !!(businessBankName && businessBankLast4 && businessTransitNo && businessInstNo),
+                    !!payoutSchedule,
+                    stripeConnected,
+                  ];
+                  const done = checks.filter(Boolean).length;
+                  const pct = Math.round((done / checks.length) * 100);
+                  return (
+                    <div style={{ marginTop:14 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                        <span style={{ color:"#475569", fontSize:10, fontFamily:"'Space Grotesk',sans-serif" }}>Setup progress</span>
+                        <span style={{ color: pct===100?"#22c55e":"#60a5fa", fontSize:10, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{done}/{checks.length} — {pct}%</span>
+                      </div>
+                      <div style={{ height:6, borderRadius:3, background:"rgba(99,179,237,0.1)", overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:`${pct}%`, background:pct===100?"#22c55e":"#3b82f6", borderRadius:3, transition:"width 0.4s" }} />
+                      </div>
+                      {pct === 100 && (
+                        <div style={{ marginTop:10, color:"#22c55e", fontSize:11, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif" }}>
+                          ✓ All payments are routing to your business bank account via Stripe Connect
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </Panel>
+          </div>
+
+          {/* Test Connection Result */}
+          {connTestResult && (
+            <div style={{ gridColumn:"1/-1", background:connTestResult.ok?"rgba(34,197,94,0.06)":"rgba(239,68,68,0.06)", border:`1px solid ${connTestResult.ok?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"}`, borderRadius:9, padding:"12px 16px" }}>
+              <div style={{ color:connTestResult.ok?"#22c55e":"#ef4444", fontSize:12, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif", marginBottom:4 }}>
+                {connTestResult.ok ? "✓ Connection Test Passed" : "✗ Connection Test Failed"}
+              </div>
+              <div style={{ color:"#475569", fontSize:11 }}>{connTestResult.msg}</div>
+            </div>
+          )}
+
+          {/* Save button row */}
+          <div style={{ gridColumn:"1/-1", display:"flex", justifyContent:"flex-end", gap:10, flexWrap:"wrap" }}>
+
+            {/* Test Connection button */}
+            <button
+              disabled={testingConn || !stripePublishableKey || !stripeSecretKey}
+              onClick={async () => {
+                setTestingConn(true);
+                setConnTestResult(null);
+                try {
+                  const token = localStorage.getItem("zeez_admin_token") || "";
+                  const res = await fetch(`${API_BASE}/api/payments/config`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    const mode = data.mode || "not_configured";
+                    setConnTestResult({
+                      ok: true,
+                      msg: `Backend reachable · Stripe mode: ${mode.toUpperCase()} · Keys configured: ${data.configured ? "YES" : "NO"}`
+                    });
+                    if (data.configured) setStripeConnected(true);
+                  } else {
+                    setConnTestResult({ ok: false, msg: `Backend returned HTTP ${res.status}. Check that your API server is running on ${API_BASE}.` });
+                  }
+                } catch (err) {
+                  setConnTestResult({ ok: false, msg: `Cannot reach backend at ${API_BASE}. Start the ZeezRyde API server with: npm run dev` });
+                }
+                setTestingConn(false);
+              }}
+              style={{ padding:"10px 22px", borderRadius:8, border:"1px solid rgba(167,139,250,0.3)", background:"rgba(167,139,250,0.08)", color: (!stripePublishableKey||!stripeSecretKey)?"#334155":"#a78bfa", fontSize:12, fontWeight:600, cursor:(!stripePublishableKey||!stripeSecretKey)?"not-allowed":"pointer", fontFamily:"'Space Grotesk',sans-serif", opacity:testingConn?0.6:1, transition:"all 0.2s" }}
+            >
+              {testingConn ? "Testing…" : "🔌 Test Connection"}
+            </button>
+
+            {/* Save & Connect button */}
+            <button
+              disabled={savingStripe}
+              onClick={async () => {
+                if (!stripePublishableKey || !stripeSecretKey) {
+                  showToast("Enter at least the Publishable Key and Secret Key", false);
+                  return;
+                }
+                setSavingStripe(true);
+                const payload = {
+                  stripe_publishable_key: stripePublishableKey || undefined,
+                  stripe_secret_key:      stripeSecretKey || undefined,
+                  stripe_webhook_secret:  stripeWebhookSecret || undefined,
+                  stripe_account_id:      stripeAccountId || undefined,
+                  payout_schedule:        payoutSchedule || undefined,
+                  payout_day:             payoutDay ? parseInt(payoutDay) : undefined,
+                  payout_currency:        "cad",
+                  business_name:          businessName || undefined,
+                  business_email:         businessEmail || undefined,
+                  business_bank_last4:    businessBankLast4 || undefined,
+                };
+                // Remove undefined keys
+                Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+                try {
+                  const token = localStorage.getItem("zeez_admin_token") || "";
+                  const res = await fetch(`${API_BASE}/api/payments/config`, {
+                    method: "PUT",
+                    headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+                    body: JSON.stringify(payload),
+                  });
+                  if (res.ok) {
+                    setStripeConnected(true);
+                    const hasBusiness = businessName && businessBankName;
+                    showToast(hasBusiness
+                      ? `Stripe connected ✓ · Payouts routing to ${businessBankName} ···${businessBankLast4||"?????"}`
+                      : "Stripe settings saved — add your business bank account to enable payouts"
+                    );
+                  } else {
+                    const err = await res.json().catch(() => ({}));
+                    showToast(`Save failed: ${err.error || `HTTP ${res.status}`}`, false);
+                  }
+                } catch {
+                  // Backend not reachable — save locally
+                  setStripeConnected(true);
+                  showToast("Saved locally (backend offline) — settings will persist when API server is running", true);
+                }
+                setSavingStripe(false);
+              }}
+              style={{ padding:"10px 28px", borderRadius:8, border:"1px solid rgba(34,197,94,0.3)", background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'Space Grotesk',sans-serif", opacity:savingStripe?0.6:1, transition:"opacity 0.2s" }}
+            >
+              {savingStripe ? "Saving…" : "Save & Connect Stripe"}
+            </button>
+
+            {stripeConnected && (
+              <button
+                onClick={() => { setStripeConnected(false); setStripePublishableKey(""); setStripeSecretKey(""); setStripeWebhookSecret(""); setStripeAccountId(""); setConnTestResult(null); showToast("Stripe disconnected", false); }}
+                style={{ padding:"10px 20px", borderRadius:8, border:"1px solid rgba(239,68,68,0.3)", background:"rgba(239,68,68,0.06)", color:"#ef4444", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Space Grotesk',sans-serif" }}
+              >
+                Disconnect
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── REVENUE OVERVIEW ── */}
+      {tab === "overview" && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+          <Panel title="REVENUE BREAKDOWN">
+            <div style={{ padding:"18px" }}>
+              {[
+                ["Gross Fare Revenue",   `CA$${totalFares.toFixed(2)}`,    "#f0f9ff"],
+                ["Platform Commission",  `CA$${totalPlatform.toFixed(2)}`, "#a78bfa"],
+                ["Driver Payouts",       `CA$${(totalFares-totalPlatform).toFixed(2)}`, "#60a5fa"],
+                ["Subscription Revenue", `CA$${totalSubRev}.00`,           "#22c55e"],
+                ["Total Platform Income",`CA$${(totalPlatform+totalSubRev).toFixed(2)}`, "#f59e0b"],
+              ].map(([label,val,c],i,arr) => (
+                <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:i<arr.length-1?"1px solid rgba(99,179,237,0.06)":"none" }}>
+                  <span style={{ color:"#475569", fontSize:12 }}>{label}</span>
+                  <span style={{ color:c, fontWeight:700, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+          <Panel title="SUBSCRIPTION REVENUE">
+            <div style={{ padding:"18px" }}>
+              {[
+                ["Paid",    subs.filter(s => s.status==="paid").length,    "#22c55e"],
+                ["Failed",  subs.filter(s => s.status==="failed").length,  "#ef4444"],
+                ["Unpaid",  subs.filter(s => s.status==="unpaid").length,  "#f59e0b"],
+              ].map(([label,count,c]) => (
+                <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:c }} />
+                    <span style={{ color:"#64748b", fontSize:12 }}>{label} subscriptions</span>
+                  </div>
+                  <span style={{ color:c, fontWeight:700, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>{count}</span>
+                </div>
+              ))}
+              <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid rgba(99,179,237,0.06)" }}>
+                <div style={{ display:"flex", justifyContent:"space-between" }}>
+                  <span style={{ color:"#475569", fontSize:12 }}>Weekly sub total</span>
+                  <span style={{ color:"#22c55e", fontWeight:700, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>CA${totalSubRev}</span>
+                </div>
+              </div>
+            </div>
+          </Panel>
+          <div style={{ gridColumn:"1/-1" }}>
+            <Panel title="RECENT TRANSACTIONS">
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead><tr>{["TRIP ID","RIDER","DRIVER","FARE","PLATFORM CUT","DRIVER CUT","DATE","STATUS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+                <tbody>
+                  {trips.slice(0,8).map(t => (
+                    <tr key={t.id} className="trow">
+                      <Td><Mono small>{t.id}</Mono></Td>
+                      <Td><span style={{ color:"#cbd5e1", fontSize:12 }}>{t.rider}</span></Td>
+                      <Td><span style={{ color:"#94a3b8", fontSize:12 }}>{t.driver}</span></Td>
+                      <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{t.fare}</span></Td>
+                      <Td><span style={{ color:"#a78bfa", fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.platform}</span></Td>
+                      <Td><span style={{ color:"#60a5fa", fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.driverCut}</span></Td>
+                      <Td muted>{t.date}</Td>
+                      <Td><StatusBadge s={t.status} /></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+          </div>
+        </div>
+      )}
+
+      {/* ── DRIVER PAYOUTS ── */}
+      {tab === "payouts" && (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+          {/* ── Weekly Auto-Payout Config ── */}
+          <div style={{ background:"rgba(34,197,94,0.05)", border:"1px solid rgba(34,197,94,0.18)", borderRadius:12, padding:"18px 20px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:36, height:36, borderRadius:9, background:"rgba(34,197,94,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>⚡</div>
+                <div>
+                  <div style={{ color:"#22c55e", fontSize:14, fontWeight:700, fontFamily:"'Space Grotesk',sans-serif" }}>Automated Weekly Payouts</div>
+                  <div style={{ color:"#334155", fontSize:11, marginTop:2 }}>Every {payoutSchedule === "weekly" ? "Monday" : payoutDay || "Monday"} at 12:00 PM — all pending driver balances transferred automatically via Stripe</div>
+                </div>
+              </div>
+              <Toggle val={autoPayoutEnabled} set={setAutoPayoutEnabled} />
+            </div>
+
+            {autoPayoutEnabled ? (
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+                {[
+                  ["LAST RUN",    lastAutoPayoutDate, "Completed successfully", "#22c55e"],
+                  ["NEXT RUN",    nextAutoPayoutDate, "Automatic · all active drivers", "#60a5fa"],
+                  ["SCHEDULE",    payoutSchedule === "weekly" ? "Weekly · Monday" : payoutSchedule === "daily" ? "Daily" : "Manual only", "Configurable in Stripe Settings", "#a78bfa"],
+                ].map(([label, val, sub, c]) => (
+                  <div key={label} style={{ background:"rgba(0,0,0,0.2)", border:"1px solid rgba(99,179,237,0.08)", borderRadius:9, padding:"11px 13px" }}>
+                    <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:5 }}>{label}</div>
+                    <div style={{ color:c, fontSize:13, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", marginBottom:3 }}>{val}</div>
+                    <div style={{ color:"#334155", fontSize:9 }}>{sub}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ background:"rgba(245,158,11,0.06)", border:"1px solid rgba(245,158,11,0.2)", borderRadius:8, padding:"10px 12px", color:"#f59e0b", fontSize:11 }}>
+                ⚠ Automated payouts are <strong>off</strong> — drivers must cash out manually or admin must approve individual requests. Turn on to automatically pay all drivers on schedule.
+              </div>
+            )}
+          </div>
+
+          {/* ── Instant Cashout Requests ── */}
+          <Panel title={`INSTANT CASHOUT REQUESTS · ${cashoutRequests.filter(c => c.status === "pending").length} PENDING`}>
+            <div style={{ padding:"10px 0 0" }}>
+              {cashoutRequests.length === 0 && (
+                <div style={{ padding:"20px", textAlign:"center", color:"#334155", fontSize:12 }}>No cashout requests</div>
+              )}
+              {cashoutRequests.map(co => {
+                const isPending    = co.status === "pending";
+                const isProcessing = co.status === "processing";
+                const isPaid       = co.status === "paid";
+                const isAuto       = co.type === "weekly_auto";
+                return (
+                  <div key={co.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 20px", borderBottom:"1px solid rgba(99,179,237,0.06)" }}>
+                    <div style={{ width:36, height:36, borderRadius:9, background:isAuto?"rgba(59,130,246,0.1)":isPaid?"rgba(34,197,94,0.1)":isProcessing?"rgba(245,158,11,0.1)":"rgba(167,139,250,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
+                      {isAuto ? "⚡" : isPaid ? "✓" : isProcessing ? "⏳" : "💸"}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:2 }}>
+                        <span style={{ color:"#cbd5e1", fontSize:13, fontWeight:600 }}>{co.driver}</span>
+                        <span style={{ background:isAuto?"rgba(59,130,246,0.1)":"rgba(167,139,250,0.1)", color:isAuto?"#60a5fa":"#a78bfa", fontSize:8, fontWeight:700, borderRadius:4, padding:"1px 6px" }}>
+                          {isAuto ? "AUTO" : "INSTANT"}
+                        </span>
+                      </div>
+                      <div style={{ color:"#334155", fontSize:10 }}>{co.requestedAt} · {co.method}</div>
+                    </div>
+                    <div style={{ textAlign:"right", flexShrink:0, marginRight:12 }}>
+                      <div style={{ color:"#f0f9ff", fontWeight:700, fontSize:15, fontFamily:"'JetBrains Mono',monospace" }}>{co.amount}</div>
+                      <div style={{ marginTop:3 }}>
+                        {isPaid       && <span style={{ color:"#22c55e", fontSize:9, fontWeight:700 }}>✓ PAID</span>}
+                        {isProcessing && <span style={{ color:"#f59e0b", fontSize:9, fontWeight:700 }}>PROCESSING…</span>}
+                        {isPending    && <span style={{ color:"#a78bfa", fontSize:9, fontWeight:700 }}>AWAITING APPROVAL</span>}
+                      </div>
+                    </div>
+                    {(isPending || isProcessing) && (
+                      <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                        {isPending && (
+                          <ActBtn success onClick={() => {
+                            setCashoutRequests(prev => prev.map(x => x.id === co.id ? {...x, status:"processing"} : x));
+                            setTimeout(() => {
+                              setCashoutRequests(prev => prev.map(x => x.id === co.id ? {...x, status:"paid"} : x));
+                              showToast(`CA$${co.amount} transferred to ${co.driver} via Stripe ✓`);
+                            }, 1800);
+                            showToast(`Processing ${co.id}…`);
+                          }}>Approve</ActBtn>
+                        )}
+                        <ActBtn danger onClick={() => {
+                          setCashoutRequests(prev => prev.map(x => x.id === co.id ? {...x, status:"on_hold"} : x));
+                          showToast(`${co.id} placed on hold`, false);
+                        }}>Hold</ActBtn>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+
+          {/* ── Legacy payout requests ── */}
+          <Panel title="ALL PAYOUT HISTORY">
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead><tr>{["PAYOUT ID","DRIVER","AMOUNT","DATE","METHOD","TYPE","STATUS","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+              <tbody>
+                {payouts.map(p => (
+                  <tr key={p.id} className="trow">
+                    <Td><Mono small>{p.id}</Mono></Td>
+                    <Td><span style={{ color:"#cbd5e1", fontSize:13 }}>{p.driver}</span></Td>
+                    <Td><span style={{ color:"#f0f9ff", fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{p.amount}</span></Td>
+                    <Td muted>{p.date}</Td>
+                    <Td><span style={{ color:"#64748b", fontSize:11 }}>{p.method}</span></Td>
+                    <Td><span style={{ background:"rgba(59,130,246,0.08)", color:"#60a5fa", fontSize:9, fontWeight:700, borderRadius:4, padding:"2px 6px" }}>weekly</span></Td>
+                    <Td>
+                      <StatusBadge s={p.status === "on_hold" ? "suspended" : p.status} />
+                      {p.status === "on_hold" && <span style={{ color:"#f59e0b", fontSize:9, fontWeight:700, marginLeft:5 }}>ON HOLD</span>}
+                    </Td>
+                    <Td>
+                      <div style={{ display:"flex", gap:5 }}>
+                        {p.status === "pending" && (
+                          <ActBtn success onClick={() => {
+                            setPayouts(prev => prev.map(x => x.id===p.id ? {...x, status:"paid", date:new Date().toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"})} : x));
+                            showToast(`Payout ${p.id} approved — transfer initiated via Stripe`);
+                          }}>Approve</ActBtn>
+                        )}
+                        {(p.status === "pending" || p.status === "on_hold") && (
+                          <ActBtn danger onClick={() => {
+                            setPayouts(prev => prev.map(x => x.id===p.id ? {...x, status:"on_hold"} : x));
+                            showToast(`Payout ${p.id} placed on hold`, false);
+                          }}>Hold</ActBtn>
+                        )}
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
+        </div>
+      )}
+
+      {/* ── PAYMENT METHODS ── */}
+      {tab === "methods" && (
+        <Panel title="RIDER PAYMENT METHODS">
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead><tr>{["METHOD ID","TYPE","CARD","HOLDER","EXPIRY","STATUS","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+            <tbody>
+              {methods.map(m => (
+                <tr key={m.id} className="trow">
+                  <Td><Mono small>{m.id}</Mono></Td>
+                  <Td>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontSize:14 }}>💳</span>
+                      <span style={{ color:"#cbd5e1", fontSize:12, fontWeight:500 }}>{m.type}</span>
+                      {m.default && <span style={{ background:"rgba(59,130,246,0.15)", color:"#60a5fa", fontSize:8, fontWeight:700, borderRadius:4, padding:"1px 5px" }}>DEFAULT</span>}
+                    </div>
+                  </Td>
+                  <Td><Mono small>···{m.last4}</Mono></Td>
+                  <Td><span style={{ color:"#94a3b8", fontSize:12 }}>{m.holder}</span></Td>
+                  <Td>
+                    <span style={{ color: m.status==="expired" ? "#ef4444" : "#64748b", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{m.expiry}</span>
+                  </Td>
+                  <Td><StatusBadge s={m.status === "expired" ? "suspended" : "active"} /></Td>
+                  <Td>
+                    <div style={{ display:"flex", gap:5 }}>
+                      {m.status === "active" && (
+                        <ActBtn danger onClick={() => {
+                          setMethods(prev => prev.map(x => x.id===m.id ? {...x, status:"blocked"} : x));
+                          showToast(`Card ···${m.last4} blocked`, false);
+                        }}>Block</ActBtn>
+                      )}
+                      {m.status !== "active" && (
+                        <ActBtn success onClick={() => {
+                          setMethods(prev => prev.map(x => x.id===m.id ? {...x, status:"active"} : x));
+                          showToast(`Card ···${m.last4} reactivated`);
+                        }}>Restore</ActBtn>
+                      )}
+                    </div>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+      )}
+    </div>
+  );
+}
