@@ -1151,13 +1151,13 @@ function PageSubs({ subs, drivers }) {
 //
 // UNDERCUT ENGINE:
 //   Given a target undercut margin (e.g. 10%), it solves for ZeezRyde rates
-//   such that: zeezFare(km, min) = uberFare(km, min) × (1 − margin/100)
+//   such that: zeezFare(km, min) = uberFare(km, min) x (1 − margin/100)
 //
 //   To keep the ratio constant across all trip lengths we solve each component:
-//     zeezBase   = uberBase   × (1 − margin/100)
-//     zeezPerKm  = uberPerKm  × (1 − margin/100)
-//     zeezPerMin = uberPerMin × (1 − margin/100)
-//     zeezMin    = uberMin    × (1 − margin/100)
+//     zeezBase   = uberBase   x (1 − margin/100)
+//     zeezPerKm  = uberPerKm  x (1 − margin/100)
+//     zeezPerMin = uberPerMin x (1 − margin/100)
+//     zeezMin    = uberMin    x (1 − margin/100)
 //
 //   This guarantees ZeezRyde is always exactly `margin`% cheaper than Uber
 //   regardless of trip distance or duration.
@@ -1202,19 +1202,19 @@ function deriveUndercutRates(uberProduct, marginPct) {
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Formula:
-//   subtotal  = baseFare + (distKm × ratePerKm) + (durationMin × ratePerMin)
+//   subtotal  = baseFare + (distKm x ratePerKm) + (durationMin x ratePerMin)
 //   subtotal  = max(subtotal, minimumFare)
-//   surged    = subtotal × surgeMultiplier
-//   typed     = surged  × rideTypeMultiplier
+//   surged    = subtotal x surgeMultiplier
+//   typed     = surged  x rideTypeMultiplier
 //   total     = round(typed, 2)
-//   driverCut = total × (1 − commissionPct / 100)
-//   platform  = total × (commissionPct / 100)
+//   driverCut = total x (1 − commissionPct / 100)
+//   platform  = total x (commissionPct / 100)
 //
 // Surge multiplier is determined by demand tier:
-//   Low  (0–39% online drivers busy)  → 1.0×
-//   Med  (40–69%)                     → 1.2×
-//   High (70–89%)                     → 1.5×
-//   Peak (90–100%)                    → 2.0×
+//   Low  (0–39% online drivers busy)  → 1.0x
+//   Med  (40–69%)                     → 1.2x
+//   High (70–89%)                     → 1.5x
+//   Peak (90–100%)                    → 2.0x
 
 function calcFare(cfg, distKm, durationMin) {
   const { baseFare, ratePerKm, ratePerMin, minimumFare, surgeMultiplier, commPct } = cfg;
@@ -1433,7 +1433,7 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
   const afterSurge    = Math.round(subtotalRaw * surgeMultiplier * 100) / 100;
   const afterType     = Math.round(afterSurge * typeMult * 100) / 100;
 
-  const TIER_LABELS = { low:"Low (1.0×)", med:"Medium (1.2×)", high:"High (1.5×)", peak:"Peak (2.0×)" };
+  const TIER_LABELS = { low:"Low (1.0x)", med:"Medium (1.2x)", high:"High (1.5x)", peak:"Peak (2.0x)" };
   const TIER_COLORS = { low:"#22c55e", med:"#f59e0b", high:"#f97316", peak:"#ef4444" };
 
   function handleSave() {
@@ -1499,7 +1499,7 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
                   <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{f.sub}</div>
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                  <span style={{ color:"#475569", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>×</span>
+                  <span style={{ color:"#475569", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>x</span>
                   {inp(f.val, f.set)}
                 </div>
               </div>
@@ -1618,10 +1618,10 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
                 <div style={{ marginBottom:12 }}>
                   <div style={{ color:"#94a3b8", fontSize:9, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Surge Tiers (riders:drivers ratio)</div>
                   {[
-                    { tier:"Low",  ratio:"2:1", mult:"1.25×", color:"#f59e0b" },
-                    { tier:"Mid",  ratio:"3:1", mult:"1.50×", color:"#f97316" },
-                    { tier:"High", ratio:"4:1", mult:"1.75×", color:"#ef4444" },
-                    { tier:"Peak", ratio:"5:1", mult:"2.00×", color:"#dc2626" },
+                    { tier:"Low",  ratio:"2:1", mult:"1.25x", color:"#f59e0b" },
+                    { tier:"Mid",  ratio:"3:1", mult:"1.50x", color:"#f97316" },
+                    { tier:"High", ratio:"4:1", mult:"1.75x", color:"#ef4444" },
+                    { tier:"Peak", ratio:"5:1", mult:"2.00x", color:"#dc2626" },
                   ].map(t => (
                     <div key={t.tier} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", borderBottom:"1px solid rgba(148,163,184,0.1)" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -1691,7 +1691,7 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
             </div>
             <div style={{ marginTop:10, padding:"8px 12px", background:`${TIER_COLORS[demandTier]}10`, border:`1px solid ${TIER_COLORS[demandTier]}30`, borderRadius:7, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <span style={{ color:"#64748b", fontSize:11 }}>Active surge multiplier</span>
-              <span style={{ color:TIER_COLORS[demandTier], fontWeight:700, fontSize:16, fontFamily:"'JetBrains Mono',monospace" }}>{surgeMultiplier.toFixed(1)}×</span>
+              <span style={{ color:TIER_COLORS[demandTier], fontWeight:700, fontSize:16, fontFamily:"'JetBrains Mono',monospace" }}>{surgeMultiplier.toFixed(1)}x</span>
             </div>
           </SettingsPanel>
 
@@ -1728,11 +1728,11 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
               <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:10 }}>CALCULATION BREAKDOWN</div>
               {[
                 [`Base fare`,                                        `CA$${cfg.baseFare.toFixed(2)}`,                                                                  "#94a3b8"],
-                [`${previewKm} km × CA$${cfg.ratePerKm.toFixed(2)}/km`, `CA$${((parseFloat(previewKm)||0)*cfg.ratePerKm).toFixed(2)}`,                                "#94a3b8"],
-                [`${previewMin} min × CA$${cfg.ratePerMin.toFixed(2)}/min`,`CA$${((parseFloat(previewMin)||0)*cfg.ratePerMin).toFixed(2)}`,                            "#94a3b8"],
+                [`${previewKm} km x CA$${cfg.ratePerKm.toFixed(2)}/km`, `CA$${((parseFloat(previewKm)||0)*cfg.ratePerKm).toFixed(2)}`,                                "#94a3b8"],
+                [`${previewMin} min x CA$${cfg.ratePerMin.toFixed(2)}/min`,`CA$${((parseFloat(previewMin)||0)*cfg.ratePerMin).toFixed(2)}`,                            "#94a3b8"],
                 [`Subtotal (min: CA$${cfg.minimumFare.toFixed(2)})`, `CA$${subtotalRaw.toFixed(2)}`,                                                                   "#cbd5e1"],
-                [`Surge ${surgeMultiplier.toFixed(1)}× (${TIER_LABELS[demandTier]})`, `CA$${afterSurge.toFixed(2)}`,                                                  TIER_COLORS[demandTier]],
-                [`${previewType==="family"?"Family":"Friends"} ×${typeMult.toFixed(2)}`, `CA$${afterType.toFixed(2)}`,                                                "#60a5fa"],
+                [`Surge ${surgeMultiplier.toFixed(1)}x (${TIER_LABELS[demandTier]})`, `CA$${afterSurge.toFixed(2)}`,                                                  TIER_COLORS[demandTier]],
+                [`${previewType==="family"?"Family":"Friends"} x${typeMult.toFixed(2)}`, `CA$${afterType.toFixed(2)}`,                                                "#60a5fa"],
                 [`HST (13%)`, `CA$${preview.tax.toFixed(2)}`, `CA$${preview.tax.toFixed(2)}`],
               ].map(([step, val, color], i, arr) => (
                 <div key={step} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 0", borderBottom: i < arr.length-1 ? "1px solid rgba(99,179,237,0.06)" : "none" }}>
@@ -1893,7 +1893,7 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
                   style={{ width:60, background:shuttlePeakOn?"rgba(148,163,184,0.1)":"rgba(148,163,184,0.04)",
                     border:"1px solid rgba(148,163,184,0.25)", borderRadius:6, padding:"5px 8px",
                     color:shuttlePeakOn?"#f0f9ff":"#475569", fontSize:12, outline:"none", textAlign:"right" }} />
-                <span style={{ color:"#64748b", fontSize:9 }}>×</span>
+                <span style={{ color:"#64748b", fontSize:9 }}>x</span>
               </div>
             </div>
             {/* Live preview */}
@@ -2164,7 +2164,7 @@ function DispatchPolicyPanel({
         {waitFeeOn && (
           <>
             <div style={{ color:"#475569", fontSize:10, lineHeight:1.6, marginBottom:14, background:"rgba(167,139,250,0.05)", border:"1px solid rgba(167,139,250,0.1)", borderRadius:8, padding:"9px 12px" }}>
-              <strong style={{ color:"#a78bfa" }}>Example:</strong> A rider books a <strong style={{ color:"#e2e8f0" }}>6 km</strong> ride. Driver ETA is <strong style={{ color:"#e2e8f0" }}>14 min</strong>. Since 14 min &gt; 6 km, the wait exceeds the ride — a surcharge applies after a <strong style={{ color:"#a78bfa" }}>{graceMins}-minute</strong> grace period: <strong style={{ color:"#e2e8f0" }}>{Math.max(0,(14-6-graceMins))} min × CA${parseFloat(waitFeeRate).toFixed(2)} = CA${calcWaitFee(14,6).toFixed(2)}</strong>
+              <strong style={{ color:"#a78bfa" }}>Example:</strong> A rider books a <strong style={{ color:"#e2e8f0" }}>6 km</strong> ride. Driver ETA is <strong style={{ color:"#e2e8f0" }}>14 min</strong>. Since 14 min &gt; 6 km, the wait exceeds the ride — a surcharge applies after a <strong style={{ color:"#a78bfa" }}>{graceMins}-minute</strong> grace period: <strong style={{ color:"#e2e8f0" }}>{Math.max(0,(14-6-graceMins))} min x CA${parseFloat(waitFeeRate).toFixed(2)} = CA${calcWaitFee(14,6).toFixed(2)}</strong>
             </div>
 
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
@@ -2225,7 +2225,7 @@ function DispatchPolicyPanel({
                   );
                 })}
               </div>
-              <div style={{ color:"#334155", fontSize:9, marginTop:6 }}>Preview assumes 8 km ride. Surcharge = (ETA − ride km − {graceMins} grace) × CA${parseFloat(waitFeeRate).toFixed(2)}/min</div>
+              <div style={{ color:"#334155", fontSize:9, marginTop:6 }}>Preview assumes 8 km ride. Surcharge = (ETA − ride km − {graceMins} grace) x CA${parseFloat(waitFeeRate).toFixed(2)}/min</div>
             </div>
 
             <div style={{ padding:"8px 12px", background:"rgba(167,139,250,0.05)", border:"1px solid rgba(167,139,250,0.12)", borderRadius:8 }}>
@@ -2435,7 +2435,7 @@ function UberComparisonPanel({ cfg, familyMult, friendsMult }) {
 // Dundas/Ancaster, Stoney Creek/Grimsby, St. Catharines, Niagara Falls,
 // Niagara-on-the-Lake, Welland, Fort Erie, and the QEW corridor.
 //
-// Canvas dimensions: 600 × 420
+// Canvas dimensions: 600 x 420
 // Geographic orientation: West (Hamilton) → East (Niagara Falls)
 //                         North (Lake Ontario shoreline) → South (Lake Erie)
 
@@ -2498,7 +2498,7 @@ const INIT_ZONES = [
     status: "active",
     polygon: [[390,115],[470,110],[490,160],[485,210],[390,210],[385,160]],
     surgeOverride: "1.5",
-    notes: "Tourist surge zone — Clifton Hill, Casino Niagara, falls area. Permanent 1.5× surge.",
+    notes: "Tourist surge zone — Clifton Hill, Casino Niagara, falls area. Permanent 1.5x surge.",
     maxDrivers: 14,
   },
   {
@@ -2538,7 +2538,7 @@ const INIT_ZONES = [
     status: "active",
     polygon: [[60,265],[180,265],[185,215],[190,260],[80,305],[60,300]],
     surgeOverride: "1.3",
-    notes: "John C. Munro International Airport — Mount Hope. Dedicated airport pickup zone 1.3×.",
+    notes: "John C. Munro International Airport — Mount Hope. Dedicated airport pickup zone 1.3x.",
     maxDrivers: 8,
   },
 ];
@@ -3263,7 +3263,7 @@ function PageZones({ drivers, patchDriver }) {
       if (z.surgeOverride) {
         ctx.fillStyle = "rgba(245,158,11,0.9)";
         ctx.font = "bold 8px 'JetBrains Mono',monospace";
-        ctx.fillText(`⚡${z.surgeOverride}×`, cx, cy - 17);
+        ctx.fillText(`⚡${z.surgeOverride}x`, cx, cy - 17);
       }
 
       ctx.textAlign = "left";
@@ -3348,7 +3348,7 @@ function PageZones({ drivers, patchDriver }) {
                   <div style={{ position:"absolute", top:8, left:8, background:"rgba(8,12,20,0.95)", border:"1px solid rgba(99,179,237,0.2)", borderRadius:7, padding:"7px 11px", pointerEvents:"none", maxWidth:220 }}>
                     <div style={{ color:"#e2e8f0", fontSize:11, fontWeight:600 }}>{hz.name}</div>
                     <div style={{ color:ZONE_STATUS_META[hz.status].color, fontSize:9, fontFamily:"'JetBrains Mono',monospace", marginTop:2 }}>{hz.status.toUpperCase()} · {getZoneDriverCount(hz.id)}/{hz.maxDrivers} drivers</div>
-                    {hz.surgeOverride && <div style={{ color:"#f59e0b", fontSize:9, marginTop:2 }}>⚡ Surge override: {hz.surgeOverride}×</div>}
+                    {hz.surgeOverride && <div style={{ color:"#f59e0b", fontSize:9, marginTop:2 }}>⚡ Surge override: {hz.surgeOverride}x</div>}
                   </div>
                 ) : null;
               })()}
@@ -3384,7 +3384,7 @@ function PageZones({ drivers, patchDriver }) {
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ color:isSel?"#e2e8f0":"#94a3b8", fontSize:11, fontWeight:isSel?600:400, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{z.name}</div>
                     </div>
-                    {z.surgeOverride && <span style={{ color:"#f59e0b", fontSize:9 }}>⚡{z.surgeOverride}×</span>}
+                    {z.surgeOverride && <span style={{ color:"#f59e0b", fontSize:9 }}>⚡{z.surgeOverride}x</span>}
                     <span style={{ color:m.color, background:m.bg, border:`1px solid ${m.border}`, borderRadius:4, padding:"2px 6px", fontSize:7, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>{m.label.toUpperCase()}</span>
                     <span style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>{dCount}/{z.maxDrivers}</span>
                   </div>
@@ -3426,7 +3426,7 @@ function PageZones({ drivers, patchDriver }) {
                     <input type="number" value={sel.maxDrivers} onChange={e=>patchZone(sel.id,{maxDrivers:parseInt(e.target.value)||0})} style={{ width:"100%", padding:"7px 10px", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:7, color:"#e2e8f0", fontSize:14, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", outline:"none", boxSizing:"border-box" }} />
                   </div>
                   <div>
-                    <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>SURGE OVERRIDE (×)</div>
+                    <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>SURGE OVERRIDE (x)</div>
                     <input type="text" placeholder="e.g. 1.3 or blank" value={sel.surgeOverride||""} onChange={e=>patchZone(sel.id,{surgeOverride:e.target.value||null})} style={{ width:"100%", padding:"7px 10px", background:"#0d1220", border:`1px solid ${sel.surgeOverride?"rgba(245,158,11,0.3)":"rgba(99,179,237,0.15)"}`, borderRadius:7, color:sel.surgeOverride?"#f59e0b":"#94a3b8", fontSize:14, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", outline:"none", boxSizing:"border-box" }} />
                     {sel.surgeOverride && <div style={{ color:"#f59e0b", fontSize:9, marginTop:3 }}>Overrides global surge for this zone</div>}
                   </div>
@@ -3637,7 +3637,7 @@ Subs:    ${paidSubs} paid | ${failedSubs} failed/unpaid this cycle
 CURRENT PRICING
 ===============
 Base fare: CA$${pricingState.baseFare} | Rate/km: CA$${pricingState.ratePerKm} | Rate/min: CA$${pricingState.ratePerMin}
-Min fare: CA$${pricingState.minimumFare} | Family ×${pricingState.familyMult} | Friends ×${pricingState.friendsMult}
+Min fare: CA$${pricingState.minimumFare} | Family x${pricingState.familyMult} | Friends x${pricingState.friendsMult}
 Commission: ${currentSettings.commPct}% | Weekly pass: CA$${currentSettings.subFee} | Demand: ${pricingState.demandTier}
 
 DISPATCH POLICY
@@ -3794,7 +3794,7 @@ Only include fields to change in "changes". If nothing needs changing, leave it 
     );
   }
 
-  const LABEL = { baseFare:"Base Fare", ratePerKm:"Rate/km", ratePerMin:"Rate/min", minimumFare:"Min Fare", familyMult:"Family ×", friendsMult:"Friends ×", demandTier:"Demand Tier", commPct:"Commission", subFee:"Weekly Pass", pickupFeeKm:"Pickup Fee/km", maxPickupKm:"Max Pickup Radius", pickupFeeOn:"Pickup Fee Active" };
+  const LABEL = { baseFare:"Base Fare", ratePerKm:"Rate/km", ratePerMin:"Rate/min", minimumFare:"Min Fare", familyMult:"Family x", friendsMult:"Friends x", demandTier:"Demand Tier", commPct:"Commission", subFee:"Weekly Pass", pickupFeeKm:"Pickup Fee/km", maxPickupKm:"Max Pickup Radius", pickupFeeOn:"Pickup Fee Active" };
   const CURR  = { baseFare:pricingState.baseFare, ratePerKm:pricingState.ratePerKm, ratePerMin:pricingState.ratePerMin, minimumFare:pricingState.minimumFare, familyMult:pricingState.familyMult, friendsMult:pricingState.friendsMult, demandTier:pricingState.demandTier, commPct:currentSettings.commPct, subFee:currentSettings.subFee, pickupFeeKm:dispatchState.pickupFeeKm, maxPickupKm:dispatchState.maxPickupKm, pickupFeeOn:dispatchState.pickupFeeOn };
 
   const S = {
@@ -4461,7 +4461,7 @@ function PagePromos({ promos, setPromos, drivers }) {
                       <button onClick={()=>toggleStatus(p.id)} style={{ background:"rgba(99,179,237,0.07)", border:"1px solid rgba(99,179,237,0.15)", color:"#93c5fd", borderRadius:6, padding:"4px 10px", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
                         {isActive?"PAUSE":"RESUME"}
                       </button>
-                      <button onClick={()=>deletePromo(p.id)} style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", color:"#f87171", borderRadius:6, padding:"4px 8px", fontSize:11, cursor:"pointer" }}>×</button>
+                      <button onClick={()=>deletePromo(p.id)} style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", color:"#f87171", borderRadius:6, padding:"4px 8px", fontSize:11, cursor:"pointer" }}>x</button>
                     </div>
                   </Td>
                 </tr>
@@ -5439,7 +5439,7 @@ function ShuttleModal({ title, children, onClose }) {
       <div style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.12)", borderRadius:14, padding:"24px 26px", width:"100%", maxWidth:560, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.6)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
           <h3 style={{ color:"#f0f9ff", fontSize:16, fontWeight:600, margin:0, fontFamily:"'Space Grotesk',sans-serif" }}>{title}</h3>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"#475569", fontSize:18, cursor:"pointer", lineHeight:1 }}>×</button>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#475569", fontSize:18, cursor:"pointer", lineHeight:1 }}>x</button>
         </div>
         {children}
       </div>
