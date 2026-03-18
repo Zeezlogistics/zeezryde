@@ -1,9 +1,5 @@
 {
-  "routes": [
-    { "src": "/admin.html", "dest": "/admin.html" },
-    { "src": "/admin", "dest": "/admin.html" },
-    { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "/favicon.svg", "dest": "/favicon.svg" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
