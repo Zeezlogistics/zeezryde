@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import AdminApp from "./Admin";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 import { createClient } from "@supabase/supabase-js";
@@ -2416,6 +2417,10 @@ const ROLE_ANIM_CSS = `
 `;
 
 export default function App() {
+  // Route to admin if URL contains /admin
+  if (typeof window !== "undefined" && window.location.pathname.includes("admin")) {
+    return <AdminApp />;
+  }
   const [role, setRole] = useState(null);
 
   if (!role) return (
