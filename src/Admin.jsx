@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1236,11 +1236,11 @@ function PageDataManagement() {
     { id:"promos",           label:"Promo Codes",                  desc:"All promo/discount codes",                 danger:false },
   ];
 
-  const [checked, setChecked]     = React.useState({});
-  const [confirming, setConfirming] = React.useState(false);
-  const [busy, setBusy]           = React.useState(false);
-  const [results, setResults]     = React.useState([]);
-  const [selectAll, setSelectAll] = React.useState(false);
+  const [checked, setChecked]     = useState({});
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy]           = useState(false);
+  const [results, setResults]     = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   function toggleAll(val) {
     setSelectAll(val);
