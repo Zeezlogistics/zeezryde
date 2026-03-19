@@ -1264,16 +1264,8 @@ function PageDataManagement() {
     setResults([]);
     const logs = [];
 
-    // Load Supabase if needed
-    if (!window.supabase) {
-      await new Promise((res, rej) => {
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
-      });
-    }
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    // Use npm Supabase client
+    const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 
     for (const t of selected) {
       try {
