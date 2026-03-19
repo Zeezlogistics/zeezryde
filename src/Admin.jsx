@@ -4574,6 +4574,16 @@ function EmptyRow({ text }) {
 // PAGE: SHUTTLE SERVICE
 // ─────────────────────────────────────────────────────────────────────────────
 
+function ShuttleField({ label, children, full }) {
+  return (
+    <div style={{ gridColumn: full ? "1/-1" : undefined }}>
+      <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5,
+        textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:5 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
 function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleBaseFare, setShuttleBaseFare, shuttleBookingFee, setShuttleBookingFee, shuttlePeakOn, setShuttlePeakOn, shuttlePeakMult, setShuttlePeakMult, airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAirportFareYHM, airportFareYTZ, setAirportFareYTZ, airportBookingFee, setAirportBookingFee, airportMinNotice, setAirportMinNotice }) {
   const [tab,   setTab]   = useState("vehicles");
   const [modal, setModal] = useState(null);
@@ -4622,13 +4632,7 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
       {opts.map(o => <option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}
     </select>
   );
-  const Field = ({ label, children, full }) => (
-    <div style={{ gridColumn: full ? "1/-1" : undefined }}>
-      <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5,
-        textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:5 }}>{label}</div>
-      {children}
-    </div>
-  );
+
 
   const activeVehicles = vehicles.filter(v => v.status === "active");
   const scheduledTrips = trips.filter(t => t.status === "scheduled");
@@ -4878,36 +4882,53 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
           title={modal === "add_vehicle" ? "Add Fleet Vehicle" : "Edit Vehicle"}
           onClose={() => { setModal(null); setForm({}); }}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-            <Field label="Make"><div>{inp("make","e.g. Mercedes-Benz")}</div></Field>
-            <Field label="Model"><div>{inp("model","e.g. Sprinter")}</div></Field>
-            <Field label="Year"><div>{inp("year","e.g. 2023","number")}</div></Field>
-            <Field label="Licence Plate"><div>{inp("plate","e.g. ABCD 123")}</div></Field>
-            <Field label="Capacity (seats)"><div>{inp("capacity","e.g. 7","number")}</div></Field>
-            <Field label="Vehicle Type">
+            <ShuttleField label="Make">
+              <select value={form.make||""} onChange={e => setForm(f => ({...f, make:e.target.value, model:""}))}
+                style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
+                  borderRadius:7, padding:"8px 11px", color:form.make?"#f0f9ff":"rgba(148,163,184,0.5)", fontSize:12, outline:"none" }}>
+                <option value="">— Select Make —</option>
+                {CAR_MAKES.map(m => <option key={m.make} value={m.make}>{m.make}</option>)}
+              </select>
+            </ShuttleField>
+            <ShuttleField label="Model">
+              <select value={form.model||""} onChange={e => setForm(f => ({...f, model:e.target.value}))}
+                style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
+                  borderRadius:7, padding:"8px 11px", color:form.model?"#f0f9ff":"rgba(148,163,184,0.5)", fontSize:12, outline:"none" }}
+                disabled={!form.make}>
+                <option value="">{form.make ? "— Select Model —" : "— Select Make first —"}</option>
+                {form.make && (CAR_MAKES.find(m => m.make === form.make)?.models||[]).map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </ShuttleField>
+            <ShuttleField label="Year"><div>{inp("year","e.g. 2023","number")}</div></ShuttleField>
+            <ShuttleField label="Licence Plate"><div>{inp("plate","e.g. ABCD 123")}</div></ShuttleField>
+            <ShuttleField label="Capacity (seats)"><div>{inp("capacity","e.g. 7","number")}</div></ShuttleField>
+            <ShuttleField label="Vehicle Type">
               <select value={form.vehicleType||"7-seater"} onChange={e => setForm(f => ({...f, vehicleType:e.target.value, capacity: e.target.value==="7-seater" ? "7" : "4"}))}
                 style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
                   borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
                 <option value="7-seater">7-Seater (1+3+3)</option>
                 <option value="4-seater">4-Seater (1+1+2)</option>
               </select>
-            </Field>
-            <Field label="Color"><div>{inp("color","e.g. White")}</div></Field>
-            <Field label="Assigned Driver" full>
+            </ShuttleField>
+            <ShuttleField label="Color"><div>{inp("color","e.g. White")}</div></ShuttleField>
+            <ShuttleField label="Assigned Driver" full>
               <select value={form.driver||"Unassigned"} onChange={e => setForm(f => ({...f, driver:e.target.value}))}
                 style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
                   borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
                 <option value="Unassigned">Unassigned</option>
                 {drivers.filter(d => d.status==="active").map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
               </select>
-            </Field>
-            <Field label="Default Route (optional)" full>
+            </ShuttleField>
+            <ShuttleField label="Default Route (optional)" full>
               <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap:8, alignItems:"center" }}>
                 {inp("defaultPickup","Pickup location (e.g. Hamilton GO Station)")}
                 <span style={{ color:"#475569", fontSize:14, flexShrink:0 }}>→</span>
                 {inp("defaultDropoff","Drop-off location (e.g. Pearson Airport)")}
               </div>
-            </Field>
-            <Field label="Status">
+            </ShuttleField>
+            <ShuttleField label="Status">
               <select value={form.status||"active"} onChange={e => setForm(f => ({...f, status:e.target.value}))}
                 style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
                   borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
@@ -4915,7 +4936,7 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
                 <option value="inactive">Inactive</option>
                 <option value="maintenance">Maintenance</option>
               </select>
-            </Field>
+            </ShuttleField>
           </div>
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
             <button onClick={() => { setModal(null); setForm({}); }}
@@ -4962,7 +4983,7 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
 
               {/* Pickup */}
-              <Field label="Pickup Location" full>
+              <ShuttleField label="Pickup Location" full>
                 <div>
                   <input
                     list="pickup-suggestions"
@@ -4978,10 +4999,10 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
                     )].map(s => <option key={s} value={s} />)}
                   </datalist>
                 </div>
-              </Field>
+              </ShuttleField>
 
                             {/* Drop-off */}
-              <Field label="Drop-off Location" full>
+              <ShuttleField label="Drop-off Location" full>
                 <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:8, alignItems:"center" }}>
                   <div style={{ width:28, height:28, borderRadius:7, background:"rgba(59,130,246,0.1)",
                     display:"flex", alignItems:"center", justifyContent:"center", color:"#60a5fa", fontSize:14,
@@ -5002,7 +5023,7 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
                     </datalist>
                   </div>
                 </div>
-              </Field>
+              </ShuttleField>
 
                             {/* Route preview */}
               {(form.pickup || form.dropoff) && (
@@ -5017,7 +5038,7 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
               )}
 
               {/* Vehicle */}
-              <Field label="Vehicle" full>
+              <ShuttleField label="Vehicle" full>
                 <select value={form.vehicle||""}
                   onChange={e => {
                     const v = vehicles.find(x => x.id === e.target.value);
@@ -5040,10 +5061,10 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
                     </div>
                   ) : null;
                 })()}
-              </Field>
+              </ShuttleField>
 
               {/* Vehicle Type (number of seats) */}
-              <Field label="Vehicle Type (Seating)" full>
+              <ShuttleField label="Vehicle Type (Seating)" full>
                 <select value={form.vehicle_type||"7-seater"}
                   onChange={e => setForm(f => ({...f, vehicle_type:e.target.value, seats:e.target.value==="3-seater"?"3":e.target.value==="5-seater"?"5":"7" }))}
                   style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
@@ -5055,10 +5076,10 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
                 <div style={{ marginTop:5, color:"#475569", fontSize:10 }}>
                   F1 is the pilot seat (reserved). Available seats shown to riders on the seat map.
                 </div>
-              </Field>
+              </ShuttleField>
 
               {/* Days of week — recurring daily selection */}
-              <Field label="Days of Week" full>
+              <ShuttleField label="Days of Week" full>
                 <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                   {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => {
                     const sel = (form.days||[]).includes(day);
@@ -5082,33 +5103,33 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
                     Runs every: <strong style={{ color:"#60a5fa" }}>{(form.days||[]).join(", ")}</strong>
                   </div>
                 )}
-              </Field>
+              </ShuttleField>
 
               {/* Time */}
-              <Field label="Departure Time">
+              <ShuttleField label="Departure Time">
                 <select value={form.time||TIMES[2]} onChange={e => setForm(f => ({...f, time:e.target.value}))}
                   style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
                     borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
                   {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-              </Field>
+              </ShuttleField>
 
               {/* Fare */}
-              <Field label="Fare per seat (CA$)">
+              <ShuttleField label="Fare per seat (CA$)">
                 <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                   <span style={{ color:"#334155", fontSize:13 }}>CA$</span>
                   {inp("fare","e.g. 18","number")}
                 </div>
-              </Field>
+              </ShuttleField>
 
               {/* Notes */}
-              <Field label="Notes (optional)" full>
+              <ShuttleField label="Notes (optional)" full>
                 <textarea value={form.notes||""} onChange={e => setForm(f => ({...f, notes:e.target.value}))}
                   placeholder="e.g. Express route — no stops" rows={2}
                   style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
                     borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none",
                     resize:"vertical", boxSizing:"border-box" }} />
-              </Field>
+              </ShuttleField>
 
               {/* Empty-day policy reminder */}
               <div style={{ gridColumn:"1/-1", background:"rgba(245,158,11,0.05)",
