@@ -95,52 +95,6 @@ export default function AdminApp() {
   };
 
   // ── Login screen ──────────────────────────────────────────────────────────
-  if (!authed) return (
-    <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ width:380, background:"rgba(15,23,42,0.9)", border:"1px solid rgba(99,179,237,0.15)",
-        borderRadius:16, padding:40, boxShadow:"0 25px 50px rgba(0,0,0,0.5)" }}>
-        <div style={{ textAlign:"center", marginBottom:32 }}>
-          <div style={{ fontSize:32, fontWeight:800, color:"#60a5fa", letterSpacing:-1 }}>ZeezRyde</div>
-          <div style={{ fontSize:13, color:"#475569", marginTop:4 }}>Admin Portal</div>
-        </div>
-        <form onSubmit={handleLogin}>
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:11, color:"#64748b", marginBottom:6, fontWeight:600 }}>EMAIL</div>
-            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-              placeholder="admin@zeezryde.com" required
-              style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.2)",
-                borderRadius:8, padding:"10px 14px", color:"#f0f9ff", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-          </div>
-          <div style={{ marginBottom:24 }}>
-            <div style={{ fontSize:11, color:"#64748b", marginBottom:6, fontWeight:600 }}>PASSWORD</div>
-            <input type="password" value={authPass} onChange={e => setAuthPass(e.target.value)}
-              placeholder="••••••••" required
-              style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.2)",
-                borderRadius:8, padding:"10px 14px", color:"#f0f9ff", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-          </div>
-          {authError && <div style={{ color:"#ef4444", fontSize:12, marginBottom:16, textAlign:"center" }}>{authError}</div>}
-          <button type="submit" disabled={authLoading}
-            style={{ width:"100%", padding:"12px", borderRadius:8, border:"none", cursor:"pointer",
-              background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff", fontSize:14, fontWeight:700 }}>
-            {authLoading ? "Signing in…" : "Sign In"}
-          </button>
-        </form>
-        <div style={{ marginTop:24, padding:"14px 16px", background:"rgba(99,179,237,0.06)", border:"1px dashed rgba(99,179,237,0.2)", borderRadius:10 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Demo Credentials</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontSize:11, color:"#64748b" }}>Email</span>
-              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin@zeezryde.com</span>
-            </div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontSize:11, color:"#64748b" }}>Password</span>
-              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin123</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   // ── API connection state ──────────────────────────────────────────────────
   const [page, setPage]       = useState("overview");
@@ -362,6 +316,53 @@ export default function AdminApp() {
     flash("Rider updated");
   }
 
+
+  if (!authed) return (
+    <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:380, background:"rgba(15,23,42,0.9)", border:"1px solid rgba(99,179,237,0.15)",
+        borderRadius:16, padding:40, boxShadow:"0 25px 50px rgba(0,0,0,0.5)" }}>
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ fontSize:32, fontWeight:800, color:"#60a5fa", letterSpacing:-1 }}>ZeezRyde</div>
+          <div style={{ fontSize:13, color:"#475569", marginTop:4 }}>Admin Portal</div>
+        </div>
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, color:"#64748b", marginBottom:6, fontWeight:600 }}>EMAIL</div>
+            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+              placeholder="admin@zeezryde.com" required
+              style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.2)",
+                borderRadius:8, padding:"10px 14px", color:"#f0f9ff", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+          </div>
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontSize:11, color:"#64748b", marginBottom:6, fontWeight:600 }}>PASSWORD</div>
+            <input type="password" value={authPass} onChange={e => setAuthPass(e.target.value)}
+              placeholder="••••••••" required
+              style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.2)",
+                borderRadius:8, padding:"10px 14px", color:"#f0f9ff", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+          </div>
+          {authError && <div style={{ color:"#ef4444", fontSize:12, marginBottom:16, textAlign:"center" }}>{authError}</div>}
+          <button type="submit" disabled={authLoading}
+            style={{ width:"100%", padding:"12px", borderRadius:8, border:"none", cursor:"pointer",
+              background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff", fontSize:14, fontWeight:700 }}>
+            {authLoading ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+        <div style={{ marginTop:24, padding:"14px 16px", background:"rgba(99,179,237,0.06)", border:"1px dashed rgba(99,179,237,0.2)", borderRadius:10 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Demo Credentials</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:11, color:"#64748b" }}>Email</span>
+              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin@zeezryde.com</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:11, color:"#64748b" }}>Password</span>
+              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin123</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   // Stats
   const completedTrips = ALL_TRIPS.filter(t => t.status === "completed");
   const tripRev = completedTrips.reduce((s, t) => s + parseFloat(t.platform.replace("CA$", "") || 0), 0);
