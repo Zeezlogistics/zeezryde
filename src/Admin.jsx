@@ -5779,6 +5779,7 @@ function PageShuttle({
       {/* TAB: AIRPORT SETTINGS                                     */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === "airport" && (
+        <>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
           {/* Airport Fares */}
           <Panel title="AIRPORT FARES">
@@ -5853,6 +5854,7 @@ function PageShuttle({
             </button>
           </div>
         )}
+        </>
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
