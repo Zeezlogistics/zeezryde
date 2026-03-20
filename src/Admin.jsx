@@ -5536,12 +5536,7 @@ function PageShuttle({
         airportBookingFee, airportMinNotice,
       };
       localStorage.setItem("zeez_settings", JSON.stringify(updated));
-      // Also save to Supabase for persistence across devices/refreshes
-      getSupabase().then(sb => {
-        sb.from("settings").upsert({ key:"admin_settings", value:updated, updated_at:new Date().toISOString() })
-          .then(() => { if (flash) flash("Airport &amp; Shuttle settings saved ✓"); })
-          .catch(e => { console.error("Supabase settings save:", e); if (flash) flash("Airport &amp; Shuttle settings saved locally ✓"); });
-      });
+      if (flash) flash("Airport & Shuttle settings saved ✓");
     } catch(e) {
       if (flash) flash("Save failed: " + e.message, false);
     }
@@ -5608,6 +5603,7 @@ function PageShuttle({
       try { const sb = await getSupabase(); await sb.from("shuttle_vehicles").update(payload).eq("id", modal.id); } catch(e) { console.error("SB veh update:",e); }
       showToast(`Vehicle ${modal.id} updated`);
     }
+  }
 
   // ── Save trip ──────────────────────────────────────────────────────────────
   async function saveTrip() {
@@ -5641,6 +5637,7 @@ function PageShuttle({
       setTrips(prev => (prev||[]).map(t => t.id === modal.id ? { ...t, ...payload } : t));
       try { const sb = await getSupabase(); await sb.from("shuttle_trips").update(payload).eq("id", modal.id); } catch(e) { console.error("SB trip update:",e); }
       showToast(`Trip ${modal.id} updated`);
+    }
   }
 
   // ── Delete confirm ─────────────────────────────────────────────────────────
@@ -5775,17 +5772,16 @@ function PageShuttle({
             </table>
           )}
         </Panel>
-        {/* Save Airport & Shuttle Settings */}
+        {/* Save Shuttle/Airport Settings */}
         {!viewOnly && (
           <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
-            <button onClick={saveShuttleSettings} style={{
-              padding:"11px 32px", borderRadius:10, border:"none", cursor:"pointer",
-              background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
-              color:"#fff", fontSize:13, fontWeight:700,
-              fontFamily:"'Syne',sans-serif", letterSpacing:0.3,
-              boxShadow:"0 4px 14px rgba(37,99,235,0.4)"
-            }}>
-              💾 Save Airport &amp; Shuttle Settings
+            <button
+              onClick={saveShuttleSettings}
+              style={{ padding:"11px 32px", borderRadius:10, border:"none",
+                cursor:"pointer", background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+                color:"#fff", fontSize:13, fontWeight:700, letterSpacing:0.3,
+                boxShadow:"0 4px 14px rgba(37,99,235,0.4)" }}>
+              Save Airport and Shuttle Settings
             </button>
           </div>
         )}
@@ -5842,17 +5838,16 @@ function PageShuttle({
             </table>
           )}
         </Panel>
-        {/* Save Airport & Shuttle Settings */}
+        {/* Save Shuttle/Airport Settings */}
         {!viewOnly && (
           <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
-            <button onClick={saveShuttleSettings} style={{
-              padding:"11px 32px", borderRadius:10, border:"none", cursor:"pointer",
-              background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
-              color:"#fff", fontSize:13, fontWeight:700,
-              fontFamily:"'Syne',sans-serif", letterSpacing:0.3,
-              boxShadow:"0 4px 14px rgba(37,99,235,0.4)"
-            }}>
-              💾 Save Airport &amp; Shuttle Settings
+            <button
+              onClick={saveShuttleSettings}
+              style={{ padding:"11px 32px", borderRadius:10, border:"none",
+                cursor:"pointer", background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+                color:"#fff", fontSize:13, fontWeight:700, letterSpacing:0.3,
+                boxShadow:"0 4px 14px rgba(37,99,235,0.4)" }}>
+              Save Airport and Shuttle Settings
             </button>
           </div>
         )}
@@ -5924,17 +5919,16 @@ function PageShuttle({
           </Panel>
         </div>
 
-        {/* Save button — Airport & Shuttle Settings */}
+        {/* Save Shuttle/Airport Settings */}
         {!viewOnly && (
-          <div style={{ marginTop:18, display:"flex", justifyContent:"flex-end" }}>
-            <button onClick={saveShuttleSettings} style={{
-              padding:"11px 32px", borderRadius:10, border:"none", cursor:"pointer",
-              background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
-              color:"#fff", fontSize:13, fontWeight:700,
-              fontFamily:"'Syne',sans-serif", letterSpacing:0.3,
-              boxShadow:"0 4px 14px rgba(37,99,235,0.4)"
-            }}>
-              💾 Save Airport &amp; Shuttle Settings
+          <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
+            <button
+              onClick={saveShuttleSettings}
+              style={{ padding:"11px 32px", borderRadius:10, border:"none",
+                cursor:"pointer", background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+                color:"#fff", fontSize:13, fontWeight:700, letterSpacing:0.3,
+                boxShadow:"0 4px 14px rgba(37,99,235,0.4)" }}>
+              Save Airport and Shuttle Settings
             </button>
           </div>
         )}
