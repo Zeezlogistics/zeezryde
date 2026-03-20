@@ -350,6 +350,7 @@ function RiderApp() {
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
+  const [liveTrips, setLiveTrips] = useState(DEMO_TRIPS); // loaded from Supabase
   const [homeAddr,   setHomeAddr]         = useState("");
   const [officeAddr, setOfficeAddr]       = useState("");
   const [promoCode, setPromoCode]       = useState("");
@@ -379,6 +380,35 @@ function RiderApp() {
   const [bankSavedMsg, setBankSavedMsg]       = useState(false);
 
   const go = (s) => { setErr(""); setScr(s); };
+
+  // Load shuttle trips + airport fares from Supabase on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const sb = db; // same client
+        const [{ data: trips }, { data: cfg }] = await Promise.all([
+          sb.from("shuttle_trips").select("*").eq("status","scheduled").order("created_at", { ascending:false }),
+          sb.from("settings").select("value").eq("key","admin_settings").maybeSingle(),
+        ]);
+        if (trips && trips.length > 0) {
+          // Map Supabase columns to what the rider UI expects
+          setLiveTrips(trips.map(t => ({
+            ...t,
+            depart_date:    t.date        || t.depart_date    || "",
+            depart_time:    t.time        || t.depart_time    || "",
+            fare_per_seat:  t.fare_per_seat || 12,
+            seats_total:    t.seats       || 7,
+            seats_booked:   t.booked      || 0,
+          })));
+        }
+        if (cfg?.value) {
+          // Apply live settings from admin (airport fares etc.)
+          const s = cfg.value;
+          try { localStorage.setItem("zeez_settings", JSON.stringify(s)); } catch(e) {}
+        }
+      } catch(e) { console.log("Shuttle load:", e.message); }
+    })();
+  }, []);
 
   useEffect(() => {
     db.auth.getSession().then(({ data }) => {
@@ -971,16 +1001,6 @@ function RiderApp() {
                   <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
                 </div>
               </div>
-
-              {/* RIGHT: map zoom +/- buttons */}
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {["+","−"].map(sym => (
-                  <button key={sym} style={{ width:36, height:36, borderRadius:10, border:"1px solid rgba(255,255,255,0.15)", background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", color:WHITE, fontSize:18, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
-                    {sym}
-                  </button>
-                ))}
-              </div>
-
             </div>
             {/* Search bar */}
             <div style={{ background:WHITE, borderRadius:14, padding:"12px 14px", display:"flex", alignItems:"center", gap:10, boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
@@ -1040,7 +1060,7 @@ function RiderApp() {
                 </button>
               </div>
               <Err msg={err} />
-              <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" - CA$"+withTax(chosen.fare).toFixed(2)+" (incl. HST)"}</BigBtn>
+              <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" Ride"}</BigBtn>
             </div>
           </div>
         </div>
@@ -1068,7 +1088,7 @@ function RiderApp() {
               </div>
             )}
             <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Available Trips</div>
-            {DEMO_TRIPS.map(t=>(
+            {liveTrips.map(t=>(
               <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+BORDER, cursor:"pointer" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1 }}>
