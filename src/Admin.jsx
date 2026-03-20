@@ -4608,209 +4608,281 @@ function EmptyRow({ text }) {
 // PAGE: SHUTTLE SERVICE
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SHUTTLE FIELD — label wrapper (defined OUTSIDE PageShuttle to prevent focus loss)
+// ─────────────────────────────────────────────────────────────────────────────
 function ShuttleField({ label, children, full }) {
   return (
     <div style={{ gridColumn: full ? "1/-1" : undefined }}>
-      <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:1.5,
-        textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:5 }}>{label}</div>
+      <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700,
+        letterSpacing:1.5, textTransform:"uppercase",
+        fontFamily:"'JetBrains Mono',monospace", marginBottom:5 }}>{label}</div>
       {children}
     </div>
   );
 }
 
-function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleBaseFare, setShuttleBaseFare, shuttleBookingFee, setShuttleBookingFee, shuttlePeakOn, setShuttlePeakOn, shuttlePeakMult, setShuttlePeakMult, airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAirportFareYHM, airportFareYTZ, setAirportFareYTZ, airportBookingFee, setAirportBookingFee, airportMinNotice, setAirportMinNotice }) {
-  const [tab,   setTab]   = useState("vehicles");
-  const [modal, setModal] = useState(null);
-  const [form,  setForm]  = useState({});
-  const [toast, setToast] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null); // { type:"vehicle"|"trip", item }
+// ─────────────────────────────────────────────────────────────────────────────
+// SHUTTLE MODAL — overlay wrapper (defined OUTSIDE PageShuttle)
+// ─────────────────────────────────────────────────────────────────────────────
+function ShuttleModal({ title, children, onClose }) {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:900,
+      background:"rgba(5,8,18,0.85)", backdropFilter:"blur(6px)",
+      display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.12)",
+        borderRadius:14, padding:"24px 26px", width:"100%", maxWidth:580,
+        maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.6)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between",
+          alignItems:"center", marginBottom:20 }}>
+          <h3 style={{ color:"#f0f9ff", fontSize:16, fontWeight:600, margin:0,
+            fontFamily:"'Space Grotesk',sans-serif" }}>{title}</h3>
+          <button onClick={onClose} style={{ background:"none", border:"none",
+            color:"#475569", fontSize:20, cursor:"pointer", lineHeight:1,
+            padding:"0 4px" }}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
-  // Auto-cleanup: remove trips on any date that have 0 bookings
-  // Runs whenever trips change
-  function pruneEmptyTrips(tripList) {
-    const today = new Date("2026-03-09");
-    return tripList.filter(t => {
-      if (t.booked > 0) return true;                        // keep if has bookings
-      if (t.status === "completed") return true;            // keep completed records
-      const tripDate = new Date(t.date);
-      if (!isNaN(tripDate) && tripDate < today) return false; // drop past + empty
-      return true;                                          // keep future empty (not yet run)
-    });
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: SHUTTLE / AIRPORT
+// ─────────────────────────────────────────────────────────────────────────────
+function PageShuttle({
+  vehicles, setVehicles, trips, setTrips, drivers,
+  shuttleBaseFare, setShuttleBaseFare,
+  shuttleBookingFee, setShuttleBookingFee,
+  shuttlePeakOn, setShuttlePeakOn,
+  shuttlePeakMult, setShuttlePeakMult,
+  airportFareYYZ, setAirportFareYYZ,
+  airportFareYHM, setAirportFareYHM,
+  airportFareYTZ, setAirportFareYTZ,
+  airportBookingFee, setAirportBookingFee,
+  airportMinNotice, setAirportMinNotice,
+}) {
+  const [tab,           setTab]           = useState("vehicles");
+  const [modal,         setModal]         = useState(null);
+  const [form,          setForm]          = useState({});
+  const [toast,         setToast]         = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const safeVehicles = vehicles || [];
+  const safeTrips    = trips    || [];
+  const safeDrivers  = drivers  || [];
 
   const TIMES = [
-    "1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM","6:00 AM",
-    "7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM",
-    "1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM",
-    "7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM","12:00 AM",
+    "12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM",
+    "6:00 AM","7:00 AM","8:00 AM","9:00 AM","10:00 AM","11:00 AM",
+    "12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM",
+    "6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM",
   ];
 
-  function showToast(msg, ok = true) {
+  function showToast(msg, ok=true) {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   }
 
-  const inp = (key, ph, type="text", extra={}) => (
-    <input
-      type={type} placeholder={ph} value={form[key]||""}
-      onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
-      style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
-        borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }}
-      {...extra}
-    />
-  );
-  const sel = (key, opts, label) => (
-    <select value={form[key]||opts[0]||""} onChange={e => setForm(f => ({...f, [key]:e.target.value}))}
-      style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
-        borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
-      {opts.map(o => <option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}
-    </select>
-  );
+  // Input style
+  const IS = { width:"100%", background:"rgba(99,179,237,0.05)",
+    border:"1px solid rgba(99,179,237,0.15)", borderRadius:7,
+    padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none",
+    boxSizing:"border-box" };
+  const SS = { ...IS, background:"#0d1220" };
 
+  // ── Computed stats ─────────────────────────────────────────────────────────
+  const activeVehicles = safeVehicles.filter(v => v.status === "active");
+  const scheduledTrips = safeTrips.filter(t => t.status === "scheduled");
+  const completedTrips = safeTrips.filter(t => t.status === "completed");
+  const totalRevenue   = completedTrips.reduce((s,t) =>
+    s + parseFloat((t.fare||"0").replace("CA$","")) * (t.booked||0), 0);
 
-  const activeVehicles = vehicles.filter(v => v.status === "active");
-  const scheduledTrips = trips.filter(t => t.status === "scheduled");
-  const completedTrips = trips.filter(t => t.status === "completed");
-  const totalRevenue   = completedTrips
-    .reduce((s, t) => s + parseFloat((t.fare||"0").replace("CA$","")) * (t.booked||0), 0);
+  // ── Save vehicle ───────────────────────────────────────────────────────────
+  function saveVehicle() {
+    if (!form.make) { showToast("Please select a make", false); return; }
+    if (!form.model) { showToast("Please select a model", false); return; }
+    if (!form.plate) { showToast("Please enter a licence plate", false); return; }
+    const payload = {
+      make:        form.make,
+      model:       form.model,
+      year:        parseInt(form.year) || 2023,
+      plate:       form.plate.toUpperCase(),
+      capacity:    parseInt(form.capacity) || (form.vehicleType === "4-seater" ? 4 : 7),
+      vehicleType: form.vehicleType || "7-seater",
+      vehicle_type:form.vehicleType || "7-seater",
+      color:       form.color || "White",
+      driver:      form.driver || "Unassigned",
+      status:      form.status || "active",
+      defaultRoute:form.defaultRoute || "",
+    };
+    if (modal === "add_vehicle") {
+      const newId = "SHV-" + String(safeVehicles.length + 1).padStart(3,"0");
+      setVehicles(prev => [...(prev||[]), { id:newId, ...payload, booked:0 }]);
+      showToast(`${payload.make} ${payload.model} added as ${newId}`);
+    } else {
+      setVehicles(prev => (prev||[]).map(v => v.id === modal.id ? { ...v, ...payload } : v));
+      showToast(`Vehicle ${modal.id} updated`);
+    }
+    setModal(null);
+    setForm({});
+  }
 
-  // Trips with 0 bookings today — shown as warning badges
-  const today      = new Date("2026-03-09").toDateString();
-  const emptyToday = trips.filter(t => t.booked === 0 && new Date(t.date).toDateString() === today && t.status !== "completed");
+  // ── Save trip ──────────────────────────────────────────────────────────────
+  function saveTrip() {
+    if (!form.pickup) { showToast("Please enter a pickup location", false); return; }
+    if (!form.dropoff) { showToast("Please enter a drop-off location", false); return; }
+    if (!form.date) { showToast("Please enter a date", false); return; }
+    const payload = {
+      route:        `${form.pickup} → ${form.dropoff}`,
+      pickup:       form.pickup,
+      dropoff:      form.dropoff,
+      date:         form.date,
+      time:         form.time || TIMES[7],
+      fare_per_seat:parseFloat(form.fare) || parseFloat(shuttleBaseFare) || 12,
+      fare:         `CA$${parseFloat(form.fare) || parseFloat(shuttleBaseFare) || 12}`,
+      seats:        parseInt(form.seats) || 7,
+      vehicle:      form.vehicle || "",
+      driver:       form.driver || "Unassigned",
+      notes:        form.notes || "",
+      status:       "scheduled",
+      booked:       0,
+      booked_seats: [],
+    };
+    if (modal === "create_trip") {
+      const newId = "ST-" + String(Date.now()).slice(-6);
+      setTrips(prev => [...(prev||[]), { id:newId, ...payload }]);
+      showToast(`Trip created: ${payload.route}`);
+    } else {
+      setTrips(prev => (prev||[]).map(t => t.id === modal.id ? { ...t, ...payload } : t));
+      showToast(`Trip ${modal.id} updated`);
+    }
+    setModal(null);
+    setForm({});
+  }
 
-  // ── Build route label from pickup + dropoff if available
-  function tripRouteLabel(t) {
-    if (t.pickup && t.dropoff) return `${t.pickup} → ${t.dropoff}`;
-    return t.route || "—";
+  // ── Delete confirm ─────────────────────────────────────────────────────────
+  function doDelete() {
+    if (!confirmDelete) return;
+    if (confirmDelete.type === "vehicle") {
+      setVehicles(prev => (prev||[]).filter(v => v.id !== confirmDelete.item.id));
+      showToast(`Vehicle ${confirmDelete.item.id} removed`);
+    } else {
+      setTrips(prev => (prev||[]).filter(t => t.id !== confirmDelete.item.id));
+      showToast(`Trip removed`);
+    }
+    setConfirmDelete(null);
   }
 
   return (
     <div>
+      {/* Toast */}
       {toast && (
-        <div style={{ position:"fixed", top:20, right:20, zIndex:999,
-          background:toast.ok?"rgba(34,197,94,0.15)":"rgba(239,68,68,0.15)",
-          border:`1px solid ${toast.ok?"rgba(34,197,94,0.3)":"rgba(239,68,68,0.3)"}`,
-          borderRadius:10, padding:"10px 16px", color:toast.ok?"#86efac":"#fca5a5",
-          fontSize:12, fontWeight:600, backdropFilter:"blur(8px)" }}>
+        <div style={{ position:"fixed", top:20, right:20, zIndex:9999,
+          background:toast.ok ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+          border:`1px solid ${toast.ok ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+          borderRadius:10, padding:"10px 18px",
+          color:toast.ok ? "#86efac" : "#fca5a5",
+          fontSize:12, fontWeight:600, backdropFilter:"blur(8px)", zIndex:9999 }}>
           {toast.msg}
         </div>
       )}
 
-      <SectionHdr title="Shuttle Service" sub="Manage fleet vehicles, custom routes, and trip schedules" />
+      <SectionHdr title="Shuttle / Airport" sub="Manage fleet vehicles, routes, trips and airport fares" />
 
       {/* ── KPI strip ── */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
         {[
-          ["FLEET VEHICLES",  vehicles.length,              "rgba(59,130,246,0.07)",  "rgba(59,130,246,0.2)",  "#3b82f6"],
-          ["ACTIVE VEHICLES", activeVehicles.length,        "rgba(34,197,94,0.07)",   "rgba(34,197,94,0.2)",   "#22c55e"],
-          ["SCHEDULED TRIPS", scheduledTrips.length,        "rgba(245,158,11,0.07)",  "rgba(245,158,11,0.2)",  "#f59e0b"],
-          ["TOTAL REVENUE",   `CA$${totalRevenue.toFixed(0)}`, "rgba(167,139,250,0.07)","rgba(167,139,250,0.2)","#a78bfa"],
-        ].map(([l,v,bg,bdr,c]) => (
-          <div key={l} style={{ background:bg, border:`1px solid ${bdr}`, borderRadius:10, padding:"16px 20px" }}>
-            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700, letterSpacing:2,
-              fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>{l}</div>
-            <div style={{ color:c, fontSize:26, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
+          ["FLEET VEHICLES",  safeVehicles.length,          "#3b82f6"],
+          ["ACTIVE VEHICLES", activeVehicles.length,        "#22c55e"],
+          ["SCHEDULED TRIPS", scheduledTrips.length,        "#f59e0b"],
+          ["TOTAL REVENUE",   `CA$${totalRevenue.toFixed(0)}`, "#a78bfa"],
+        ].map(([label, value, color]) => (
+          <div key={label} style={{ background:"rgba(255,255,255,0.02)",
+            border:"1px solid rgba(99,179,237,0.1)", borderRadius:10, padding:"16px 20px" }}>
+            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, fontWeight:700,
+              letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:6 }}>{label}</div>
+            <div style={{ color, fontSize:26, fontWeight:700,
+              fontFamily:"'JetBrains Mono',monospace" }}>{value}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Auto-prune banner ── */}
-      {emptyToday.length > 0 && (
-        <div style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.2)",
-          borderRadius:10, padding:"10px 16px", marginBottom:14, display:"flex", alignItems:"center",
-          justifyContent:"space-between", gap:12 }}>
-          <div>
-            <span style={{ color:"#ef4444", fontWeight:700, fontSize:12 }}>
-              ⚠ {emptyToday.length} trip{emptyToday.length>1?"s":""} today with zero bookings
-            </span>
-            <span style={{ color:"#334155", fontSize:11, marginLeft:8 }}>
-              — these will be auto-deleted at end of day to free up database space
-            </span>
-          </div>
-          <button onClick={() => {
-            const pruned = trips.filter(t => !(t.booked === 0 && new Date(t.date).toDateString() === today && t.status !== "completed"));
-            setTrips(pruned);
-            showToast(`Removed ${emptyToday.length} empty trip${emptyToday.length>1?"s":""} from today`);
-          }} style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)",
-            color:"#ef4444", borderRadius:7, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
-            Purge Now
-          </button>
-        </div>
-      )}
-
       {/* ── Tab bar ── */}
-      <div style={{ display:"flex", gap:6, marginBottom:16 }}>
-        {[["vehicles","🚐  Fleet Vehicles"],["trips","🗓  Shuttle Trips"],["airport","✈️  Airport Settings"]].map(([id, label]) => (
+      <div style={{ display:"flex", gap:6, marginBottom:16, alignItems:"center" }}>
+        {[["vehicles","🚐 Fleet Vehicles"],["trips","🗓 Shuttle Trips"],["airport","✈️ Airport Settings"]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
-            style={{ padding:"7px 20px", borderRadius:8, border:`1px solid ${tab===id?"#3b82f6":"rgba(99,179,237,0.12)"}`,
-              background:tab===id?"rgba(59,130,246,0.1)":"transparent",
-              color:tab===id?"#60a5fa":"#64748b", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+            style={{ padding:"7px 20px", borderRadius:8,
+              border:`1px solid ${tab===id ? "#3b82f6" : "rgba(99,179,237,0.12)"}`,
+              background:tab===id ? "rgba(59,130,246,0.1)" : "transparent",
+              color:tab===id ? "#60a5fa" : "#64748b",
+              fontSize:12, fontWeight:600, cursor:"pointer" }}>
             {label}
           </button>
         ))}
         <div style={{ flex:1 }} />
-        {tab === "airport" && (
-          <div style={{ color:"#64748b", fontSize:11, padding:"4px 8px" }}>Edit airport fares below</div>
-        )}
         {tab === "vehicles" && (
-          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            <button onClick={() => { setForm({ make:"", model:"", year:"2023", plate:"", capacity:"7", color:"White", driver:"Unassigned", status:"active", defaultRoute:"", vehicleType:"7-seater" }); setModal("add_vehicle"); }}
-              style={{ padding:"7px 14px", borderRadius:8, border:"1px solid rgba(59,130,246,0.3)",
-                background:"rgba(59,130,246,0.08)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              + Add Vehicle
-            </button>
-
-          </div>
+          <button onClick={() => {
+            setForm({ make:"", model:"", year:"2023", plate:"", capacity:"7",
+              color:"White", driver:"Unassigned", status:"active",
+              vehicleType:"7-seater" });
+            setModal("add_vehicle");
+          }} style={{ padding:"7px 16px", borderRadius:8,
+            border:"1px solid rgba(59,130,246,0.3)",
+            background:"rgba(59,130,246,0.08)", color:"#60a5fa",
+            fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            + Add Vehicle
+          </button>
         )}
         {tab === "trips" && (
-          <button onClick={() => { setForm({ pickup:"", dropoff:"", vehicle:"", date:"", days:[], time:TIMES[2], fare: shuttleBaseFare || "", notes:"" }); setModal("create_trip"); }}
-            style={{ padding:"7px 16px", borderRadius:8, border:"1px solid rgba(34,197,94,0.3)",
-              background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+          <button onClick={() => {
+            setForm({ pickup:"", dropoff:"", vehicle:"", date:"",
+              time:TIMES[7], fare:shuttleBaseFare||"12", seats:"7",
+              driver:"Unassigned", notes:"" });
+            setModal("create_trip");
+          }} style={{ padding:"7px 16px", borderRadius:8,
+            border:"1px solid rgba(34,197,94,0.3)",
+            background:"rgba(34,197,94,0.08)", color:"#22c55e",
+            fontSize:12, fontWeight:700, cursor:"pointer" }}>
             + Create Trip
           </button>
         )}
       </div>
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* VEHICLES TAB                                              */}
+      {/* TAB: FLEET VEHICLES                                       */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === "vehicles" && (
-        <Panel title={`FLEET VEHICLES — ${vehicles.length} TOTAL`}>
-          {vehicles.length === 0 && (
-            <div style={{ padding:"32px", textAlign:"center", color:"#334155", fontSize:13 }}>
-              No vehicles in fleet — click <strong style={{ color:"#60a5fa" }}>+ Add Vehicle</strong> to get started
+        <Panel title={`FLEET VEHICLES — ${safeVehicles.length} TOTAL`}>
+          {safeVehicles.length === 0 ? (
+            <div style={{ padding:"40px", textAlign:"center", color:"#334155", fontSize:13 }}>
+              No vehicles in fleet yet.<br/>
+              <span style={{ color:"#60a5fa" }}>Click + Add Vehicle above to get started.</span>
             </div>
-          )}
-          {vehicles.length > 0 && (
+          ) : (
             <table style={{ width:"100%", borderCollapse:"collapse" }}>
               <thead>
-                <tr>{["ID","MAKE / MODEL","YEAR","PLATE","CAP","COLOR","DRIVER","DEFAULT ROUTE","STATUS","ACTIONS"]
-                  .map(h => <Th key={h}>{h}</Th>)}</tr>
+                <tr>{["ID","MAKE / MODEL","YEAR","PLATE","TYPE","CAPACITY","DRIVER","STATUS",""].map(h =>
+                  <Th key={h}>{h}</Th>)}</tr>
               </thead>
               <tbody>
-                {vehicles.map(v => (
+                {safeVehicles.map(v => (
                   <tr key={v.id} className="trow">
                     <Td><Mono small>{v.id}</Mono></Td>
-                    <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontSize:13 }}>{v.make} {v.model}</span></Td>
-                    <Td><span style={{ color:"#94a3b8", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{v.year}</span></Td>
+                    <Td><span style={{ color:"#f0f9ff", fontWeight:600 }}>{v.make} {v.model}</span></Td>
+                    <Td muted>{v.year}</Td>
                     <Td><Mono small>{v.plate}</Mono></Td>
+                    <Td muted>{v.vehicleType||v.vehicle_type||"7-seater"}</Td>
+                    <Td muted>{v.capacity} seats</Td>
+                    <Td muted>{v.driver||"Unassigned"}</Td>
+                    <Td><StatusBadge s={v.status||"active"} /></Td>
                     <Td>
-                      <span style={{ color:"#60a5fa", fontSize:13, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v.capacity}</span>
-                      <span style={{ color:"#334155", fontSize:9, marginLeft:3 }}>seats</span>
-                    </Td>
-                    <Td><span style={{ color:"#94a3b8", fontSize:12 }}>{v.color}</span></Td>
-                    <Td><span style={{ color:v.driver==="Unassigned"?"#475569":"#cbd5e1", fontSize:12 }}>{v.driver}</span></Td>
-                    <Td>
-                      <span style={{ color:"#64748b", fontSize:10, maxWidth:160, display:"block",
-                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        {v.defaultRoute || <span style={{ color:"#1e293b" }}>—</span>}
-                      </span>
-                    </Td>
-                    <Td><StatusBadge s={v.status} /></Td>
-                    <Td>
-                      <div style={{ display:"flex", gap:5 }}>
-                        <ActBtn onClick={() => { setForm({...v, defaultRoute: v.defaultRoute||"" }); setModal({ type:"edit_vehicle", id:v.id }); }}>Edit</ActBtn>
-                        <ActBtn danger onClick={() => setConfirmDelete({ type:"vehicle", item:v })}>🗑 Delete</ActBtn>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <ActBtn onClick={() => {
+                          setForm({ ...v });
+                          setModal({ id:v.id, type:"edit_vehicle" });
+                        }}>Edit</ActBtn>
+                        <ActBtn danger onClick={() => setConfirmDelete({ type:"vehicle", item:v })}>Delete</ActBtn>
                       </div>
                     </Td>
                   </tr>
@@ -4822,86 +4894,50 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* TRIPS TAB                                                 */}
+      {/* TAB: SHUTTLE TRIPS                                        */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === "trips" && (
-        <Panel title={`SHUTTLE TRIPS — ${trips.length} TOTAL · ${emptyToday.length} EMPTY TODAY`}>
-          {trips.length === 0 && (
-            <div style={{ padding:"32px", textAlign:"center", color:"#334155", fontSize:13 }}>
-              No trips scheduled — click <strong style={{ color:"#22c55e" }}>+ Create Trip</strong> to schedule one
+        <Panel title={`SHUTTLE TRIPS — ${safeTrips.length} TOTAL`}>
+          {safeTrips.length === 0 ? (
+            <div style={{ padding:"40px", textAlign:"center", color:"#334155", fontSize:13 }}>
+              No trips scheduled yet.<br/>
+              <span style={{ color:"#22c55e" }}>Click + Create Trip above to add one.</span>
             </div>
-          )}
-          {trips.length > 0 && (
+          ) : (
             <table style={{ width:"100%", borderCollapse:"collapse" }}>
               <thead>
-                <tr>{["TRIP ID","ROUTE","VEHICLE","DRIVER","DAY","TIME","SEATS","BOOKED","FARE","STATUS","ACTIONS"]
-                  .map(h => <Th key={h}>{h}</Th>)}</tr>
+                <tr>{["ID","ROUTE","DATE","TIME","FARE/SEAT","BOOKED","VEHICLE","STATUS",""].map(h =>
+                  <Th key={h}>{h}</Th>)}</tr>
               </thead>
               <tbody>
-                {trips.map(t => {
-                  const isEmptyToday = t.booked === 0 && new Date(t.date).toDateString() === today && t.status !== "completed";
-                  return (
-                    <tr key={t.id} className="trow" style={{ opacity: isEmptyToday ? 0.65 : 1 }}>
-                      <Td>
-                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                          <Mono small>{t.id}</Mono>
-                          {isEmptyToday && (
-                            <span style={{ background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.25)",
-                              color:"#ef4444", fontSize:7, fontWeight:700, borderRadius:3, padding:"1px 4px" }}>EMPTY</span>
-                          )}
-                        </div>
-                      </Td>
-                      <Td>
-                        <span style={{ color:"#f0f9ff", fontSize:11, fontWeight:500 }}>{tripRouteLabel(t)}</span>
-                      </Td>
-                      <Td><Mono small>{t.vehicle||"—"}</Mono></Td>
-                      <Td><span style={{ color:"#94a3b8", fontSize:12 }}>{t.driver||"Unassigned"}</span></Td>
-                      <Td><div style={{ lineHeight:1.3 }}><span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{t.day||"—"}</span>{t.date && <div style={{ color:"#334155", fontSize:9 }}>{t.date}</div>}</div></Td>
-                      <Td><span style={{ color:"#60a5fa", fontSize:12, fontFamily:"'JetBrains Mono',monospace", fontWeight:600 }}>{t.time}</span></Td>
-                      <Td><span style={{ color:"#94a3b8", fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>{t.seats||"—"}</span></Td>
-                      <Td>
-                        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                          <div style={{ height:4, width:36, borderRadius:2, background:"rgba(99,179,237,0.1)", overflow:"hidden" }}>
-                            <div style={{ height:"100%", width:`${Math.round((t.booked||0)/(t.seats||1)*100)}%`,
-                              background:t.booked===t.seats?"#22c55e":"#3b82f6", transition:"width 0.3s" }} />
-                          </div>
-                          <span style={{ color:"#94a3b8", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{t.booked||0}/{t.seats||"?"}</span>
-                        </div>
-                      </Td>
-                      <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{t.fare||"—"}</span></Td>
-                      <Td><StatusBadge s={t.status} /></Td>
-                      <Td>
-                        <div style={{ display:"flex", gap:5 }}>
-                          {t.status !== "completed" && (
-                            <ActBtn onClick={() => {
-                              const v = vehicles.find(x => x.id === t.vehicle);
-                              setForm({
-                                pickup:  t.pickup  || (t.route ? t.route.split("→")[0]?.trim() : ""),
-                                dropoff: t.dropoff || (t.route ? t.route.split("→")[1]?.trim() : ""),
-                                vehicle: t.vehicle || "",
-                                date:    t.date    || "",
-                days:    t.day ? [t.day] : [],
-                day:     t.day     || "",
-                                time:    t.time    || TIMES[2],
-                                fare:    t.fare    ? t.fare.replace("CA$","") : "",
-                                seats:   String(t.seats||""),
-                                notes:   t.notes   || "",
-                                driver:  t.driver  || "",
-                              });
-                              setModal({ type:"edit_trip", id:t.id });
-                            }}>Edit</ActBtn>
-                          )}
-                          {t.status === "pending" && (
-                            <ActBtn onClick={() => { setForm({ assignVehicle:"" }); setModal({ type:"assign_vehicle", data:t }); }}>Assign</ActBtn>
-                          )}
-                          {t.status !== "completed" && (
-                            <ActBtn danger onClick={() => setConfirmDelete({ type:"trip", item:t })}>Delete</ActBtn>
-                          )}
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
+                {safeTrips.map(t => (
+                  <tr key={t.id} className="trow">
+                    <Td><Mono small>{t.id}</Mono></Td>
+                    <Td><span style={{ color:"#f0f9ff", fontSize:11 }}>{t.route||`${t.pickup} → ${t.dropoff}`}</span></Td>
+                    <Td muted>{t.date}</Td>
+                    <Td muted>{t.time}</Td>
+                    <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>CA${parseFloat(t.fare_per_seat||0).toFixed(2)}</span></Td>
+                    <Td muted>{t.booked||0} / {t.seats||7}</Td>
+                    <Td muted>{t.vehicle||"—"}</Td>
+                    <Td><StatusBadge s={t.status||"scheduled"} /></Td>
+                    <Td>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <ActBtn onClick={() => {
+                          setForm({
+                            pickup: t.pickup || (t.route||"").split("→")[0]?.trim() || "",
+                            dropoff:t.dropoff|| (t.route||"").split("→")[1]?.trim() || "",
+                            date:   t.date||"", time:t.time||TIMES[7],
+                            fare:   String(t.fare_per_seat||""), seats:String(t.seats||7),
+                            vehicle:t.vehicle||"", driver:t.driver||"Unassigned",
+                            notes:  t.notes||"",
+                          });
+                          setModal({ id:t.id, type:"edit_trip" });
+                        }}>Edit</ActBtn>
+                        <ActBtn danger onClick={() => setConfirmDelete({ type:"trip", item:t })}>Delete</ActBtn>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}
@@ -4909,96 +4945,156 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* MODAL — ADD / EDIT VEHICLE                               */}
+      {/* TAB: AIRPORT SETTINGS                                     */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "airport" && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+          {/* Airport Fares */}
+          <Panel title="AIRPORT FARES">
+            {[
+              ["Pearson International (YYZ)", airportFareYYZ, setAirportFareYYZ],
+              ["Hamilton Airport (YHM)",       airportFareYHM, setAirportFareYHM],
+              ["Billy Bishop (YTZ)",            airportFareYTZ, setAirportFareYTZ],
+            ].map(([name, val, setter]) => (
+              <div key={name} style={{ display:"flex", justifyContent:"space-between",
+                alignItems:"center", padding:"10px 0",
+                borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+                <span style={{ color:"#94a3b8", fontSize:12 }}>{name}</span>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ color:"#64748b", fontSize:12 }}>CA$</span>
+                  <input value={val} onChange={e => setter(e.target.value)}
+                    style={{ width:70, background:"#0d1220",
+                      border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
+                      padding:"5px 8px", color:"#60a5fa", fontSize:13,
+                      fontWeight:700, fontFamily:"'JetBrains Mono',monospace",
+                      outline:"none", textAlign:"center" }} />
+                </div>
+              </div>
+            ))}
+          </Panel>
+
+          {/* Shuttle Pricing */}
+          <Panel title="SHUTTLE PRICING">
+            {[
+              ["Base Fare / Seat (CA$)", shuttleBaseFare, setShuttleBaseFare],
+              ["Booking Fee (CA$)",      shuttleBookingFee, setShuttleBookingFee],
+              ["Peak Multiplier (x)",    shuttlePeakMult,   setShuttlePeakMult],
+              ["Airport Booking Fee",    airportBookingFee, setAirportBookingFee],
+              ["Min Notice (hours)",     airportMinNotice,  setAirportMinNotice],
+            ].map(([label, val, setter]) => (
+              <div key={label} style={{ display:"flex", justifyContent:"space-between",
+                alignItems:"center", padding:"10px 0",
+                borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+                <span style={{ color:"#94a3b8", fontSize:12 }}>{label}</span>
+                <input value={val} onChange={e => setter(e.target.value)}
+                  style={{ width:70, background:"#0d1220",
+                    border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
+                    padding:"5px 8px", color:"#60a5fa", fontSize:13,
+                    fontWeight:700, fontFamily:"'JetBrains Mono',monospace",
+                    outline:"none", textAlign:"center" }} />
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", padding:"10px 0" }}>
+              <span style={{ color:"#94a3b8", fontSize:12 }}>Peak Pricing</span>
+              <button onClick={() => setShuttlePeakOn(v => !v)}
+                style={{ padding:"4px 12px", borderRadius:6, fontSize:11, fontWeight:700,
+                  cursor:"pointer", border:`1px solid ${shuttlePeakOn ? "rgba(34,197,94,0.3)" : "rgba(99,179,237,0.2)"}`,
+                  background:shuttlePeakOn ? "rgba(34,197,94,0.1)" : "rgba(99,179,237,0.05)",
+                  color:shuttlePeakOn ? "#22c55e" : "#64748b" }}>
+                {shuttlePeakOn ? "ON" : "OFF"}
+              </button>
+            </div>
+          </Panel>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL: ADD / EDIT VEHICLE                                 */}
       {/* ══════════════════════════════════════════════════════════ */}
       {(modal === "add_vehicle" || modal?.type === "edit_vehicle") && (
         <ShuttleModal
-          title={modal === "add_vehicle" ? "Add Fleet Vehicle" : "Edit Vehicle"}
+          title={modal === "add_vehicle" ? "Add Fleet Vehicle" : `Edit Vehicle — ${modal.id}`}
           onClose={() => { setModal(null); setForm({}); }}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+
             <ShuttleField label="Make">
-              <select value={form.make||""} onChange={e => setForm(f => ({...f, make:e.target.value, model:""}))}
-                style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
-                  borderRadius:7, padding:"8px 11px", color:form.make?"#f0f9ff":"rgba(148,163,184,0.5)", fontSize:12, outline:"none" }}>
+              <select value={form.make||""} onChange={e => setForm(f => ({...f, make:e.target.value, model:""}))} style={SS}>
                 <option value="">— Select Make —</option>
                 {CAR_MAKES.map(m => <option key={m.make} value={m.make}>{m.make}</option>)}
               </select>
             </ShuttleField>
+
             <ShuttleField label="Model">
               <select value={form.model||""} onChange={e => setForm(f => ({...f, model:e.target.value}))}
-                style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
-                  borderRadius:7, padding:"8px 11px", color:form.model?"#f0f9ff":"rgba(148,163,184,0.5)", fontSize:12, outline:"none" }}
-                disabled={!form.make}>
+                style={{ ...SS, opacity: form.make ? 1 : 0.5 }} disabled={!form.make}>
                 <option value="">{form.make ? "— Select Model —" : "— Select Make first —"}</option>
-                {form.make && (CAR_MAKES.find(m => m.make === form.make)?.models||[]).map(model => (
-                  <option key={model} value={model}>{model}</option>
-                ))}
+                {(CAR_MAKES.find(m => m.make === form.make)?.models || []).map(m =>
+                  <option key={m} value={m}>{m}</option>)}
               </select>
             </ShuttleField>
-            <ShuttleField label="Year"><div>{inp("year","e.g. 2023","number")}</div></ShuttleField>
-            <ShuttleField label="Licence Plate"><div>{inp("plate","e.g. ABCD 123")}</div></ShuttleField>
-            <ShuttleField label="Capacity (seats)"><div>{inp("capacity","e.g. 7","number")}</div></ShuttleField>
+
+            <ShuttleField label="Year">
+              <input type="number" value={form.year||""} onChange={e => setForm(f => ({...f, year:e.target.value}))}
+                placeholder="e.g. 2023" style={IS} />
+            </ShuttleField>
+
+            <ShuttleField label="Licence Plate">
+              <input value={form.plate||""} onChange={e => setForm(f => ({...f, plate:e.target.value}))}
+                placeholder="e.g. ABCD 123" style={IS} />
+            </ShuttleField>
+
             <ShuttleField label="Vehicle Type">
-              <select value={form.vehicleType||"7-seater"} onChange={e => setForm(f => ({...f, vehicleType:e.target.value, capacity: e.target.value==="7-seater" ? "7" : "4"}))}
-                style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
-                  borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+              <select value={form.vehicleType||"7-seater"}
+                onChange={e => setForm(f => ({...f, vehicleType:e.target.value, capacity:e.target.value==="7-seater"?"7":"4"}))}
+                style={SS}>
                 <option value="7-seater">7-Seater (1+3+3)</option>
                 <option value="4-seater">4-Seater (1+1+2)</option>
               </select>
             </ShuttleField>
-            <ShuttleField label="Color"><div>{inp("color","e.g. White")}</div></ShuttleField>
-            <ShuttleField label="Assigned Driver" full>
-              <select value={form.driver||"Unassigned"} onChange={e => setForm(f => ({...f, driver:e.target.value}))}
-                style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
-                  borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
-                <option value="Unassigned">Unassigned</option>
-                {(drivers||[]).filter(d => d.status==="active").map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-              </select>
+
+            <ShuttleField label="Capacity (seats)">
+              <input type="number" value={form.capacity||""} onChange={e => setForm(f => ({...f, capacity:e.target.value}))}
+                placeholder="e.g. 7" style={IS} />
             </ShuttleField>
-            <ShuttleField label="Default Route (optional)" full>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap:8, alignItems:"center" }}>
-                {inp("defaultPickup","Pickup location (e.g. Hamilton GO Station)")}
-                <span style={{ color:"#475569", fontSize:14, flexShrink:0 }}>→</span>
-                {inp("defaultDropoff","Drop-off location (e.g. Pearson Airport)")}
-              </div>
+
+            <ShuttleField label="Color">
+              <input value={form.color||""} onChange={e => setForm(f => ({...f, color:e.target.value}))}
+                placeholder="e.g. White" style={IS} />
             </ShuttleField>
+
             <ShuttleField label="Status">
-              <select value={form.status||"active"} onChange={e => setForm(f => ({...f, status:e.target.value}))}
-                style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
-                  borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
+              <select value={form.status||"active"} onChange={e => setForm(f => ({...f, status:e.target.value}))} style={SS}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="maintenance">Maintenance</option>
               </select>
             </ShuttleField>
+
+            <ShuttleField label="Assigned Driver" full>
+              <select value={form.driver||"Unassigned"} onChange={e => setForm(f => ({...f, driver:e.target.value}))} style={SS}>
+                <option value="Unassigned">Unassigned</option>
+                {safeDrivers.filter(d => d.status === "active").map(d =>
+                  <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
+            </ShuttleField>
+
+            <ShuttleField label="Default Route (optional)" full>
+              <input value={form.defaultRoute||""} onChange={e => setForm(f => ({...f, defaultRoute:e.target.value}))}
+                placeholder="e.g. Hamilton GO → Pearson Airport" style={IS} />
+            </ShuttleField>
+
           </div>
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
             <button onClick={() => { setModal(null); setForm({}); }}
               style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
-                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
-            <button onClick={() => {
-              const defaultRoute = (form.defaultPickup && form.defaultDropoff)
-                ? `${form.defaultPickup.trim()} → ${form.defaultDropoff.trim()}`
-                : (form.defaultRoute || "");
-              const payload = {
-                ...form,
-                capacity:     parseInt(form.capacity)||(form.vehicleType==="4-seater"?4:7),
-                vehicle_type: form.vehicle_type||"7-seater",
-                year:         parseInt(form.year)||2023,
-                vehicleType:  form.vehicleType || "7-seater",
-                defaultRoute,
-              };
-              if (modal === "add_vehicle") {
-                const newId = "SHV-" + String(vehicles.length + 1).padStart(3,"0");
-                setVehicles(prev => [...prev, { id:newId, ...payload, booked:0 }]);
-                showToast(`${form.make} ${form.model} added to fleet as ${newId}`);
-              } else {
-                setVehicles(prev => prev.map(v => v.id === modal.id ? { ...v, ...payload } : v));
-                showToast(`Vehicle ${modal.id} updated`);
-              }
-              setModal(null); setForm({});
-            }} style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
-              background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Cancel
+            </button>
+            <button onClick={saveVehicle}
+              style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
+                background:"rgba(34,197,94,0.08)", color:"#22c55e",
+                fontSize:12, fontWeight:700, cursor:"pointer" }}>
               {modal === "add_vehicle" ? "Add Vehicle" : "Save Changes"}
             </button>
           </div>
@@ -5006,463 +5102,112 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* MODAL — CREATE / EDIT TRIP                               */}
+      {/* MODAL: CREATE / EDIT TRIP                                 */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {(modal === "create_trip" || modal?.type === "edit_trip") && (() => {
-        const isEdit = modal?.type === "edit_trip";
-        return (
-          <ShuttleModal
-            title={isEdit ? `Edit Trip — ${modal.id}` : "Create Shuttle Trip"}
-            onClose={() => { setModal(null); setForm({}); }}>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+      {(modal === "create_trip" || modal?.type === "edit_trip") && (
+        <ShuttleModal
+          title={modal === "create_trip" ? "Create Shuttle Trip" : `Edit Trip — ${modal.id}`}
+          onClose={() => { setModal(null); setForm({}); }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
 
-              {/* Pickup */}
-              <ShuttleField label="Pickup Location" full>
-                <div>
-                  <input
-                    list="pickup-suggestions"
-                    value={form.pickup||""}
-                    onChange={e => setForm(f => ({...f, pickup:e.target.value}))}
-                    placeholder="e.g. Hamilton GO Station"
-                    style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
-                      borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }}
-                  />
-                  <datalist id="pickup-suggestions">
-                    {[...new Set(vehicles.filter(v=>v.defaultPickup).map(v=>v.defaultPickup)
-                      .concat(vehicles.filter(v=>v.defaultRoute).map(v=>v.defaultRoute.split("→")[0]?.trim()).filter(Boolean))
-                    )].map(s => <option key={s} value={s} />)}
-                  </datalist>
-                </div>
-              </ShuttleField>
+            <ShuttleField label="Pickup Location" full>
+              <input value={form.pickup||""} onChange={e => setForm(f => ({...f, pickup:e.target.value}))}
+                placeholder="e.g. Hamilton GO Station" style={IS} />
+            </ShuttleField>
 
-                            {/* Drop-off */}
-              <ShuttleField label="Drop-off Location" full>
-                <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:8, alignItems:"center" }}>
-                  <div style={{ width:28, height:28, borderRadius:7, background:"rgba(59,130,246,0.1)",
-                    display:"flex", alignItems:"center", justifyContent:"center", color:"#60a5fa", fontSize:14,
-                    flexShrink:0 }}>→</div>
-                  <div>
-                    <input
-                      list="dropoff-suggestions"
-                      value={form.dropoff||""}
-                      onChange={e => setForm(f => ({...f, dropoff:e.target.value}))}
-                      placeholder="e.g. Toronto Pearson Airport, Terminal 1"
-                      style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
-                        borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }}
-                    />
-                    <datalist id="dropoff-suggestions">
-                      {[...new Set(vehicles.filter(v=>v.defaultDropoff).map(v=>v.defaultDropoff)
-                        .concat(vehicles.filter(v=>v.defaultRoute).map(v=>v.defaultRoute.split("→")[1]?.trim()).filter(Boolean))
-                      )].map(s => <option key={s} value={s} />)}
-                    </datalist>
-                  </div>
-                </div>
-              </ShuttleField>
+            <ShuttleField label="Drop-off Location" full>
+              <input value={form.dropoff||""} onChange={e => setForm(f => ({...f, dropoff:e.target.value}))}
+                placeholder="e.g. Toronto Pearson Airport" style={IS} />
+            </ShuttleField>
 
-                            {/* Route preview */}
-              {(form.pickup || form.dropoff) && (
-                <div style={{ gridColumn:"1/-1", background:"rgba(59,130,246,0.05)",
-                  border:"1px solid rgba(59,130,246,0.15)", borderRadius:8, padding:"8px 12px",
-                  display:"flex", alignItems:"center", gap:8 }}>
-                  <span style={{ color:"#60a5fa", fontSize:11, fontWeight:600 }}>Route: </span>
-                  <span style={{ color:"#f0f9ff", fontSize:11 }}>
-                    {form.pickup||"…"} → {form.dropoff||"…"}
-                  </span>
-                </div>
-              )}
+            <ShuttleField label="Date">
+              <input type="date" value={form.date||""} onChange={e => setForm(f => ({...f, date:e.target.value}))} style={IS} />
+            </ShuttleField>
 
-              {/* Vehicle */}
-              <ShuttleField label="Vehicle" full>
-                <select value={form.vehicle||""}
-                  onChange={e => {
-                    const v = vehicles.find(x => x.id === e.target.value);
-                    setForm(f => ({...f, vehicle:e.target.value, seats:String(v?.capacity||7), driver:v?.driver||"Unassigned", vehicle_type:v?.vehicleType||"7-seater" }));
-                  }}
-                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
-                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
-                  <option value="">— Select vehicle —</option>
-                  {vehicles.filter(v => v.status==="active").map(v => (
-                    <option key={v.id} value={v.id}>{v.id} — {v.make} {v.model} ({v.capacity} seats · {v.vehicleType||"7-seater"})</option>
-                  ))}
-                </select>
-                {form.vehicle && (() => {
-                  const v = vehicles.find(x => x.id === form.vehicle);
-                  return v ? (
-                    <div style={{ marginTop:5, color:"#334155", fontSize:10 }}>
-                      Driver: <strong style={{ color:"#94a3b8" }}>{v.driver}</strong>
-                      &nbsp;·&nbsp; Capacity: <strong style={{ color:"#60a5fa" }}>{v.capacity} seats</strong>
-                      &nbsp;·&nbsp; Type: <strong style={{ color:"#a78bfa" }}>{v.vehicleType||"7-seater"}</strong>
-                    </div>
-                  ) : null;
-                })()}
-              </ShuttleField>
+            <ShuttleField label="Departure Time">
+              <select value={form.time||TIMES[7]} onChange={e => setForm(f => ({...f, time:e.target.value}))} style={SS}>
+                {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </ShuttleField>
 
-              {/* Vehicle Type (number of seats) */}
-              <ShuttleField label="Vehicle Type (Seating)" full>
-                <select value={form.vehicle_type||"7-seater"}
-                  onChange={e => setForm(f => ({...f, vehicle_type:e.target.value, seats:e.target.value==="3-seater"?"3":e.target.value==="5-seater"?"5":"7" }))}
-                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
-                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
-                  <option value="3-seater">3-Seater (F2, B3, B4)</option>
-                  <option value="5-seater">5-Seater (F2, M3, M4, B5, B6)</option>
-                  <option value="7-seater">7-Seater (F2, M3, M4, M5, B6, B7, B8)</option>
-                </select>
-                <div style={{ marginTop:5, color:"#475569", fontSize:10 }}>
-                  F1 is the pilot seat (reserved). Available seats shown to riders on the seat map.
-                </div>
-              </ShuttleField>
+            <ShuttleField label="Fare per Seat (CA$)">
+              <input type="number" value={form.fare||""} onChange={e => setForm(f => ({...f, fare:e.target.value}))}
+                placeholder={shuttleBaseFare||"12"} style={IS} />
+            </ShuttleField>
 
-              {/* Days of week — recurring daily selection */}
-              <ShuttleField label="Days of Week" full>
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                  {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => {
-                    const sel = (form.days||[]).includes(day);
-                    return (
-                      <button key={day} type="button"
-                        onClick={() => setForm(f => {
-                          const days = f.days||[];
-                          return {...f, days: sel ? days.filter(d=>d!==day) : [...days, day]};
-                        })}
-                        style={{ padding:"6px 12px", borderRadius:7, fontSize:11, fontWeight:700,
-                          cursor:"pointer", border:`1.5px solid ${sel?"#3b82f6":"rgba(99,179,237,0.2)"}`,
-                          background:sel?"rgba(59,130,246,0.15)":"rgba(99,179,237,0.04)",
-                          color:sel?"#60a5fa":"#475569", transition:"all 0.12s" }}>
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-                {(form.days||[]).length > 0 && (
-                  <div style={{ marginTop:5, color:"#475569", fontSize:10 }}>
-                    Runs every: <strong style={{ color:"#60a5fa" }}>{(form.days||[]).join(", ")}</strong>
-                  </div>
-                )}
-              </ShuttleField>
+            <ShuttleField label="Total Seats">
+              <input type="number" value={form.seats||""} onChange={e => setForm(f => ({...f, seats:e.target.value}))}
+                placeholder="7" style={IS} />
+            </ShuttleField>
 
-              {/* Time */}
-              <ShuttleField label="Departure Time">
-                <select value={form.time||TIMES[2]} onChange={e => setForm(f => ({...f, time:e.target.value}))}
-                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
-                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none" }}>
-                  {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </ShuttleField>
+            <ShuttleField label="Assign Vehicle" full>
+              <select value={form.vehicle||""} onChange={e => setForm(f => ({...f, vehicle:e.target.value}))} style={SS}>
+                <option value="">— Unassigned —</option>
+                {safeVehicles.filter(v => v.status === "active").map(v =>
+                  <option key={v.id} value={v.id}>{v.id} — {v.make} {v.model} ({v.capacity} seats)</option>)}
+              </select>
+            </ShuttleField>
 
-              {/* Fare */}
-              <ShuttleField label="Fare per seat (CA$)">
-                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <span style={{ color:"#334155", fontSize:13 }}>CA$</span>
-                  {inp("fare","e.g. 18","number")}
-                </div>
-              </ShuttleField>
+            <ShuttleField label="Assign Driver" full>
+              <select value={form.driver||"Unassigned"} onChange={e => setForm(f => ({...f, driver:e.target.value}))} style={SS}>
+                <option value="Unassigned">Unassigned</option>
+                {safeDrivers.filter(d => d.status === "active").map(d =>
+                  <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
+            </ShuttleField>
 
-              {/* Notes */}
-              <ShuttleField label="Notes (optional)" full>
-                <textarea value={form.notes||""} onChange={e => setForm(f => ({...f, notes:e.target.value}))}
-                  placeholder="e.g. Express route — no stops" rows={2}
-                  style={{ width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
-                    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none",
-                    resize:"vertical", boxSizing:"border-box" }} />
-              </ShuttleField>
+            <ShuttleField label="Notes (optional)" full>
+              <textarea value={form.notes||""} onChange={e => setForm(f => ({...f, notes:e.target.value}))}
+                placeholder="Any notes about this trip..." rows={2}
+                style={{ ...IS, resize:"vertical", fontFamily:"inherit" }} />
+            </ShuttleField>
 
-              {/* Empty-day policy reminder */}
-              <div style={{ gridColumn:"1/-1", background:"rgba(245,158,11,0.05)",
-                border:"1px solid rgba(245,158,11,0.15)", borderRadius:8, padding:"8px 12px" }}>
-                <span style={{ color:"rgba(245,158,11,0.7)", fontSize:10 }}>
-                  💡 If this trip has <strong>zero bookings</strong> on the scheduled date, it will be automatically removed to keep the database clean.
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-              <button onClick={() => { setModal(null); setForm({}); }}
-                style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
-                  background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
-              <button onClick={() => {
-                if (!form.pickup || !form.dropoff) {
-                  showToast("Please enter both pickup and drop-off locations", false); return;
-                }
-                if (!form.days || form.days.length === 0) { showToast("Please select at least one day", false); return; }
-                if (!form.fare)  { showToast("Please enter a fare", false); return; }
-                const veh = vehicles.find(v => v.id === form.vehicle);
-                const route = `${form.pickup.trim()} → ${form.dropoff.trim()}`;
-                if (isEdit) {
-                  setTrips(prev => prev.map(t => t.id === modal.id ? {
-                    ...t,
-                    pickup:  form.pickup.trim(),
-                    dropoff: form.dropoff.trim(),
-                    route,
-                    vehicle: form.vehicle || t.vehicle,
-                    driver:  veh?.driver || form.driver || t.driver,
-                    date:    form.date || t.date,
-                    day:     form.day  || t.day,
-                    time:    form.time,
-                    seats:   form.vehicle ? (veh?.capacity||t.seats) : t.seats,
-                    fare:    `CA$${form.fare}`,
-                    notes:   form.notes || "",
-                    status:  form.vehicle ? "scheduled" : t.status,
-                  } : t));
-                  showToast(`Trip ${modal.id} updated`);
-                } else {
-                  // Create one recurring trip entry per selected day
-                  const DAY_MAP = {Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:0};
-                  const today = new Date();
-                  const newTrips = (form.days||[]).map((day, idx) => {
-                    const target = DAY_MAP[day];
-                    const diff = (target - today.getDay() + 7) % 7 || 7;
-                    const d = new Date(today);
-                    d.setDate(today.getDate() + diff);
-                    const dateStr = d.toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}).replace(",","");
-                    return {
-                      id:      "ST-" + String(Date.now() + idx).slice(-4),
-                      pickup:  form.pickup.trim(),
-                      dropoff: form.dropoff.trim(),
-                      route,
-                      vehicle: form.vehicle || "TBD",
-                      driver:  veh?.driver || "Unassigned",
-                      date:    dateStr,
-                      day:     day,
-                      time:    form.time || TIMES[2],
-                      seats:   veh?.capacity || parseInt(form.seats) || 8,
-                      booked:  0,
-                      fare:    `CA$${form.fare}`,
-                      notes:   form.notes || "",
-                      status:  form.vehicle ? "scheduled" : "pending",
-                      recurring: true,
-                    };
-                  });
-                  setTrips(prev => pruneEmptyTrips([...newTrips, ...prev]));
-                  showToast(`${newTrips.length} recurring trip${newTrips.length>1?"s":""} created`);
-                }
-                setModal(null); setForm({});
-              }} style={{ padding:"8px 20px", borderRadius:7,
-                border:`1px solid ${isEdit?"rgba(59,130,246,0.3)":"rgba(34,197,94,0.3)"}`,
-                background:isEdit?"rgba(59,130,246,0.08)":"rgba(34,197,94,0.08)",
-                color:isEdit?"#60a5fa":"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                {isEdit ? "Save Changes" : "Create Trip"}
-              </button>
-            </div>
-          </ShuttleModal>
-        );
-      })()}
-
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* MODAL — ASSIGN VEHICLE                                   */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {modal?.type === "assign_vehicle" && (
-        <ShuttleModal title={`Assign Vehicle — ${modal.data.id}`} onClose={() => { setModal(null); setForm({}); }}>
-          <p style={{ color:"#94a3b8", fontSize:12, marginBottom:16 }}>
-            Route: <strong style={{ color:"#f0f9ff" }}>{tripRouteLabel(modal.data)}</strong><br/>
-            Date / Time: <strong style={{ color:"#60a5fa" }}>{modal.data.date} at {modal.data.time}</strong>
-          </p>
-          <div style={{ marginBottom:20 }}>
-            <div style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontWeight:700, letterSpacing:1.5,
-              textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace", marginBottom:8 }}>SELECT VEHICLE</div>
-            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-              {vehicles.filter(v => v.status==="active").map(v => (
-                <div key={v.id} onClick={() => setForm(f => ({...f, assignVehicle:v.id}))}
-                  style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:9, cursor:"pointer",
-                    border:`1px solid ${form.assignVehicle===v.id?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.1)"}`,
-                    background:form.assignVehicle===v.id?"rgba(59,130,246,0.07)":"rgba(255,255,255,0.02)" }}>
-                  <div style={{ width:10, height:10, borderRadius:"50%",
-                    border:`2px solid ${form.assignVehicle===v.id?"#3b82f6":"rgba(100,116,139,0.4)"}`,
-                    background:form.assignVehicle===v.id?"#3b82f6":"transparent" }} />
-                  <div style={{ flex:1 }}>
-                    <div style={{ color:"#f0f9ff", fontSize:12, fontWeight:600 }}>{v.make} {v.model} ({v.plate})</div>
-                    <div style={{ color:"#475569", fontSize:10, marginTop:1 }}>{v.capacity} seats · Driver: {v.driver}</div>
-                  </div>
-                  <Mono small>{v.id}</Mono>
-                </div>
-              ))}
-            </div>
           </div>
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
             <button onClick={() => { setModal(null); setForm({}); }}
               style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
-                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
-            <button onClick={() => {
-              if (!form.assignVehicle) return;
-              const veh = vehicles.find(v => v.id === form.assignVehicle);
-              setTrips(prev => prev.map(t => t.id === modal.data.id
-                ? { ...t, vehicle:form.assignVehicle, driver:veh?.driver||"Unassigned", seats:veh?.capacity||t.seats, status:"scheduled" }
-                : t));
-              setModal(null); setForm({});
-              showToast(`Vehicle ${form.assignVehicle} assigned to ${modal.data.id}`);
-            }} style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
-              background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              Assign Vehicle
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Cancel
+            </button>
+            <button onClick={saveTrip}
+              style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
+                background:"rgba(34,197,94,0.08)", color:"#22c55e",
+                fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              {modal === "create_trip" ? "Create Trip" : "Save Changes"}
             </button>
           </div>
         </ShuttleModal>
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* CONFIRM DELETE — vehicle or trip                         */}
+      {/* MODAL: CONFIRM DELETE                                     */}
       {/* ══════════════════════════════════════════════════════════ */}
-
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* AIRPORT SETTINGS TAB                                       */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {tab === "airport" && (
-        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-
-          {/* Per-airport flat rates */}
-          <Panel title="AIRPORT FLAT-RATE FARES">
-            <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
-              Flat-rate fares charged per airport booking. Auto-applied when a rider books through the airport screen.
-            </div>
-            {[
-              { label:"Pearson International (YYZ)",      sub:"Toronto — Mississauga", val:airportFareYYZ, set:setAirportFareYYZ },
-              { label:"John C. Munro Hamilton (YHM)",     sub:"Hamilton — Mount Hope",  val:airportFareYHM, set:setAirportFareYHM },
-              { label:"Billy Bishop Toronto City (YTZ)",  sub:"Toronto — Island Airport",val:airportFareYTZ, set:setAirportFareYTZ },
-            ].map(f => (
-              <div key={f.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                marginBottom:12, paddingBottom:12, borderBottom:"1px solid rgba(148,163,184,0.1)" }}>
-                <div>
-                  <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>{f.label}</div>
-                  <div style={{ color:"#475569", fontSize:10 }}>{f.sub}</div>
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <span style={{ color:"#475569", fontSize:11 }}>CA$</span>
-                  <input value={f.val} onChange={e=>f.set(e.target.value)} type="number" step="0.50"
-                    style={{ width:75, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
-                      borderRadius:6, padding:"6px 9px", color:"#f0f9ff", fontSize:13, fontWeight:700,
-                      outline:"none", textAlign:"right", fontFamily:"'JetBrains Mono',monospace" }} />
-                  <span style={{ color:"#475569", fontSize:9 }}>flat</span>
-                </div>
-              </div>
-            ))}
-          </Panel>
-
-          {/* Fees */}
-          <Panel title="FEES &amp; RULES">
-
-            {/* Booking fee */}
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-              marginBottom:12, paddingBottom:12, borderBottom:"1px solid rgba(148,163,184,0.1)" }}>
-              <div>
-                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Platform Booking Fee</div>
-                <div style={{ color:"#475569", fontSize:10 }}>Added to every airport booking</div>
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ color:"#475569", fontSize:11 }}>CA$</span>
-                <input value={airportBookingFee} onChange={e=>setAirportBookingFee(e.target.value)}
-                  type="number" step="0.50"
-                  style={{ width:60, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
-                    borderRadius:6, padding:"6px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
-                <span style={{ color:"#475569", fontSize:9 }}>flat</span>
-              </div>
-            </div>
-            {/* Min booking notice */}
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div>
-                <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Minimum Booking Notice</div>
-                <div style={{ color:"#475569", fontSize:10 }}>Hours before pickup required</div>
-              </div>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <input value={airportMinNotice} onChange={e=>setAirportMinNotice(e.target.value)}
-                  type="number" step="1" min="1"
-                  style={{ width:55, background:"rgba(148,163,184,0.1)", border:"1px solid rgba(148,163,184,0.25)",
-                    borderRadius:6, padding:"6px 8px", color:"#f0f9ff", fontSize:12, outline:"none", textAlign:"right" }} />
-                <span style={{ color:"#475569", fontSize:9 }}>hrs</span>
-              </div>
-            </div>
-          </Panel>
-
-          {/* Live preview */}
-          <Panel title="FARE PREVIEW">
-            <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
-              {[
-                { id:"yyz", label:"YYZ Pearson", fare:airportFareYYZ },
-                { id:"yhm", label:"YHM Hamilton", fare:airportFareYHM },
-                { id:"ytz", label:"YTZ Billy Bishop", fare:airportFareYTZ },
-              ].map(a => {
-                const subtotalAirport = (parseFloat(a.fare)||0) + (parseFloat(airportBookingFee)||0);
-                const total = subtotalAirport * 1.13;
-                return (
-                  <div key={a.id} style={{ flex:1, minWidth:120, background:"rgba(99,179,237,0.06)",
-                    border:"1px solid rgba(99,179,237,0.15)", borderRadius:9, padding:"12px 14px" }}>
-                    <div style={{ color:"#64748b", fontSize:9, fontWeight:700, letterSpacing:1.5,
-                      textTransform:"uppercase", marginBottom:6 }}>{a.label}</div>
-                    <div style={{ color:"#60a5fa", fontSize:22, fontWeight:800,
-                      fontFamily:"'JetBrains Mono',monospace" }}>CA${(parseFloat(a.fare)||0).toFixed(2)}</div>
-                    <div style={{ color:"#475569", fontSize:9, marginTop:2 }}>+ CA${(parseFloat(airportBookingFee)||0).toFixed(2)} booking fee</div>
-                    <div style={{ color:"#94a3b8", fontSize:10, fontWeight:700, marginTop:4 }}>Total (incl. HST): CA${total.toFixed(2)}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </Panel>
-
-        </div>
-      )}
-
       {confirmDelete && (
-        <ShuttleModal
-          title={confirmDelete.type === "vehicle" ? "Delete Vehicle" : "Delete Trip"}
-          onClose={() => setConfirmDelete(null)}>
-          {confirmDelete.type === "vehicle" ? (
-            <>
-              <div style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)",
-                borderRadius:9, padding:"12px 14px", marginBottom:16 }}>
-                <div style={{ color:"#f0f9ff", fontSize:13, fontWeight:600, marginBottom:4 }}>
-                  {confirmDelete.item.make} {confirmDelete.item.model}
-                </div>
-                <div style={{ color:"#334155", fontSize:11 }}>
-                  {confirmDelete.item.plate} · {confirmDelete.item.capacity} seats · {confirmDelete.item.color}
-                </div>
-                {confirmDelete.item.driver !== "Unassigned" && (
-                  <div style={{ color:"#f59e0b", fontSize:10, marginTop:5 }}>
-                    ⚠ Driver <strong>{confirmDelete.item.driver}</strong> is assigned — they will need to be reassigned
-                  </div>
-                )}
+        <ShuttleModal title="Confirm Delete" onClose={() => setConfirmDelete(null)}>
+          <div style={{ color:"#94a3b8", fontSize:13, marginBottom:20 }}>
+            Are you sure you want to delete{" "}
+            <strong style={{ color:"#f0f9ff" }}>
+              {confirmDelete.type === "vehicle"
+                ? `${confirmDelete.item.make} ${confirmDelete.item.model} (${confirmDelete.item.id})`
+                : `trip ${confirmDelete.item.id}`}
+            </strong>?
+            {confirmDelete.type === "vehicle" && confirmDelete.item.booked > 0 && (
+              <div style={{ color:"#f59e0b", marginTop:8, fontSize:12 }}>
+                ⚠ This vehicle has active bookings.
               </div>
-              <p style={{ color:"#94a3b8", fontSize:12, marginBottom:20 }}>
-                Removing this vehicle will also unassign it from any active scheduled trips. This cannot be undone.
-              </p>
-            </>
-          ) : (
-            <>
-              <div style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)",
-                borderRadius:9, padding:"12px 14px", marginBottom:16 }}>
-                <div style={{ color:"#f0f9ff", fontSize:13, fontWeight:600, marginBottom:4 }}>
-                  {confirmDelete.item.id} — {tripRouteLabel(confirmDelete.item)}
-                </div>
-                <div style={{ color:"#334155", fontSize:11 }}>
-                  {confirmDelete.item.date} at {confirmDelete.item.time} · {confirmDelete.item.booked||0} bookings
-                </div>
-                {(confirmDelete.item.booked||0) > 0 && (
-                  <div style={{ color:"#ef4444", fontSize:10, marginTop:5 }}>
-                    ⚠ This trip has <strong>{confirmDelete.item.booked} active booking{confirmDelete.item.booked>1?"s":""}</strong> — riders will need to be notified and refunded
-                  </div>
-                )}
-              </div>
-              <p style={{ color:"#94a3b8", fontSize:12, marginBottom:20 }}>
-                {(confirmDelete.item.booked||0) === 0
-                  ? "This trip has no bookings and will be permanently deleted."
-                  : "Deleting a trip with active bookings requires issuing refunds. Proceed only if riders have been contacted."}
-              </p>
-            </>
-          )}
+            )}
+          </div>
           <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
             <button onClick={() => setConfirmDelete(null)}
               style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
-                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>Cancel</button>
-            <button onClick={() => {
-              if (confirmDelete.type === "vehicle") {
-                // Unassign from trips too
-                setTrips(prev => prev.map(t => t.vehicle === confirmDelete.item.id
-                  ? { ...t, vehicle:"TBD", driver:"Unassigned", status:"pending" } : t));
-                setVehicles(prev => prev.filter(v => v.id !== confirmDelete.item.id));
-                showToast(`${confirmDelete.item.make} ${confirmDelete.item.model} removed from fleet`);
-              } else {
-                setTrips(prev => prev.filter(t => t.id !== confirmDelete.item.id));
-                showToast(`Trip ${confirmDelete.item.id} deleted`);
-              }
-              setConfirmDelete(null);
-            }} style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(239,68,68,0.35)",
-              background:"rgba(239,68,68,0.1)", color:"#f87171", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              {confirmDelete.type === "vehicle" ? "Delete Vehicle" : "Delete Trip"}
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Cancel
+            </button>
+            <button onClick={doDelete}
+              style={{ padding:"8px 20px", borderRadius:7, border:"1px solid rgba(239,68,68,0.3)",
+                background:"rgba(239,68,68,0.08)", color:"#ef4444",
+                fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Delete
             </button>
           </div>
         </ShuttleModal>
@@ -5471,6 +5216,7 @@ function PageShuttle({ vehicles, setVehicles, trips, setTrips, drivers, shuttleB
     </div>
   );
 }
+
 
 function ShuttleModal({ title, children, onClose }) {
   return (
