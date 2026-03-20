@@ -2033,11 +2033,23 @@ function DriverApp() {
     if (pass.length<8) { setErr("Password needs 8+ characters"); return; }
     setBusy(true); setErr("");
     try {
-      const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ name, role:"driver" } } });
-      if (error) throw error;
-      const { error: insErr } = await db.from("drivers").insert({ id:data.user.id, name, email, phone:phone||null, vehicle:(vMake&&vModel?vMake+" "+vModel:vehicle)||null, plate:plate||null, status:"pending", joined:new Date().toISOString().slice(0,10), created_at:new Date().toISOString() });
+      // Try signup; if email already exists (rider also registering as driver), sign in instead
+      let resolvedUser;
+      const { data: signUpData, error: signUpError } = await db.auth.signUp({ email, password:pass, options:{ data:{ name, role:"driver" } } });
+      if (signUpError && signUpError.message && signUpError.message.toLowerCase().includes("already registered")) {
+        const { data: signInData, error: signInError } = await db.auth.signInWithPassword({ email, password:pass });
+        if (signInError) throw signInError;
+        resolvedUser = signInData.user;
+      } else {
+        if (signUpError) throw signUpError;
+        resolvedUser = signUpData.user;
+      }
+      // Check not already a driver
+      const { data: existingDriver } = await db.from("drivers").select("id").eq("id", resolvedUser.id).maybeSingle();
+      if (existingDriver) throw new Error("You are already registered as a driver.");
+      const { error: insErr } = await db.from("drivers").insert({ id:resolvedUser.id, name, email, phone:phone||null, vehicle:(vMake&&vModel?vMake+" "+vModel:vehicle)||null, plate:plate||null, status:"pending", joined:new Date().toISOString().slice(0,10), created_at:new Date().toISOString() });
       if (insErr) { console.error("Driver insert error:", insErr); throw new Error(insErr.message || "Could not save driver profile. Please try again."); }
-      setUser(data.user); setDOtpSent(true); setDOtpValue(""); setDOtpError("");
+      setUser(resolvedUser); setDOtpSent(true); setDOtpValue(""); setDOtpError("");
       go("dotp");
     } catch(e) { setErr(e.message||"Registration failed"); }
     finally { setBusy(false); }
