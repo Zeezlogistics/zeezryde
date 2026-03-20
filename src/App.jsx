@@ -1980,6 +1980,95 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
 }
 
 
+// ─── SLIDE ONLINE TOGGLE ────────────────────────────────────────────────────
+function SlideToggle({ online, onToggle, subPaid }) {
+  const [dragging, setDragging] = React.useState(false);
+  const [startX,   setStartX]   = React.useState(0);
+  const [offsetX,  setOffsetX]  = React.useState(0);
+  const trackW = 260; // total track width px
+  const thumbW = 52;  // thumb width px
+  const maxX   = trackW - thumbW - 8; // max drag distance
+
+  const committed = online;
+  const thumbPos  = dragging
+    ? Math.max(0, Math.min(maxX, offsetX))
+    : committed ? maxX : 0;
+
+  function onPointerDown(e) {
+    if (!subPaid) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+    setStartX(e.clientX - (committed ? maxX : 0));
+  }
+  function onPointerMove(e) {
+    if (!dragging) return;
+    setOffsetX(e.clientX - startX);
+  }
+  function onPointerUp() {
+    if (!dragging) return;
+    setDragging(false);
+    const pos = Math.max(0, Math.min(maxX, offsetX));
+    // Toggle if dragged past halfway
+    if (!committed && pos > maxX * 0.5) onToggle();
+    else if (committed && pos < maxX * 0.5) onToggle();
+    setOffsetX(0);
+  }
+
+  const trackColor = committed
+    ? "linear-gradient(90deg,#16a34a,#22c55e)"
+    : "rgba(30,41,59,0.92)";
+  const label = !subPaid
+    ? "Pay subscription to go online"
+    : committed ? "● ONLINE — slide to go offline" : "Slide to go online →";
+
+  return (
+    <div style={{ padding:"12px 16px 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+      <div
+        style={{ position:"relative", width:trackW, height:thumbW+8, borderRadius:32,
+          background:trackColor, border:"1.5px solid " + (committed ? "rgba(34,197,94,0.6)" : "rgba(99,179,237,0.18)"),
+          boxShadow: committed ? "0 0 18px rgba(34,197,94,0.35)" : "0 2px 12px rgba(0,0,0,0.25)",
+          transition: dragging ? "none" : "background 0.35s, box-shadow 0.35s",
+          cursor: subPaid ? "grab" : "not-allowed",
+          userSelect:"none", touchAction:"none",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        {/* Track label */}
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
+          justifyContent: committed ? "flex-start" : "flex-end",
+          paddingLeft: committed ? thumbW+16 : 0,
+          paddingRight: committed ? 0 : 16,
+          pointerEvents:"none" }}>
+          <span style={{ fontSize:10, fontWeight:700, color: committed ? "rgba(255,255,255,0.85)" : "rgba(148,163,184,0.9)",
+            letterSpacing:0.5, fontFamily:"'Syne',sans-serif" }}>
+            {committed ? "ONLINE" : "OFFLINE"}
+          </span>
+        </div>
+        {/* Thumb */}
+        <div
+          style={{ position:"absolute", top:4, left:4 + thumbPos,
+            width:thumbW, height:thumbW,
+            borderRadius:28,
+            background: committed ? "#ffffff" : "linear-gradient(135deg,#3b82f6,#2563eb)",
+            boxShadow: committed ? "0 2px 10px rgba(0,0,0,0.25)" : "0 2px 12px rgba(59,130,246,0.5)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            transition: dragging ? "none" : "left 0.25s cubic-bezier(.4,0,.2,1)",
+            pointerEvents:"none",
+          }}
+        >
+          <span style={{ fontSize:18 }}>{committed ? "🟢" : "⚪"}</span>
+        </div>
+      </div>
+      <div style={{ fontSize:11, color: committed ? "#22c55e" : "#64748b", fontWeight:600, letterSpacing:0.3 }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 function DriverApp() {
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
@@ -2358,21 +2447,30 @@ function DriverApp() {
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
             <MapView height="100%" riderMode={false} />
           </div>
-          {/* Top header overlay */}
-          <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px" }}>
+          {/* Top header overlay — Logo left, name beside it, map zoom right */}
+          <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <button onClick={toggleOnline} style={{ padding:"10px 18px", borderRadius:20, border:"none", cursor:"pointer", background:online?GREEN:"rgba(51,65,85,0.9)", backdropFilter:"blur(8px)", color:WHITE, fontWeight:700, fontSize:13, fontFamily:"'Syne',sans-serif", boxShadow:"0 2px 12px rgba(0,0,0,0.3)" }}>
-                {online?"● Online":"○ Offline"}
-              </button>
+
+              {/* LEFT: logo + driver name */}
               <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ background:"rgba(15,23,42,0.82)", backdropFilter:"blur(8px)", borderRadius:12, padding:"7px 14px", textAlign:"right" }}>
-                  <div style={{ color:LBLUE, fontSize:10 }}>Driver Dashboard</div>
+                <div style={{ background:"rgba(10,22,40,0.85)", backdropFilter:"blur(8px)", borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.4)" }}>
+                  <LogoAnim size={42} />
+                </div>
+                <div style={{ background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", borderRadius:12, padding:"6px 14px" }}>
+                  <div style={{ color:LBLUE, fontSize:9, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase" }}>Driver</div>
                   <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
                 </div>
-                <div style={{ backdropFilter:"blur(4px)", borderRadius:"50%", padding:3 }}>
-                  <LogoAnim size={48} />
-                </div>
               </div>
+
+              {/* RIGHT: map zoom +/- buttons */}
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {["+","−"].map(sym => (
+                  <button key={sym} style={{ width:36, height:36, borderRadius:10, border:"1px solid rgba(255,255,255,0.15)", background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", color:WHITE, fontSize:18, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
+                    {sym}
+                  </button>
+                ))}
+              </div>
+
             </div>
           </div>
           {/* Bottom panel overlay */}
@@ -2427,11 +2525,15 @@ function DriverApp() {
                   <span style={{ fontSize:20 }}>😴</span>
                   <div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>You are offline</div>
-                    <div style={{ fontSize:11, color:SLATE }}>Tap Online above to start</div>
+                    <div style={{ fontSize:11, color:SLATE }}>Slide to go online below</div>
                   </div>
                 </div>
               )}
             </div>
+
+            {/* ── SLIDE TO GO ONLINE / OFFLINE ─────────────────── */}
+            <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
+
           </div>
         </div>
       )}
