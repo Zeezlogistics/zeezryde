@@ -513,13 +513,7 @@ export default function AdminApp() {
         </header>
 
         {/* Page scroll area */}
-        <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px", position:"relative" }}>
-          {/* View-only overlay — blocks all clicks but allows reading/scrolling */}
-          {viewOnly && (
-            <div style={{ position:"fixed", inset:0, zIndex:800, cursor:"not-allowed" }}
-              onClick={e => e.stopPropagation()}
-              title="View Only — read access only" />
-          )}
+        <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px" }}>
           {page === "overview"  && <PageOverview  drivers={drivers} trips={ALL_TRIPS} subs={ALL_SUBS} onlineCount={onlineCount} totalRev={totalRev} tripRev={tripRev} subRev={subRev} todayTrips={todayTrips} maxDrivers={MAX_DRIVERS}
               setDrivers={setDrivers} setRiders={setRiders} setTrips={setLiveTrips} setAllSubs={() => {}} />}
           {page === "drivers"   && <PageDrivers viewOnly={viewOnly}   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS}  setDrivers={setDrivers} />}
@@ -1783,7 +1777,7 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
               {Object.entries(TIER_LABELS).map(([k, label]) => (
-                <button key={k} onClick={() => setDemandTier(k)} style={{ padding:"9px 8px", borderRadius:7, border:`1px solid ${demandTier===k ? TIER_COLORS[k] : "rgba(99,179,237,0.1)"}`, background:demandTier===k ? `${TIER_COLORS[k]}15` : "transparent", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", color:demandTier===k ? TIER_COLORS[k] : "#334155", fontSize:10, fontWeight:700, transition:"all 0.15s", textAlign:"center" }}>
+                <button key={k} disabled={viewOnly} onClick={() => !viewOnly && setDemandTier(k)} style={{ padding:"9px 8px", borderRadius:7, border:`1px solid ${demandTier===k ? TIER_COLORS[k] : "rgba(99,179,237,0.1)"}`, background:demandTier===k ? `${TIER_COLORS[k]}15` : "transparent", cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", color:demandTier===k ? TIER_COLORS[k] : "#334155", fontSize:10, fontWeight:700, transition:"all 0.15s", textAlign:"center" }}>
                   {label}
                 </button>
               ))}
@@ -2093,7 +2087,7 @@ function DispatchPolicyPanel({
             { id:"closest", icon:"◎", label:"Closest Driver First", sub:"Auto-dispatch to nearest available driver" },
             { id:"manual",  icon:"◈", label:"Manual Dispatch",      sub:"Admin assigns each ride manually" },
           ].map(m => (
-            <button key={m.id} onClick={() => setDispatchMode(m.id)} style={{ flex:1, padding:"11px 12px", borderRadius:8, border:`1px solid ${dispatchMode===m.id?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.08)"}`, background:dispatchMode===m.id?"rgba(59,130,246,0.07)":"transparent", cursor:"pointer", textAlign:"left" }}>
+            <button key={m.id} disabled={viewOnly} onClick={() => !viewOnly && setDispatchMode(m.id)} style={{ flex:1, padding:"11px 12px", borderRadius:8, border:`1px solid ${dispatchMode===m.id?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.08)"}`, background:dispatchMode===m.id?"rgba(59,130,246,0.07)":"transparent", cursor:"pointer", textAlign:"left" }}>
               <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:4 }}>
                 <span style={{ color:dispatchMode===m.id?"#60a5fa":"#475569", fontSize:14 }}>{m.icon}</span>
                 <span style={{ color:dispatchMode===m.id?"#e2e8f0":"#94a3b8", fontSize:11, fontWeight:600 }}>{m.label}</span>
@@ -2155,7 +2149,7 @@ function DispatchPolicyPanel({
                 </div>
                 <div style={{ display:"flex", gap:5, marginTop:7 }}>
                   {[0.25, 0.50, 0.75, 1.00].map(v => (
-                    <button key={v} onClick={() => setPickupFeeKm(String(v))}
+                    <button key={v} disabled={viewOnly} onClick={() => !viewOnly && setPickupFeeKm(String(v))}
                       style={{ padding:"3px 9px", borderRadius:4, border:`1px solid ${Math.abs(parseFloat(pickupFeeKm)-v)<0.001?"rgba(245,158,11,0.4)":"rgba(99,179,237,0.1)"}`, background:Math.abs(parseFloat(pickupFeeKm)-v)<0.001?"rgba(245,158,11,0.08)":"transparent", color:Math.abs(parseFloat(pickupFeeKm)-v)<0.001?"#f59e0b":"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
                       ${v.toFixed(2)}
                     </button>
@@ -2199,7 +2193,7 @@ function DispatchPolicyPanel({
                   <span style={{ color:"#64748b", fontSize:11 }}>flat per over-radius dispatch</span>
                   <div style={{ marginLeft:"auto", display:"flex", gap:5 }}>
                     {[1.00, 1.50, 2.00, 3.00].map(v => (
-                      <button key={v} onClick={() => setBeyondFeeFlat(String(v))}
+                      <button key={v} disabled={viewOnly} onClick={() => !viewOnly && setBeyondFeeFlat(String(v))}
                         style={{ padding:"3px 8px", borderRadius:4, border:`1px solid ${Math.abs(parseFloat(beyondFeeFlat)-v)<0.01?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.1)"}`, background:Math.abs(parseFloat(beyondFeeFlat)-v)<0.01?"rgba(59,130,246,0.08)":"transparent", color:Math.abs(parseFloat(beyondFeeFlat)-v)<0.01?"#60a5fa":"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
                         ${v.toFixed(2)}
                       </button>
@@ -2279,7 +2273,7 @@ function DispatchPolicyPanel({
                 </div>
                 <div style={{ display:"flex", gap:5, marginTop:7 }}>
                   {[0.10, 0.15, 0.20, 0.25].map(v => (
-                    <button key={v} onClick={() => setWaitFeeRate(String(v))}
+                    <button key={v} disabled={viewOnly} onClick={() => !viewOnly && setWaitFeeRate(String(v))}
                       style={{ padding:"3px 8px", borderRadius:4, border:`1px solid ${Math.abs(parseFloat(waitFeeRate)-v)<0.001?"rgba(167,139,250,0.4)":"rgba(99,179,237,0.1)"}`, background:Math.abs(parseFloat(waitFeeRate)-v)<0.001?"rgba(167,139,250,0.08)":"transparent", color:Math.abs(parseFloat(waitFeeRate)-v)<0.001?"#a78bfa":"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
                       ${v.toFixed(2)}
                     </button>
@@ -2822,7 +2816,7 @@ function DocStatusPill({ status }) {
   );
 }
 
-function PageDocs({ drivers, patchDriver, setModal }) {
+function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
   const [expandedDriver, setExpandedDriver] = useState(
     // Auto-expand first driver with pending docs
     drivers.find(d => d.docFiles?.some(f => f.status === "pending"))?.id || null
@@ -2983,7 +2977,7 @@ function PageDocs({ drivers, patchDriver, setModal }) {
                       })}
 
                       {/* Approve all pending shortcut */}
-                      {dPending > 0 && (
+                      {dPending > 0 && !viewOnly && (
                         <div style={{ padding:"7px 14px 10px" }}>
                           <button onClick={e => { e.stopPropagation(); approveAll(d.id); }} style={{ width:"100%", padding:"6px", borderRadius:6, background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.2)", color:"#22c55e", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
                             ✓ APPROVE ALL PENDING
@@ -3033,7 +3027,7 @@ function PageDocs({ drivers, patchDriver, setModal }) {
                   {/* Approve / Reject */}
                   <div>
                     <div style={{ color:"rgba(148,163,184,0.35)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, marginBottom:8 }}>VERIFICATION DECISION</div>
-                    <div style={{ display:"flex", gap:8 }}>
+                    {!viewOnly && <div style={{ display:"flex", gap:8 }}>
                       <button
                         onClick={() => approveDoc(selDriverObj.id, selectedDoc.docIndex)}
                         disabled={selDocObj.status === "approved"}
@@ -3053,7 +3047,7 @@ function PageDocs({ drivers, patchDriver, setModal }) {
                           ↺ RESET
                         </button>
                       )}
-                    </div>
+                    </div>}
 
                     {/* Reject reason */}
                     {isRejectOpen && (
@@ -3161,7 +3155,7 @@ function PageDocs({ drivers, patchDriver, setModal }) {
   );
 }
 
-function PageZones({ drivers, patchDriver }) {
+function PageZones({ viewOnly, drivers, patchDriver }) {
   const [zones,          setZones]          = useState(INIT_ZONES);
   const [driverZones,    setDriverZones]    = useState(DRIVER_ZONE_DEFAULTS);
   const [selectedZone,   setSelectedZone]   = useState(null);
@@ -3509,7 +3503,7 @@ function PageZones({ drivers, patchDriver }) {
                 <div>
                   <div style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:7 }}>ZONE STATUS</div>
                   <div style={{ display:"flex", gap:6 }}>
-                    {Object.entries(ZONE_STATUS_META).map(([k,m]) => (
+                    {!viewOnly && Object.entries(ZONE_STATUS_META).map(([k,m]) => (
                       <button key={k} onClick={() => patchZone(sel.id,{status:k})} style={{ flex:1, padding:"8px 4px", borderRadius:7, border: sel.status===k ? `1px solid ${m.border}` : "1px solid rgba(99,179,237,0.1)", background:sel.status===k?m.bg:"transparent", color:sel.status===k?m.color:"#334155", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", transition:"all 0.15s" }}>
                         {k==="active"?"●":k==="restricted"?"◐":"○"}<br/>{m.label.toUpperCase()}
                       </button>
@@ -3585,10 +3579,10 @@ function PageZones({ drivers, patchDriver }) {
                 </div>
 
                 {/* Quick actions */}
-                <div style={{ display:"flex", gap:7, paddingTop:4, borderTop:"1px solid rgba(99,179,237,0.07)" }}>
+                {!viewOnly && <div style={{ display:"flex", gap:7, paddingTop:4, borderTop:"1px solid rgba(99,179,237,0.07)" }}>
                   <button onClick={()=>{patchZone(sel.id,{status:"blocked"});setSelectedZone(null);}} disabled={sel.status==="blocked"} style={{ flex:1, background:"rgba(239,68,68,0.07)", border:"1px solid rgba(239,68,68,0.2)", color:"#ef4444", borderRadius:7, padding:"8px", fontSize:10, fontWeight:700, cursor:sel.status==="blocked"?"not-allowed":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:sel.status==="blocked"?0.4:1 }}>🚫 BLOCK ZONE</button>
                   <button onClick={()=>patchZone(sel.id,{status:"active"})} disabled={sel.status==="active"} style={{ flex:1, background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.2)", color:"#22c55e", borderRadius:7, padding:"8px", fontSize:10, fontWeight:700, cursor:sel.status==="active"?"not-allowed":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:sel.status==="active"?0.4:1 }}>✓ ACTIVATE</button>
-                </div>
+                </div>}
               </div>
             </div>
           ) : (
@@ -4264,16 +4258,16 @@ function Modal({ modal, setModal, patchDriver, patchRider }) {
                         )}
                       </div>
                       <div style={{ display:"flex", gap:5, flexShrink:0 }}>
-                        {f.status === "pending" && (
+                        {f.status === "pending" && !viewOnly && (
                           <>
                             <button onClick={() => patchDoc(i, { status:"approved", note:"" })} style={{ padding:"5px 10px", borderRadius:6, background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.25)", color:"#22c55e", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>✓</button>
                             <button onClick={() => setRejectTarget(t => t === i ? null : i)} style={{ padding:"5px 10px", borderRadius:6, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", color:"#ef4444", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>✗</button>
                           </>
                         )}
-                        {f.status === "approved" && (
+                        {f.status === "approved" && !viewOnly && (
                           <button onClick={() => patchDoc(i, { status:"pending" })} style={{ padding:"4px 8px", borderRadius:5, background:"transparent", border:"1px solid rgba(99,179,237,0.1)", color:"#334155", fontSize:8, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>REVOKE</button>
                         )}
-                        {f.status === "rejected" && (
+                        {f.status === "rejected" && !viewOnly && (
                           <button onClick={() => patchDoc(i, { status:"pending", note:"" })} style={{ padding:"4px 8px", borderRadius:5, background:"transparent", border:"1px solid rgba(245,158,11,0.15)", color:"#f59e0b", fontSize:8, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>RE-OPEN</button>
                         )}
                       </div>
@@ -4352,7 +4346,7 @@ function Styles() {
 
 
 // ─── PROMOS PAGE ──────────────────────────────────────────────────────────────
-function PagePromos({ promos, setPromos, drivers }) {
+function PagePromos({ viewOnly, promos, setPromos, drivers }) {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     code:"", name:"", description:"", discountType:"pct", discount:"", duration:"4",
