@@ -91,6 +91,35 @@ const ALL_SUBS = [];
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT
 // ─────────────────────────────────────────────────────────────────────────────
+// ── Error Boundary — shows error instead of blank white page ─────
+class AdminErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(e, info) { console.error("AdminApp crash:", e, info); }
+  render() {
+    if (this.state.error) return (
+      <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", alignItems:"center",
+        justifyContent:"center", flexDirection:"column", gap:16, padding:40, color:"#f0f9ff" }}>
+        <div style={{ fontSize:32 }}>⚠️</div>
+        <div style={{ fontSize:18, fontWeight:700, color:"#ef4444" }}>Admin Portal Error</div>
+        <div style={{ fontSize:13, color:"#94a3b8", maxWidth:500, textAlign:"center" }}>
+          {this.state.error.message}
+        </div>
+        <pre style={{ fontSize:11, color:"#475569", background:"rgba(255,255,255,0.05)",
+          padding:16, borderRadius:8, maxWidth:600, overflow:"auto", maxHeight:200 }}>
+          {this.state.error.stack?.slice(0,400)}
+        </pre>
+        <button onClick={() => this.setState({ error:null })}
+          style={{ padding:"10px 24px", background:"#2563eb", color:"#fff", border:"none",
+            borderRadius:8, cursor:"pointer", fontSize:14, fontWeight:600 }}>
+          Try Again
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 export default function AdminApp() {
   // ── Supabase Auth state ───────────────────────────────────────────────────
   const [authed,     setAuthed]     = useState(false);
@@ -510,6 +539,7 @@ export default function AdminApp() {
 
 
   if (!authed) return (
+    <AdminErrorBoundary>
     <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ width:380, background:"rgba(15,23,42,0.9)", border:"1px solid rgba(99,179,237,0.15)",
         borderRadius:16, padding:40, boxShadow:"0 25px 50px rgba(0,0,0,0.5)" }}>
@@ -595,7 +625,7 @@ export default function AdminApp() {
   { id:"users",     icon:"👤", label:"Users"            },
   ];
 
-  return (
+  return (<AdminErrorBoundary>
     <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:"#080c14", fontFamily:"'Space Grotesk',sans-serif", color:"#e2e8f0" }}>
       <Styles />
 
@@ -697,7 +727,7 @@ export default function AdminApp() {
         </div>
       )}
     </div>
-  );
+  </AdminErrorBoundary>);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4839,23 +4869,30 @@ function EmptyRow({ text }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: USERS (Admin user management)
 // ─────────────────────────────────────────────────────────────────────────────
-function PageUsers({ viewOnly }) {
-  const ALL_PAGES = [
-    { id:"overview",  label:"Overview"         },
-    { id:"drivers",   label:"Drivers"          },
-    { id:"riders",    label:"Riders"           },
-    { id:"trips",     label:"Trips"            },
-    { id:"subs",      label:"Subscriptions"    },
-    { id:"docs",      label:"Documents"        },
-    { id:"promos",    label:"Promos"           },
-    { id:"zones",     label:"Zone Control"     },
-    { id:"shuttle",   label:"Shuttle/Airport"  },
-    { id:"payment",   label:"Payment"          },
-    { id:"settings",  label:"Settings"         },
-    { id:"data",      label:"Data Management"  },
-  ];
+// ── Module-level constants for PageUsers + UserForm ─────────────
+const ALL_PAGES = [
+  { id:"overview",  label:"Overview"         },
+  { id:"drivers",   label:"Drivers"          },
+  { id:"riders",    label:"Riders"           },
+  { id:"trips",     label:"Trips"            },
+  { id:"subs",      label:"Subscriptions"    },
+  { id:"docs",      label:"Documents"        },
+  { id:"promos",    label:"Promos"           },
+  { id:"zones",     label:"Zone Control"     },
+  { id:"shuttle",   label:"Shuttle/Airport"  },
+  { id:"payment",   label:"Payment"          },
+  { id:"settings",  label:"Settings"         },
+  { id:"data",      label:"Data Management"  },
+];
+const EMPTY_PERMS = () => Object.fromEntries(ALL_PAGES.map(p => [p.id, "none"]));
+const PERM_COLORS = {
+  none: { bg:"rgba(99,179,237,0.04)", border:"rgba(99,179,237,0.1)", color:"#334155", label:"—" },
+  view: { bg:"rgba(59,130,246,0.1)",  border:"rgba(59,130,246,0.3)",  color:"#60a5fa", label:"View" },
+  edit: { bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.3)",   color:"#22c55e", label:"Edit" },
+};
 
-  const EMPTY_PERMS = () => Object.fromEntries(ALL_PAGES.map(p => [p.id, "none"]));
+function PageUsers({ viewOnly }) {
+
 
   const [users,       setUsers]       = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -4990,11 +5027,7 @@ function PageUsers({ viewOnly }) {
   const IS = { width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
     borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" };
 
-  const PERM_COLORS = {
-    none: { bg:"rgba(99,179,237,0.04)", border:"rgba(99,179,237,0.1)", color:"#334155", label:"—" },
-    view: { bg:"rgba(59,130,246,0.1)",  border:"rgba(59,130,246,0.3)",  color:"#60a5fa", label:"View" },
-    edit: { bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.3)",   color:"#22c55e", label:"Edit" },
-  };
+
 
   function PermBadge({ level }) {
     const c = PERM_COLORS[level] || PERM_COLORS.none;
