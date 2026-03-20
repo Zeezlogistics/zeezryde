@@ -461,7 +461,7 @@ export default function AdminApp() {
         {/* Nav links */}
         <nav style={{ flex:1, padding:"14px 10px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
           <div style={{ color:"rgba(99,179,237,0.3)", fontSize:8, fontWeight:700, letterSpacing:2.5, textTransform:"uppercase", padding:"4px 10px 8px" }}>Platform</div>
-          {NAV.map(n => {
+          {NAV.filter(n => !viewOnly || !["settings","data"].includes(n.id)).map(n => {
             const active = page === n.id;
             return (
               <button key={n.id} onClick={() => { setPage(n.id); setSearch(""); }} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", borderRadius:7, border:"none", cursor:"pointer", background:active?"rgba(59,130,246,0.12)":"transparent", width:"100%", textAlign:"left", transition:"all 0.15s" }}>
@@ -513,7 +513,13 @@ export default function AdminApp() {
         </header>
 
         {/* Page scroll area */}
-        <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px" }}>
+        <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px", position:"relative" }}>
+          {/* View-only overlay — blocks all clicks but allows reading/scrolling */}
+          {viewOnly && (
+            <div style={{ position:"fixed", inset:0, zIndex:800, cursor:"not-allowed" }}
+              onClick={e => e.stopPropagation()}
+              title="View Only — read access only" />
+          )}
           {page === "overview"  && <PageOverview  drivers={drivers} trips={ALL_TRIPS} subs={ALL_SUBS} onlineCount={onlineCount} totalRev={totalRev} tripRev={tripRev} subRev={subRev} todayTrips={todayTrips} maxDrivers={MAX_DRIVERS}
               setDrivers={setDrivers} setRiders={setRiders} setTrips={setLiveTrips} setAllSubs={() => {}} />}
           {page === "drivers"   && <PageDrivers viewOnly={viewOnly}   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS}  setDrivers={setDrivers} />}
@@ -682,7 +688,7 @@ function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, su
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: DRIVERS
 // ─────────────────────────────────────────────────────────────────────────────
-function PageDrivers({ drivers, search, filter, setFilter, patchDriver, setModal, maxDrivers=50, setDrivers }) {
+function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver, setModal, maxDrivers=50, setDrivers }) {
   // Reload drivers from Supabase on mount
   useEffect(() => {
     (async () => {
@@ -802,10 +808,10 @@ function PageDrivers({ drivers, search, filter, setFilter, patchDriver, setModal
                 <Td>
                   <div style={{ display:"flex", gap:5 }}>
                     <ActBtn onClick={() => setModal({ type:"driver", data:d })}>View</ActBtn>
-                    {d.status === "active"
+                    {!viewOnly && (d.status === "active"
                       ? <ActBtn danger onClick={() => patchDriver(d.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchDriver(d.id, { status:"active" })}>Reinstate</ActBtn>
-                    }
+                    )}
                   </div>
                 </Td>
               </tr>
@@ -990,7 +996,7 @@ function PageDrivers({ drivers, search, filter, setFilter, patchDriver, setModal
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: RIDERS
 // ─────────────────────────────────────────────────────────────────────────────
-function PageRiders({ riders, search, filter, setFilter, patchRider, setModal }) {
+function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, setModal }) {
   const counts = {
     all:       riders.length,
     active:    riders.filter(r => r.status === "active").length,
@@ -1040,10 +1046,10 @@ function PageRiders({ riders, search, filter, setFilter, patchRider, setModal })
                 <Td>
                   <div style={{ display:"flex", gap:5 }}>
                     <ActBtn onClick={() => setModal({ type:"rider", data:r })}>View</ActBtn>
-                    {r.status === "active"
+                    {!viewOnly && (r.status === "active"
                       ? <ActBtn danger onClick={() => patchRider(r.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchRider(r.id, { status:"active" })}>Reinstate</ActBtn>
-                    }
+                    )}
                   </div>
                 </Td>
               </tr>
@@ -1282,6 +1288,13 @@ function calcFare(cfg, distKm, durationMin) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ─── PAGE: DATA MANAGEMENT ───────────────────────────────────────────────────
 function PageDataManagement({ viewOnly }) {
+  if (viewOnly) return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:400, gap:16 }}>
+      <div style={{ fontSize:48 }}>🔒</div>
+      <div style={{ color:"#f59e0b", fontSize:16, fontWeight:700 }}>Access Restricted</div>
+      <div style={{ color:"#64748b", fontSize:13, textAlign:"center", maxWidth:300 }}>Data Management is not available for View Only accounts. Contact the Super Admin for access.</div>
+    </div>
+  );
   const SUPABASE_URL  = "https://bkbpsobvhxxvlzlmzsmy.supabase.co";
   const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnBzb2J2aHh4dmx6bG16c215Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzQ4MTUsImV4cCI6MjA4OTA1MDgxNX0.PLJyaouYk4FLfcZwVy_YsKMmny2a6DqrYOn_3jmpgMI";
 
@@ -1535,8 +1548,13 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
   return (
     <div style={{ maxWidth:860 }}>
       <SectionHdr title="Settings" sub="Pricing engine, platform fees, and enforcement rules" />
+      {viewOnly && (
+        <div style={{ marginBottom:16, padding:"12px 16px", background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:10, color:"#f59e0b", fontSize:12, fontWeight:600 }}>
+          👁 View Only — you can read all settings but cannot make changes
+        </div>
+      )}
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, alignItems:"start" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, alignItems:"start", pointerEvents:viewOnly?"none":"auto", userSelect:viewOnly?"none":"auto" }}>
 
         {/* ── LEFT COLUMN ── */}
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -1685,7 +1703,7 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
                 <div style={{ color:"#f1f5f9", fontSize:12, fontWeight:600 }}>Surge Pricing</div>
                 <div style={{ color:"#64748b", fontSize:10 }}>Enable automatic demand-based multipliers</div>
               </div>
-              <div onClick={()=>setSurgeEnabled(v=>!v)} style={{ width:36,height:20,borderRadius:100,background:surgeEnabled?"#3b82f6":"rgba(148,163,184,0.25)",position:"relative",cursor:"pointer",transition:"background 0.2s" }}>
+              <div onClick={()=>{ if(!viewOnly) setSurgeEnabled(v=>!v); }} style={{ width:36,height:20,cursor:viewOnly?"not-allowed":"pointer",opacity:viewOnly?0.6:1,borderRadius:100,background:surgeEnabled?"#3b82f6":"rgba(148,163,184,0.25)",position:"relative",cursor:"pointer",transition:"background 0.2s" }}>
                 <div style={{ position:"absolute",top:2,width:16,height:16,background:"#fff",borderRadius:"50%",transition:"left 0.2s",left:surgeEnabled?18:2,boxShadow:"0 1px 4px rgba(0,0,0,0.3)" }} />
               </div>
             </div>
@@ -1724,9 +1742,9 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
             )}
           </SettingsPanel>
 
-          <button onClick={handleSave} style={{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:8, padding:"12px 28px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5, alignSelf:"flex-start", width:"100%", marginTop:8 }}>
+          {!viewOnly && <button onClick={handleSave} style={{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:8, padding:"12px 28px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5, alignSelf:"flex-start", width:"100%", marginTop:8 }}>
             💾 SAVE ALL SETTINGS
-          </button>
+          </button>}
         </div>
 
         {/* ── RIGHT COLUMN — AI Advisor + Pricing preview ── */}
