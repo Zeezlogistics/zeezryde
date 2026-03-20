@@ -717,7 +717,7 @@ export default function AdminApp() {
       </div>
 
       {/* Modal */}
-      {modal && <Modal modal={modal} setModal={setModal} patchDriver={patchDriver} patchRider={patchRider} />}
+      {modal && <Modal viewOnly={viewOnly} modal={modal} setModal={setModal} patchDriver={patchDriver} patchRider={patchRider} />}
 
       {/* Toast */}
       {toast && (
@@ -1819,6 +1819,7 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
 
           {/* ── DISPATCH POLICY ── */}
           <DispatchPolicyPanel
+            viewOnly={viewOnly}
             maxPickupKm={maxPickupKm}       setMaxPickupKm={setMaxPickupKm}
             pickupFeeKm={pickupFeeKm}       setPickupFeeKm={setPickupFeeKm}
             dispatchMode={dispatchMode}     setDispatchMode={setDispatchMode}
@@ -2206,6 +2207,7 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
 // DISPATCH POLICY PANEL
 // ─────────────────────────────────────────────────────────────────────────────
 function DispatchPolicyPanel({
+  viewOnly,
   maxPickupKm, setMaxPickupKm,
   pickupFeeKm, setPickupFeeKm,
   dispatchMode, setDispatchMode,
@@ -4302,7 +4304,7 @@ Only include fields to change in "changes". If nothing needs changing, leave it 
 // ─────────────────────────────────────────────────────────────────────────────
 // DETAIL MODAL
 // ─────────────────────────────────────────────────────────────────────────────
-function Modal({ modal, setModal, patchDriver, patchRider }) {
+function Modal({ viewOnly, modal, setModal, patchDriver, patchRider }) {
   const d = modal.data;
   const isDriver = modal.type === "driver";
   const [tab, setTab] = useState(modal.tab || "profile");
