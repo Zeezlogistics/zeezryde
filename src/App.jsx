@@ -28,17 +28,17 @@ const AIRPORTS = [
 const SEAT_LAYOUTS = {
   "3-seater": { total:3, seats:[
     {id:"F1",label:"F1",row:"front",pilot:true},
-    {id:"F2",label:"F2",row:"front",pilot:false},
-    {id:"B3",label:"B3",row:"back",pilot:false},
+    {id:"M2",label:"M2",row:"middle",pilot:false},
+    {id:"M3",label:"M3",row:"middle",pilot:false},
     {id:"B4",label:"B4",row:"back",pilot:false},
+    {id:"B5",label:"B5",row:"back",pilot:false},
   ]},
   "5-seater": { total:5, seats:[
     {id:"F1",label:"F1",row:"front",pilot:true},
-    {id:"F2",label:"F2",row:"front",pilot:false},
+    {id:"M2",label:"M2",row:"middle",pilot:false},
     {id:"M3",label:"M3",row:"middle",pilot:false},
-    {id:"M4",label:"M4",row:"middle",pilot:false},
+    {id:"B4",label:"B4",row:"back",pilot:false},
     {id:"B5",label:"B5",row:"back",pilot:false},
-    {id:"B6",label:"B6",row:"back",pilot:false},
   ]},
   "7-seater": { total:7, seats:[
     {id:"F1",label:"F1",row:"front",pilot:true},
