@@ -4748,6 +4748,7 @@ function PageShuttle({
       status:       "scheduled",
       booked:       0,
       booked_seats: [],
+      days:         form.days||[],
     };
     if (modal === "create_trip") {
       const newId = "ST-" + String(Date.now()).slice(-6);
@@ -4838,7 +4839,7 @@ function PageShuttle({
           <button onClick={() => {
             setForm({ pickup:"", dropoff:"", vehicle:"", date:"",
               time:TIMES[7], fare:shuttleBaseFare||"12", seats:"7",
-              driver:"Unassigned", notes:"" });
+              driver:"Unassigned", notes:"", days:[] });
             setModal("create_trip");
           }} style={{ padding:"7px 16px", borderRadius:8,
             border:"1px solid rgba(34,197,94,0.3)",
@@ -4929,7 +4930,7 @@ function PageShuttle({
                             date:   t.date||"", time:t.time||TIMES[7],
                             fare:   String(t.fare_per_seat||""), seats:String(t.seats||7),
                             vehicle:t.vehicle||"", driver:t.driver||"Unassigned",
-                            notes:  t.notes||"",
+                            notes:  t.notes||"", days: t.days||[],
                           });
                           setModal({ id:t.id, type:"edit_trip" });
                         }}>Edit</ActBtn>
@@ -5141,11 +5142,49 @@ function PageShuttle({
             </ShuttleField>
 
             <ShuttleField label="Assign Vehicle" full>
-              <select value={form.vehicle||""} onChange={e => setForm(f => ({...f, vehicle:e.target.value}))} style={SS}>
+              <select value={form.vehicle||""} onChange={e => {
+                const v = safeVehicles.find(x => x.id === e.target.value);
+                setForm(f => ({...f, vehicle:e.target.value, seats:String(v?.capacity||7), driver:v?.driver||"Unassigned"}));
+              }} style={SS}>
                 <option value="">— Unassigned —</option>
                 {safeVehicles.filter(v => v.status === "active").map(v =>
                   <option key={v.id} value={v.id}>{v.id} — {v.make} {v.model} ({v.capacity} seats)</option>)}
               </select>
+              {form.vehicle && (() => {
+                const v = safeVehicles.find(x => x.id === form.vehicle);
+                return v ? (
+                  <div style={{ marginTop:5, color:"#334155", fontSize:10 }}>
+                    Driver: <strong style={{ color:"#94a3b8" }}>{v.driver}</strong>
+                    &nbsp;·&nbsp; Capacity: <strong style={{ color:"#60a5fa" }}>{v.capacity} seats</strong>
+                  </div>
+                ) : null;
+              })()}
+            </ShuttleField>
+
+            <ShuttleField label="Days of Week (recurring)" full>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => {
+                  const sel = (form.days||[]).includes(day);
+                  return (
+                    <button key={day} type="button"
+                      onClick={() => setForm(f => {
+                        const days = f.days||[];
+                        return {...f, days: sel ? days.filter(d=>d!==day) : [...days, day]};
+                      })}
+                      style={{ padding:"6px 12px", borderRadius:7, fontSize:11, fontWeight:700,
+                        cursor:"pointer", border:`1.5px solid ${sel?"#3b82f6":"rgba(99,179,237,0.2)"}`,
+                        background:sel?"rgba(59,130,246,0.15)":"rgba(99,179,237,0.04)",
+                        color:sel?"#60a5fa":"#475569", transition:"all 0.12s" }}>
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              {(form.days||[]).length > 0 && (
+                <div style={{ marginTop:5, color:"#475569", fontSize:10 }}>
+                  Runs every: <strong style={{ color:"#60a5fa" }}>{(form.days||[]).join(", ")}</strong>
+                </div>
+              )}
             </ShuttleField>
 
             <ShuttleField label="Assign Driver" full>
