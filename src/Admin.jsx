@@ -5218,19 +5218,6 @@ function PageShuttle({
 }
 
 
-function ShuttleModal({ title, children, onClose }) {
-  return (
-    <div style={{ position:"fixed", inset:0, zIndex:900, background:"rgba(5,8,18,0.85)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
-      <div style={{ background:"#0d1220", border:"1px solid rgba(99,179,237,0.12)", borderRadius:14, padding:"24px 26px", width:"100%", maxWidth:560, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.6)" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <h3 style={{ color:"#f0f9ff", fontSize:16, fontWeight:600, margin:0, fontFamily:"'Space Grotesk',sans-serif" }}>{title}</h3>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"#475569", fontSize:18, cursor:"pointer", lineHeight:1 }}>x</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: PAYMENT
