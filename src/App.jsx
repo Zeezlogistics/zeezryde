@@ -958,15 +958,29 @@ function RiderApp() {
             <MapView height="100%" riderMode={true} />
           </div>
           {/* Top header overlay */}
-          <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px 16px 0" }}>
-            <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", marginBottom:10, gap:12 }}>
-              <div style={{ background:"rgba(15,23,42,0.75)", backdropFilter:"blur(8px)", borderRadius:12, padding:"7px 14px", textAlign:"right" }}>
-                <div style={{ color:LBLUE, fontSize:10 }}>Good to see you</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
+          <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px 0" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+
+              {/* LEFT: logo + rider name */}
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ background:"rgba(10,22,40,0.85)", backdropFilter:"blur(8px)", borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.4)" }}>
+                  <LogoAnim size={44} />
+                </div>
+                <div style={{ background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", borderRadius:12, padding:"6px 14px" }}>
+                  <div style={{ color:LBLUE, fontSize:9, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase" }}>Rider</div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
+                </div>
               </div>
-              <div style={{ backdropFilter:"blur(4px)", borderRadius:"50%", padding:3 }}>
-                <LogoAnim size={52} />
+
+              {/* RIGHT: map zoom +/- buttons */}
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {["+","−"].map(sym => (
+                  <button key={sym} style={{ width:36, height:36, borderRadius:10, border:"1px solid rgba(255,255,255,0.15)", background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", color:WHITE, fontSize:18, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
+                    {sym}
+                  </button>
+                ))}
               </div>
+
             </div>
             {/* Search bar */}
             <div style={{ background:WHITE, borderRadius:14, padding:"12px 14px", display:"flex", alignItems:"center", gap:10, boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
@@ -2473,8 +2487,13 @@ function DriverApp() {
 
             </div>
           </div>
-          {/* Bottom panel overlay */}
-          <div style={{ position:"absolute", bottom:72, left:0, right:0, zIndex:10, padding:"0 16px 16px" }}>
+          {/* Slide toggle strip — sits just above tab bar */}
+          <div style={{ position:"absolute", bottom:72, left:0, right:0, zIndex:11, padding:"0 16px 8px" }}>
+            <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
+          </div>
+
+          {/* Bottom panel overlay — sits above slide toggle */}
+          <div style={{ position:"absolute", bottom:148, left:0, right:0, zIndex:10, padding:"0 16px 0" }}>
             {err && <div style={{ marginBottom:8 }}><Err msg={err} /></div>}
             <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
               {/* Earnings row */}
@@ -2530,9 +2549,6 @@ function DriverApp() {
                 </div>
               )}
             </div>
-
-            {/* ── SLIDE TO GO ONLINE / OFFLINE ─────────────────── */}
-            <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
 
           </div>
         </div>
