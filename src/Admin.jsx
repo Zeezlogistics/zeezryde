@@ -708,7 +708,7 @@ export default function AdminApp() {
           {page === "docs"      && <PageDocs viewOnly={viewOnly}       drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
           {page === "promos"    && <PagePromos    promos={promos} setPromos={setPromos} drivers={drivers} />}
           {page === "zones"     && <PageZones     drivers={drivers} patchDriver={patchDriver} />}
-          {page === "shuttle"   && <PageShuttle viewOnly={viewOnly}   shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
+          {page === "shuttle"   && <PageShuttle viewOnly={viewOnly} flash={flash} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
           {page === "payment"   && <PagePayment viewOnly={viewOnly}   methods={paymentMethods} setMethods={setPaymentMethods} payouts={payoutRequests} setPayouts={setPayoutRequests} trips={ALL_TRIPS} subs={ALL_SUBS} stripePublishableKey={stripePublishableKey} setStripePublishableKey={setStripePublishableKey} stripeSecretKey={stripeSecretKey} setStripeSecretKey={setStripeSecretKey} stripeWebhookSecret={stripeWebhookSecret} setStripeWebhookSecret={setStripeWebhookSecret} stripeAccountId={stripeAccountId} setStripeAccountId={setStripeAccountId} stripeMode={stripeMode} setStripeMode={setStripeMode} stripeConnected={stripeConnected} setStripeConnected={setStripeConnected} payoutSchedule={payoutSchedule} setPayoutSchedule={setPayoutSchedule} payoutDay={payoutDay} setPayoutDay={setPayoutDay} stripeAutoCapture={stripeAutoCapture} setStripeAutoCapture={setStripeAutoCapture} businessName={businessName} setBusinessName={setBusinessName} businessEmail={businessEmail} setBusinessEmail={setBusinessEmail} businessPhone={businessPhone} setBusinessPhone={setBusinessPhone} businessAddress={businessAddress} setBusinessAddress={setBusinessAddress} businessBankName={businessBankName} setBusinessBankName={setBusinessBankName} businessBankLast4={businessBankLast4} setBusinessBankLast4={setBusinessBankLast4} businessTransitNo={businessTransitNo} setBusinessTransitNo={setBusinessTransitNo} businessInstNo={businessInstNo} setBusinessInstNo={setBusinessInstNo} autoPayoutEnabled={autoPayoutEnabled} setAutoPayoutEnabled={setAutoPayoutEnabled} lastAutoPayoutDate={lastAutoPayoutDate} nextAutoPayoutDate={nextAutoPayoutDate} cashoutRequests={cashoutRequests} setCashoutRequests={setCashoutRequests} />}
           {page === "data"      && <PageDataManagement viewOnly={viewOnly} />}
           {page === "users"     && <PageUsers viewOnly={viewOnly} />}
@@ -5458,7 +5458,7 @@ function ShuttleModal({ title, children, onClose }) {
 // PAGE: SHUTTLE / AIRPORT
 // ─────────────────────────────────────────────────────────────────────────────
 function PageShuttle({
-  viewOnly, vehicles, setVehicles, trips, setTrips, drivers,
+  viewOnly, flash, vehicles, setVehicles, trips, setTrips, drivers,
   shuttleBaseFare, setShuttleBaseFare,
   shuttleBookingFee, setShuttleBookingFee,
   shuttlePeakOn, setShuttlePeakOn,
@@ -5472,6 +5472,29 @@ function PageShuttle({
   const [tab,           setTab]           = useState("vehicles");
   const [modal,         setModal]         = useState(null);
   const [form,          setForm]          = useState({});
+
+  function saveShuttleSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
+      localStorage.setItem("zeez_settings", JSON.stringify({
+        ...saved,
+        shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
+        airportFareYYZ, airportFareYHM, airportFareYTZ,
+        airportBookingFee, airportMinNotice,
+      }));
+      try {
+        if (window.__zeezAdmin) {
+          if (window.__zeezAdmin.getAirportFare) {
+            // update bridge getters by patching the settings object
+          }
+          // Force a localStorage read on next getLive() call (already stored above)
+        }
+      } catch(e) {}
+      if (flash) flash("Airport &amp; Shuttle settings saved ✓");
+    } catch(e) {
+      if (flash) flash("Save failed: " + e.message, false);
+    }
+  }
   const [toast,         setToast]         = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
@@ -5815,6 +5838,21 @@ function PageShuttle({
             </div>
           </Panel>
         </div>
+
+        {/* Save button — Airport & Shuttle Settings */}
+        {!viewOnly && (
+          <div style={{ marginTop:18, display:"flex", justifyContent:"flex-end" }}>
+            <button onClick={saveShuttleSettings} style={{
+              padding:"11px 32px", borderRadius:10, border:"none", cursor:"pointer",
+              background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+              color:"#fff", fontSize:13, fontWeight:700,
+              fontFamily:"'Syne',sans-serif", letterSpacing:0.3,
+              boxShadow:"0 4px 14px rgba(37,99,235,0.4)"
+            }}>
+              💾 Save Airport &amp; Shuttle Settings
+            </button>
+          </div>
+        )}
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
