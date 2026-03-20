@@ -1644,10 +1644,6 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
             }}
           />
 
-          <button onClick={handleSave} style={{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:8, padding:"10px 24px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5, alignSelf:"flex-start" }}>
-            SAVE ALL SETTINGS
-          </button>
-
           {/* ── CANCELLATION & DELAY FEES ── */}
           <SettingsPanel title="CANCELLATION &amp; DELAY FEES">
             <div style={{ color:"#334155", fontSize:10, marginBottom:14, lineHeight:1.6 }}>
@@ -1720,6 +1716,10 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
               </>
             )}
           </SettingsPanel>
+
+          <button onClick={handleSave} style={{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:8, padding:"12px 28px", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5, alignSelf:"flex-start", width:"100%", marginTop:8 }}>
+            💾 SAVE ALL SETTINGS
+          </button>
         </div>
 
         {/* ── RIGHT COLUMN — AI Advisor + Pricing preview ── */}
