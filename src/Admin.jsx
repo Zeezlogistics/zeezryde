@@ -5536,6 +5536,13 @@ function PageShuttle({
         airportBookingFee, airportMinNotice,
       };
       localStorage.setItem("zeez_settings", JSON.stringify(updated));
+      // Also save to Supabase so settings persist on refresh and across devices
+      getSupabase().then(sb => {
+        sb.from("settings").upsert(
+          { key: "admin_settings", value: updated, updated_at: new Date().toISOString() },
+          { onConflict: "key" }
+        ).then(() => {}).catch(e => console.error("Shuttle settings Supabase save:", e));
+      });
       if (flash) flash("Airport & Shuttle settings saved ✓");
     } catch(e) {
       if (flash) flash("Save failed: " + e.message, false);
