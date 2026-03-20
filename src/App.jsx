@@ -1944,6 +1944,8 @@ function DriverApp() {
   const [name, setName]     = useState("");
   const [phone, setPhone]   = useState("");
   const [vehicle, setVeh]   = useState("");
+  const [vMake, setVMake]   = useState("");
+  const [vModel, setVModel] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
   const [plate, setPlate]   = useState("");
   const [pc, setPc]         = useState("");
@@ -2032,7 +2034,7 @@ function DriverApp() {
     try {
       const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ name, role:"driver" } } });
       if (error) throw error;
-      await db.from("drivers").insert({ id:data.user.id, name, email, phone:phone||null, vehicle:vehicle||null, plate:plate||null, status:"pending" });
+      await db.from("drivers").insert({ id:data.user.id, name, email, phone:phone||null, vehicle:(vMake&&vModel?vMake+" "+vModel:vehicle)||null, plate:plate||null, status:"pending" });
       setUser(data.user); setDOtpSent(true); setDOtpValue(""); setDOtpError("");
       go("dotp");
     } catch(e) { setErr(e.message||"Registration failed"); }
@@ -2144,7 +2146,23 @@ function DriverApp() {
             )}
           </div>
           {/* Make & Model */}
-          <Input label="Make &amp; Model" value={vehicle} onChange={e=>setVeh(e.target.value)} placeholder="e.g. Toyota Camry, Honda Civic" />
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:5 }}>Make</div>
+            <select value={vMake} onChange={e=>{ setVMake(e.target.value); setVModel(""); setErr(""); }}
+              style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+BORDER, background:VLIGHT, fontSize:13, color:vMake?NAVY:SLATE, outline:"none" }}>
+              <option value="">Select make</option>
+              {CAR_MAKES.map(m=><option key={m.make} value={m.make}>{m.make}</option>)}
+            </select>
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:5 }}>Model</div>
+            <select value={vModel} onChange={e=>{ setVModel(e.target.value); setErr(""); }}
+              style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:"1.5px solid "+BORDER, background:VLIGHT, fontSize:13, color:vModel?NAVY:SLATE, outline:"none", opacity:vMake?1:0.6 }}
+              disabled={!vMake}>
+              <option value="">{vMake?"Select model":"Select make first"}</option>
+              {(CAR_MAKES.find(m=>m.make===vMake)?.models||[]).map(m=><option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
           <Input label="License Plate" value={plate} onChange={e=>setPlate(e.target.value)} placeholder="ABCD 123" />
         </div>
         {/* Security */}
