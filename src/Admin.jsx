@@ -437,6 +437,7 @@ export default function AdminApp() {
     { id:"payment",   icon:"⊟", label:"Payment"         },
     { id:"settings",  icon:"◎", label:"Settings"       },
     { id:"data",      icon:"🗑", label:"Data Management" },
+  { id:"users",     icon:"👤", label:"Users"            },
   ];
 
   return (
@@ -461,7 +462,7 @@ export default function AdminApp() {
         {/* Nav links */}
         <nav style={{ flex:1, padding:"14px 10px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
           <div style={{ color:"rgba(99,179,237,0.3)", fontSize:8, fontWeight:700, letterSpacing:2.5, textTransform:"uppercase", padding:"4px 10px 8px" }}>Platform</div>
-          {NAV.filter(n => !viewOnly || !["settings","data"].includes(n.id)).map(n => {
+          {NAV.filter(n => !viewOnly || !["settings","data","subs","docs","promos","payment","users"].includes(n.id)).map(n => {
             const active = page === n.id;
             return (
               <button key={n.id} onClick={() => { setPage(n.id); setSearch(""); }} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", borderRadius:7, border:"none", cursor:"pointer", background:active?"rgba(59,130,246,0.12)":"transparent", width:"100%", textAlign:"left", transition:"all 0.15s" }}>
@@ -526,6 +527,7 @@ export default function AdminApp() {
           {page === "shuttle"   && <PageShuttle viewOnly={viewOnly}   shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
           {page === "payment"   && <PagePayment viewOnly={viewOnly}   methods={paymentMethods} setMethods={setPaymentMethods} payouts={payoutRequests} setPayouts={setPayoutRequests} trips={ALL_TRIPS} subs={ALL_SUBS} stripePublishableKey={stripePublishableKey} setStripePublishableKey={setStripePublishableKey} stripeSecretKey={stripeSecretKey} setStripeSecretKey={setStripeSecretKey} stripeWebhookSecret={stripeWebhookSecret} setStripeWebhookSecret={setStripeWebhookSecret} stripeAccountId={stripeAccountId} setStripeAccountId={setStripeAccountId} stripeMode={stripeMode} setStripeMode={setStripeMode} stripeConnected={stripeConnected} setStripeConnected={setStripeConnected} payoutSchedule={payoutSchedule} setPayoutSchedule={setPayoutSchedule} payoutDay={payoutDay} setPayoutDay={setPayoutDay} stripeAutoCapture={stripeAutoCapture} setStripeAutoCapture={setStripeAutoCapture} businessName={businessName} setBusinessName={setBusinessName} businessEmail={businessEmail} setBusinessEmail={setBusinessEmail} businessPhone={businessPhone} setBusinessPhone={setBusinessPhone} businessAddress={businessAddress} setBusinessAddress={setBusinessAddress} businessBankName={businessBankName} setBusinessBankName={setBusinessBankName} businessBankLast4={businessBankLast4} setBusinessBankLast4={setBusinessBankLast4} businessTransitNo={businessTransitNo} setBusinessTransitNo={setBusinessTransitNo} businessInstNo={businessInstNo} setBusinessInstNo={setBusinessInstNo} autoPayoutEnabled={autoPayoutEnabled} setAutoPayoutEnabled={setAutoPayoutEnabled} lastAutoPayoutDate={lastAutoPayoutDate} nextAutoPayoutDate={nextAutoPayoutDate} cashoutRequests={cashoutRequests} setCashoutRequests={setCashoutRequests} />}
           {page === "data"      && <PageDataManagement viewOnly={viewOnly} />}
+          {page === "users"     && <PageUsers viewOnly={viewOnly} />}
           {page === "settings"  && <PageSettings viewOnly={viewOnly}  airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} riderDelayFee={riderDelayFee} setRiderDelayFee={setRiderDelayFee} driverCancelFee={driverCancelFee} setDriverCancelFee={setDriverCancelFee} surgeEnabled={surgeEnabled} setSurgeEnabled={setSurgeEnabled} surgeRadiusKm={surgeRadiusKm} setSurgeRadiusKm={setSurgeRadiusKm} subFee={subFee} setSubFee={setSubFee} commPct={commPct} setCommPct={setCommPct} countdown={countdown} setCountdown={setCountdown} reqSub={reqSub} setReqSub={setReqSub} autoSusp={autoSusp} setAutoSusp={setAutoSusp} adminAlert={adminAlert} setAdminAlert={setAdminAlert} flash={flash} trips={ALL_TRIPS} drivers={drivers} subs={ALL_SUBS} maxPickupKm={maxPickupKm} setMaxPickupKm={setMaxPickupKm} pickupFeeKm={pickupFeeKm} setPickupFeeKm={setPickupFeeKm} dispatchMode={dispatchMode} setDispatchMode={setDispatchMode} pickupFeeOn={pickupFeeOn} setPickupFeeOn={setPickupFeeOn} baseFare={baseFare} setBaseFare={setBaseFare} ratePerKm={ratePerKm} setRatePerKm={setRatePerKm} ratePerMin={ratePerMin} setRatePerMin={setRatePerMin} minimumFare={minimumFare} setMinimumFare={setMinimumFare} beyondCapKm={beyondCapKm} setBeyondCapKm={setBeyondCapKm} beyondFeeFlat={beyondFeeFlat} setBeyondFeeFlat={setBeyondFeeFlat} beyondFeeOn={beyondFeeOn} setBeyondFeeOn={setBeyondFeeOn} waitFeeOn={waitFeeOn} setWaitFeeOn={setWaitFeeOn} waitFeeRate={waitFeeRate} setWaitFeeRate={setWaitFeeRate} waitFeeMinutes={waitFeeMinutes} setWaitFeeMinutes={setWaitFeeMinutes} />}
         </main>
       </div>
@@ -4400,12 +4402,12 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
           <h1 style={{ color:"#f0f9ff", fontSize:20, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:-0.3 }}>Promos</h1>
           <p style={{ color:"#334155", fontSize:12, marginTop:4, fontFamily:"'JetBrains Mono',monospace" }}>Driver promotions &amp; subscription discounts</p>
         </div>
-        <button
+        {!viewOnly && <button
           onClick={() => setShowCreate(o=>!o)}
           style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"9px 18px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}
         >
           {showCreate ? "✕ CANCEL" : "+ NEW PROMO"}
-        </button>
+        </button>}
       </div>
 
       {/* Flash */}
@@ -4512,9 +4514,9 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
           )}
 
           <div style={{ display:"flex", justifyContent:"flex-end" }}>
-            <button onClick={createPromo} style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"10px 22px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
+            {!viewOnly && <button onClick={createPromo} style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"10px 22px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
               CREATE PROMO
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -4550,12 +4552,12 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
                     </span>
                   </Td>
                   <Td>
-                    <div style={{ display:"flex", gap:6 }}>
+                    {!viewOnly && <div style={{ display:"flex", gap:6 }}>
                       <button onClick={()=>toggleStatus(p.id)} style={{ background:"rgba(99,179,237,0.07)", border:"1px solid rgba(99,179,237,0.15)", color:"#93c5fd", borderRadius:6, padding:"4px 10px", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
                         {isActive?"PAUSE":"RESUME"}
                       </button>
                       <button onClick={()=>deletePromo(p.id)} style={{ background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", color:"#f87171", borderRadius:6, padding:"4px 8px", fontSize:11, cursor:"pointer" }}>x</button>
-                    </div>
+                    </div>}
                   </Td>
                 </tr>
               );
@@ -4686,6 +4688,554 @@ function EmptyRow({ text }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SHUTTLE FIELD — label wrapper (defined OUTSIDE PageShuttle to prevent focus loss)
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE: USERS (Admin user management)
+// ─────────────────────────────────────────────────────────────────────────────
+function PageUsers({ viewOnly }) {
+  const ALL_PAGES = [
+    { id:"overview",  label:"Overview"         },
+    { id:"drivers",   label:"Drivers"          },
+    { id:"riders",    label:"Riders"           },
+    { id:"trips",     label:"Trips"            },
+    { id:"subs",      label:"Subscriptions"    },
+    { id:"docs",      label:"Documents"        },
+    { id:"promos",    label:"Promos"           },
+    { id:"zones",     label:"Zone Control"     },
+    { id:"shuttle",   label:"Shuttle/Airport"  },
+    { id:"payment",   label:"Payment"          },
+    { id:"settings",  label:"Settings"         },
+    { id:"data",      label:"Data Management"  },
+  ];
+
+  const EMPTY_PERMS = () => Object.fromEntries(ALL_PAGES.map(p => [p.id, "none"]));
+
+  const [users,       setUsers]       = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [modal,       setModal]       = useState(null); // "create" | "edit" | "approve" | "delete"
+  const [selected,    setSelected]    = useState(null); // selected user object
+  const [form,        setForm]        = useState({ name:"", email:"", password:"", role:"view", perms: EMPTY_PERMS() });
+  const [toast,       setToast]       = useState(null);
+  const [pendingEdit, setPendingEdit] = useState(null); // pending edit awaiting approval
+  const [approvals,   setApprovals]   = useState([]); // list of pending approval requests
+
+  function flash(msg, ok=true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  // Load users from localStorage (persisted locally since Supabase auth management
+  // requires service role key which we don't expose client-side)
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("zeez_admin_users") || "[]");
+      const savedApprovals = JSON.parse(localStorage.getItem("zeez_admin_approvals") || "[]");
+      setUsers(saved);
+      setApprovals(savedApprovals);
+    } catch(e) { setUsers([]); setApprovals([]); }
+    setLoading(false);
+  }, []);
+
+  function saveUsers(list) {
+    setUsers(list);
+    try { localStorage.setItem("zeez_admin_users", JSON.stringify(list)); } catch(e) {}
+  }
+
+  function saveApprovals(list) {
+    setApprovals(list);
+    try { localStorage.setItem("zeez_admin_approvals", JSON.stringify(list)); } catch(e) {}
+  }
+
+  // Perm toggle: cycles none → view → edit → none
+  function cyclePerm(pageId) {
+    setForm(f => {
+      const cur = f.perms[pageId] || "none";
+      const next = cur === "none" ? "view" : cur === "view" ? "edit" : "none";
+      return { ...f, perms: { ...f.perms, [pageId]: next } };
+    });
+  }
+
+  function setAllPerms(level) {
+    setForm(f => ({ ...f, perms: Object.fromEntries(ALL_PAGES.map(p => [p.id, level])) }));
+  }
+
+  // Create new user
+  function handleCreate() {
+    if (!form.name.trim()) { flash("Name is required", false); return; }
+    if (!form.email.trim() || !form.email.includes("@")) { flash("Valid email required", false); return; }
+    if (!form.password || form.password.length < 8) { flash("Password must be 8+ characters", false); return; }
+    if (users.some(u => u.email.toLowerCase() === form.email.toLowerCase())) {
+      flash("Email already exists", false); return;
+    }
+    const newUser = {
+      id: "USR-" + Date.now(),
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      password: form.password, // stored locally; in production use Supabase Auth
+      role: form.role,
+      perms: { ...form.perms },
+      status: "active",
+      created_at: new Date().toISOString(),
+    };
+    saveUsers([...users, newUser]);
+    setModal(null);
+    setForm({ name:"", email:"", password:"", role:"view", perms: EMPTY_PERMS() });
+    flash(`User ${newUser.name} created`);
+  }
+
+  // Request edit — goes to approval queue
+  function handleRequestEdit() {
+    if (!form.name.trim() || !form.email.trim()) { flash("Name and email required", false); return; }
+    const req = {
+      id: "APR-" + Date.now(),
+      userId: selected.id,
+      originalUser: { ...selected },
+      proposed: {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        role: form.role,
+        perms: { ...form.perms },
+      },
+      requestedAt: new Date().toISOString(),
+      status: "pending",
+    };
+    saveApprovals([...approvals, req]);
+    setModal(null);
+    flash("Edit request submitted — awaiting Super Admin approval");
+  }
+
+  // Approve or reject a pending edit
+  function handleApprove(aprId, approve) {
+    const apr = approvals.find(a => a.id === aprId);
+    if (!apr) return;
+    if (approve) {
+      const updated = users.map(u =>
+        u.id === apr.userId ? { ...u, ...apr.proposed } : u
+      );
+      saveUsers(updated);
+      flash(`Changes to ${apr.proposed.name} approved and applied`);
+    } else {
+      flash(`Edit request rejected`);
+    }
+    saveApprovals(approvals.map(a => a.id === aprId ? { ...a, status: approve ? "approved" : "rejected" } : a));
+  }
+
+  // Toggle user active/suspended
+  function toggleStatus(userId) {
+    const updated = users.map(u =>
+      u.id === userId ? { ...u, status: u.status === "active" ? "suspended" : "active" } : u
+    );
+    saveUsers(updated);
+    flash("User status updated");
+  }
+
+  // Delete user
+  function handleDelete(userId) {
+    saveUsers(users.filter(u => u.id !== userId));
+    setModal(null);
+    setSelected(null);
+    flash("User deleted");
+  }
+
+  const pendingApprovals = approvals.filter(a => a.status === "pending");
+
+  // ── Styles ────────────────────────────────────────────────────
+  const IS = { width:"100%", background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.15)",
+    borderRadius:7, padding:"8px 11px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" };
+
+  const PERM_COLORS = {
+    none: { bg:"rgba(99,179,237,0.04)", border:"rgba(99,179,237,0.1)", color:"#334155", label:"—" },
+    view: { bg:"rgba(59,130,246,0.1)",  border:"rgba(59,130,246,0.3)",  color:"#60a5fa", label:"View" },
+    edit: { bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.3)",   color:"#22c55e", label:"Edit" },
+  };
+
+  function PermBadge({ level }) {
+    const c = PERM_COLORS[level] || PERM_COLORS.none;
+    return (
+      <span style={{ fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:4,
+        background:c.bg, border:`1px solid ${c.border}`, color:c.color,
+        fontFamily:"'JetBrains Mono',monospace", letterSpacing:0.5 }}>
+        {c.label}
+      </span>
+    );
+  }
+
+  return (
+    <div>
+      {/* Toast */}
+      {toast && (
+        <div style={{ position:"fixed", top:20, right:20, zIndex:9999,
+          background:toast.ok?"rgba(34,197,94,0.15)":"rgba(239,68,68,0.15)",
+          border:`1px solid ${toast.ok?"rgba(34,197,94,0.3)":"rgba(239,68,68,0.3)"}`,
+          borderRadius:10, padding:"10px 18px", color:toast.ok?"#86efac":"#fca5a5",
+          fontSize:12, fontWeight:600, backdropFilter:"blur(8px)" }}>
+          {toast.msg}
+        </div>
+      )}
+
+      <SectionHdr title="Users" sub="Manage admin portal accounts and page-level permissions" />
+
+      {/* Pending approvals banner */}
+      {pendingApprovals.length > 0 && !viewOnly && (
+        <div style={{ marginBottom:16, padding:"12px 16px",
+          background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.3)",
+          borderRadius:10, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div>
+            <span style={{ color:"#f59e0b", fontWeight:700, fontSize:12 }}>
+              ⏳ {pendingApprovals.length} edit request{pendingApprovals.length>1?"s":""} awaiting approval
+            </span>
+          </div>
+          <button onClick={() => setModal("approvals")}
+            style={{ padding:"6px 14px", borderRadius:7, border:"1px solid rgba(245,158,11,0.4)",
+              background:"rgba(245,158,11,0.1)", color:"#f59e0b", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+            Review
+          </button>
+        </div>
+      )}
+
+      {/* Header row */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <div style={{ color:"#64748b", fontSize:12 }}>
+          {users.length} user{users.length!==1?"s":""} · {users.filter(u=>u.status==="active").length} active
+        </div>
+        {!viewOnly && (
+          <button onClick={() => {
+            setForm({ name:"", email:"", password:"", role:"view", perms: EMPTY_PERMS() });
+            setModal("create");
+          }} style={{ padding:"8px 18px", borderRadius:8, border:"1px solid rgba(59,130,246,0.3)",
+            background:"rgba(59,130,246,0.08)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            + Create User
+          </button>
+        )}
+      </div>
+
+      {/* Users table */}
+      <Panel title="ALL USERS">
+        {loading ? (
+          <div style={{ padding:40, textAlign:"center", color:"#334155" }}>Loading…</div>
+        ) : users.length === 0 ? (
+          <div style={{ padding:"40px", textAlign:"center", color:"#334155", fontSize:13 }}>
+            No users created yet.<br/>
+            {!viewOnly && <span style={{ color:"#60a5fa" }}>Click + Create User to add one.</span>}
+          </div>
+        ) : (
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead>
+              <tr>{["NAME","EMAIL","ROLE","PAGES","STATUS","CREATED",""].map(h => <Th key={h}>{h}</Th>)}</tr>
+            </thead>
+            <tbody>
+              {users.map(u => {
+                const editCount   = Object.values(u.perms||{}).filter(v=>v==="edit").length;
+                const viewCount   = Object.values(u.perms||{}).filter(v=>v==="view").length;
+                const hasPending  = approvals.some(a => a.userId===u.id && a.status==="pending");
+                return (
+                  <tr key={u.id} className="trow">
+                    <Td>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <Avi name={u.name} seed={u.id} hue={200} />
+                        <div>
+                          <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:500 }}>{u.name}</div>
+                          <Mono small>{u.id}</Mono>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td><span style={{ color:"#64748b", fontSize:11 }}>{u.email}</span></Td>
+                    <Td>
+                      <span style={{ padding:"3px 8px", borderRadius:5, fontSize:10, fontWeight:700,
+                        fontFamily:"'JetBrains Mono',monospace",
+                        background:u.role==="super"?"rgba(167,139,250,0.1)":"rgba(99,179,237,0.07)",
+                        border:`1px solid ${u.role==="super"?"rgba(167,139,250,0.3)":"rgba(99,179,237,0.15)"}`,
+                        color:u.role==="super"?"#a78bfa":"#93c5fd" }}>
+                        {u.role==="super"?"Super Admin":u.role==="edit"?"Editor":"Viewer"}
+                      </span>
+                    </Td>
+                    <Td>
+                      <div style={{ fontSize:10, color:"#64748b" }}>
+                        {editCount > 0 && <span style={{ color:"#22c55e", marginRight:6 }}>{editCount} edit</span>}
+                        {viewCount > 0 && <span style={{ color:"#60a5fa" }}>{viewCount} view</span>}
+                        {editCount===0 && viewCount===0 && <span style={{ color:"#334155" }}>—</span>}
+                      </div>
+                      {hasPending && <div style={{ color:"#f59e0b", fontSize:9, fontWeight:700 }}>⏳ edit pending</div>}
+                    </Td>
+                    <Td><StatusBadge s={u.status||"active"} /></Td>
+                    <Td>
+                      <span style={{ color:"#475569", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>
+                        {new Date(u.created_at).toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"})}
+                      </span>
+                    </Td>
+                    <Td>
+                      {!viewOnly && (
+                        <div style={{ display:"flex", gap:5 }}>
+                          <ActBtn onClick={() => {
+                            setSelected(u);
+                            setForm({ name:u.name, email:u.email, password:"", role:u.role||"view", perms:{ ...EMPTY_PERMS(), ...(u.perms||{}) } });
+                            setModal("edit");
+                          }}>Edit</ActBtn>
+                          <ActBtn onClick={() => toggleStatus(u.id)}>
+                            {u.status==="active"?"Suspend":"Reinstate"}
+                          </ActBtn>
+                          <ActBtn danger onClick={() => { setSelected(u); setModal("delete"); }}>Delete</ActBtn>
+                        </div>
+                      )}
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Panel>
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL: CREATE USER                                        */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === "create" && (
+        <ShuttleModal title="Create New User" onClose={() => setModal(null)}>
+          <UserForm
+            form={form} setForm={setForm} IS={IS} ALL_PAGES={ALL_PAGES}
+            PERM_COLORS={PERM_COLORS} cyclePerm={cyclePerm} setAllPerms={setAllPerms}
+            showPassword={true}
+          />
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:20 }}>
+            <button onClick={() => setModal(null)}
+              style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Cancel
+            </button>
+            <button onClick={handleCreate}
+              style={{ padding:"8px 24px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
+                background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Create User
+            </button>
+          </div>
+        </ShuttleModal>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL: EDIT USER (requires approval)                      */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === "edit" && selected && (
+        <ShuttleModal title={`Edit User — ${selected.name}`} onClose={() => setModal(null)}>
+          <div style={{ marginBottom:14, padding:"10px 14px",
+            background:"rgba(245,158,11,0.08)", border:"1px solid rgba(245,158,11,0.2)",
+            borderRadius:8, color:"#f59e0b", fontSize:11 }}>
+            ⚠️ Edits require Super Admin approval before taking effect
+          </div>
+          <UserForm
+            form={form} setForm={setForm} IS={IS} ALL_PAGES={ALL_PAGES}
+            PERM_COLORS={PERM_COLORS} cyclePerm={cyclePerm} setAllPerms={setAllPerms}
+            showPassword={false}
+          />
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:20 }}>
+            <button onClick={() => setModal(null)}
+              style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Cancel
+            </button>
+            <button onClick={handleRequestEdit}
+              style={{ padding:"8px 24px", borderRadius:7, border:"1px solid rgba(245,158,11,0.3)",
+                background:"rgba(245,158,11,0.08)", color:"#f59e0b", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Submit for Approval →
+            </button>
+          </div>
+        </ShuttleModal>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL: PENDING APPROVALS                                  */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === "approvals" && (
+        <ShuttleModal title="Pending Edit Approvals" onClose={() => setModal(null)}>
+          {pendingApprovals.length === 0 ? (
+            <div style={{ padding:"30px 0", textAlign:"center", color:"#334155" }}>No pending approvals</div>
+          ) : (
+            pendingApprovals.map(apr => {
+              const orig = apr.originalUser;
+              const prop = apr.proposed;
+              return (
+                <div key={apr.id} style={{ marginBottom:16, padding:16,
+                  background:"rgba(99,179,237,0.04)", border:"1px solid rgba(99,179,237,0.1)",
+                  borderRadius:10 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
+                    <div>
+                      <div style={{ color:"#f0f9ff", fontWeight:600, fontSize:13 }}>{orig.name}</div>
+                      <div style={{ color:"#475569", fontSize:10, marginTop:2 }}>
+                        Requested: {new Date(apr.requestedAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <Mono small>{apr.id}</Mono>
+                  </div>
+
+                  {/* Show diff */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
+                    <div style={{ padding:"8px 10px", background:"rgba(239,68,68,0.05)",
+                      border:"1px solid rgba(239,68,68,0.15)", borderRadius:7 }}>
+                      <div style={{ color:"#ef4444", fontSize:9, fontWeight:700, marginBottom:6 }}>CURRENT</div>
+                      <div style={{ color:"#94a3b8", fontSize:11 }}>{orig.name}</div>
+                      <div style={{ color:"#64748b", fontSize:10 }}>{orig.email}</div>
+                      <div style={{ color:"#64748b", fontSize:10 }}>Role: {orig.role||"view"}</div>
+                    </div>
+                    <div style={{ padding:"8px 10px", background:"rgba(34,197,94,0.05)",
+                      border:"1px solid rgba(34,197,94,0.15)", borderRadius:7 }}>
+                      <div style={{ color:"#22c55e", fontSize:9, fontWeight:700, marginBottom:6 }}>PROPOSED</div>
+                      <div style={{ color:"#94a3b8", fontSize:11 }}>{prop.name}</div>
+                      <div style={{ color:"#64748b", fontSize:10 }}>{prop.email}</div>
+                      <div style={{ color:"#64748b", fontSize:10 }}>Role: {prop.role||"view"}</div>
+                    </div>
+                  </div>
+
+                  {/* Permission changes */}
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ color:"#475569", fontSize:9, fontWeight:700, letterSpacing:1, marginBottom:6 }}>PERMISSION CHANGES</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                      {ALL_PAGES.map(p => {
+                        const was = orig.perms?.[p.id]||"none";
+                        const now = prop.perms?.[p.id]||"none";
+                        const changed = was !== now;
+                        if (!changed) return null;
+                        const cc = PERM_COLORS[now]||PERM_COLORS.none;
+                        return (
+                          <div key={p.id} style={{ fontSize:9, padding:"2px 8px", borderRadius:5,
+                            background:cc.bg, border:`1px solid ${cc.border}`, color:cc.color,
+                            fontFamily:"'JetBrains Mono',monospace" }}>
+                            {p.label}: {was}→{now}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={() => handleApprove(apr.id, false)}
+                      style={{ flex:1, padding:"8px", borderRadius:7, border:"1px solid rgba(239,68,68,0.3)",
+                        background:"rgba(239,68,68,0.07)", color:"#ef4444", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      ✕ Reject
+                    </button>
+                    <button onClick={() => handleApprove(apr.id, true)}
+                      style={{ flex:2, padding:"8px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
+                        background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      ✓ Approve & Apply
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div style={{ textAlign:"right", marginTop:8 }}>
+            <button onClick={() => setModal(null)}
+              style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Close
+            </button>
+          </div>
+        </ShuttleModal>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* MODAL: DELETE CONFIRM                                     */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {modal === "delete" && selected && (
+        <ShuttleModal title="Delete User" onClose={() => setModal(null)}>
+          <div style={{ color:"#94a3b8", fontSize:13, marginBottom:20 }}>
+            Are you sure you want to permanently delete{" "}
+            <strong style={{ color:"#f0f9ff" }}>{selected.name}</strong>?
+            This cannot be undone.
+          </div>
+          <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+            <button onClick={() => setModal(null)}
+              style={{ padding:"8px 16px", borderRadius:7, border:"1px solid rgba(99,179,237,0.15)",
+                background:"transparent", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Cancel
+            </button>
+            <button onClick={() => handleDelete(selected.id)}
+              style={{ padding:"8px 24px", borderRadius:7, border:"1px solid rgba(239,68,68,0.3)",
+                background:"rgba(239,68,68,0.08)", color:"#ef4444", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              Delete
+            </button>
+          </div>
+        </ShuttleModal>
+      )}
+
+    </div>
+  );
+}
+
+// ── UserForm — shared between Create and Edit modals ──────────────────────────
+function UserForm({ form, setForm, IS, ALL_PAGES, PERM_COLORS, cyclePerm, setAllPerms, showPassword }) {
+  return (
+    <>
+      {/* Basic info */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
+        <ShuttleField label="Full Name" full>
+          <input value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))}
+            placeholder="e.g. Jane Smith" style={IS} />
+        </ShuttleField>
+        <ShuttleField label="Email Address" full>
+          <input type="email" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))}
+            placeholder="jane@zeezryde.com" style={IS} />
+        </ShuttleField>
+        {showPassword && (
+          <ShuttleField label="Password" full>
+            <input type="password" value={form.password} onChange={e => setForm(f=>({...f,password:e.target.value}))}
+              placeholder="Min 8 characters" style={IS} />
+          </ShuttleField>
+        )}
+        <ShuttleField label="Role">
+          <select value={form.role} onChange={e => setForm(f=>({...f,role:e.target.value}))}
+            style={{ ...IS, background:"#0d1220" }}>
+            <option value="view">Viewer</option>
+            <option value="edit">Editor</option>
+            <option value="super">Super Admin</option>
+          </select>
+        </ShuttleField>
+      </div>
+
+      {/* Permission matrix */}
+      <div style={{ marginBottom:12 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <div style={{ color:"rgba(148,163,184,0.6)", fontSize:9, fontWeight:700,
+            letterSpacing:1.5, textTransform:"uppercase", fontFamily:"'JetBrains Mono',monospace" }}>
+            Page Permissions
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            {["none","view","edit"].map(level => (
+              <button key={level} onClick={() => setAllPerms(level)}
+                style={{ padding:"3px 10px", borderRadius:5, fontSize:9, fontWeight:700,
+                  cursor:"pointer", fontFamily:"'JetBrains Mono',monospace",
+                  background:PERM_COLORS[level].bg, border:`1px solid ${PERM_COLORS[level].border}`,
+                  color:PERM_COLORS[level].color }}>
+                All {level==="none"?"—":level==="view"?"View":"Edit"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+          {ALL_PAGES.map(p => {
+            const level = form.perms[p.id] || "none";
+            const c = PERM_COLORS[level];
+            return (
+              <button key={p.id} type="button" onClick={() => cyclePerm(p.id)}
+                style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                  padding:"8px 12px", borderRadius:8, cursor:"pointer", textAlign:"left",
+                  background:c.bg, border:`1px solid ${c.border}`, transition:"all 0.12s" }}>
+                <span style={{ color:"#94a3b8", fontSize:11 }}>{p.label}</span>
+                <span style={{ fontSize:9, fontWeight:700, color:c.color,
+                  fontFamily:"'JetBrains Mono',monospace" }}>
+                  {level==="none"?"—":level==="view"?"👁 View":"✏️ Edit"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ color:"#334155", fontSize:10, marginTop:8 }}>
+          Click a page to cycle: — (no access) → 👁 View → ✏️ Edit → —
+        </div>
+      </div>
+    </>
+  );
+}
+
+
 function ShuttleField({ label, children, full }) {
   return (
     <div style={{ gridColumn: full ? "1/-1" : undefined }}>
