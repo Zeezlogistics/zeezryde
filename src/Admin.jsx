@@ -5261,7 +5261,7 @@ function PageUsers({ viewOnly }) {
                     <button onClick={() => handleApprove(apr.id, true)}
                       style={{ flex:2, padding:"8px", borderRadius:7, border:"1px solid rgba(34,197,94,0.3)",
                         background:"rgba(34,197,94,0.08)", color:"#22c55e", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                      ✓ Approve & Apply
+                      ✓ Approve &amp; Apply
                     </button>
                   </div>
                 </div>
@@ -5929,7 +5929,7 @@ function PageShuttle({
                 return v ? (
                   <div style={{ marginTop:5, color:"#334155", fontSize:10 }}>
                     Driver: <strong style={{ color:"#94a3b8" }}>{v.driver}</strong>
-                    &nbsp;·&nbsp; Capacity: <strong style={{ color:"#60a5fa" }}>{v.capacity} seats</strong>
+                    {" · "} Capacity: <strong style={{ color:"#60a5fa" }}>{v.capacity} seats</strong>
                   </div>
                 ) : null;
               })()}
