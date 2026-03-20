@@ -364,6 +364,54 @@ export default function AdminApp() {
           rideType: t.rideType||"Family", seats: t.seats||null,
         })));
 
+        // ── Load shuttle vehicles, trips and settings from Supabase ──
+        const [{ data: sv }, { data: st }, { data: cfg }] = await Promise.all([
+          sb.from("shuttle_vehicles").select("*").order("created_at",{ascending:false}),
+          sb.from("shuttle_trips").select("*").order("created_at",{ascending:false}),
+          sb.from("settings").select("*").eq("key","admin_settings").maybeSingle(),
+        ]);
+        if (sv) setShuttleVehicles(sv);
+        if (st) setShuttleTrips(st);
+        if (cfg?.value) {
+          const s = cfg.value;
+          const applyIfSet = (key, fn) => { if (s[key] !== undefined) fn(s[key]); };
+          applyIfSet("baseFare",        setBaseFare);
+          applyIfSet("ratePerKm",       setRatePerKm);
+          applyIfSet("ratePerMin",      setRatePerMin);
+          applyIfSet("minimumFare",     setMinimumFare);
+          applyIfSet("commPct",         setCommPct);
+          applyIfSet("subFee",          setSubFee);
+          applyIfSet("countdown",       setCountdown);
+          applyIfSet("reqSub",          setReqSub);
+          applyIfSet("surgeEnabled",    setSurgeEnabled);
+          applyIfSet("surgeRadiusKm",   setSurgeRadiusKm);
+          applyIfSet("airportFareYYZ",  setAirportFareYYZ);
+          applyIfSet("airportFareYHM",  setAirportFareYHM);
+          applyIfSet("airportFareYTZ",  setAirportFareYTZ);
+          applyIfSet("airportBookingFee", setAirportBookingFee);
+          applyIfSet("airportMinNotice",  setAirportMinNotice);
+          applyIfSet("shuttleBaseFare",   setShuttleBaseFare);
+          applyIfSet("shuttleBookingFee", setShuttleBookingFee);
+          applyIfSet("shuttlePeakMult",   setShuttlePeakMult);
+          applyIfSet("shuttlePeakOn",     setShuttlePeakOn);
+          applyIfSet("dispatchMode",      setDispatchMode);
+          applyIfSet("maxPickupKm",       setMaxPickupKm);
+          applyIfSet("pickupFeeKm",       setPickupFeeKm);
+          applyIfSet("pickupFeeOn",       setPickupFeeOn);
+          applyIfSet("beyondCapKm",       setBeyondCapKm);
+          applyIfSet("beyondFeeFlat",     setBeyondFeeFlat);
+          applyIfSet("beyondFeeOn",       setBeyondFeeOn);
+          applyIfSet("waitFeeOn",         setWaitFeeOn);
+          applyIfSet("waitFeeRate",       setWaitFeeRate);
+          applyIfSet("waitFeeMinutes",    setWaitFeeMinutes);
+          applyIfSet("riderDelayFee",     setRiderDelayFee);
+          applyIfSet("driverCancelFee",   setDriverCancelFee);
+          applyIfSet("autoSusp",          setAutoSusp);
+          applyIfSet("adminAlert",        setAdminAlert);
+          applyIfSet("familyMult",        setFamilyMult);
+          applyIfSet("friendsMult",       setFriendsMult);
+        }
+
         // ── 2. Real-time subscriptions ────────────────────────
         // DRIVERS: any change in Supabase → update admin instantly
         const driversCh = sb.channel("realtime-drivers")
@@ -1681,7 +1729,7 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
   const TIER_LABELS = { low:"Low (1.0x)", med:"Medium (1.2x)", high:"High (1.5x)", peak:"Peak (2.0x)" };
   const TIER_COLORS = { low:"#22c55e", med:"#f59e0b", high:"#f97316", peak:"#ef4444" };
 
-  function handleSave() {
+  async function handleSave() {
     const errors = [];
     if (isNaN(parseFloat(baseFare))   || parseFloat(baseFare)   < 0) errors.push("Base fare");
     if (isNaN(parseFloat(ratePerKm))  || parseFloat(ratePerKm)  < 0) errors.push("Rate/km");
@@ -1700,6 +1748,11 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
       shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
     };
     try { localStorage.setItem("zeez_settings", JSON.stringify(settings)); } catch(e) {}
+    // Also save to Supabase settings table for cross-device persistence
+    try {
+      const sb = await getSupabase();
+      await sb.from("settings").upsert({ key:"admin_settings", value:settings, updated_at:new Date().toISOString() });
+    } catch(e) { console.error("Settings Supabase save:", e); }
     // Push live to rider/driver app via bridge
     try {
       if (window.__zeezAdmin) {
@@ -5476,21 +5529,19 @@ function PageShuttle({
   function saveShuttleSettings() {
     try {
       const saved = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
-      localStorage.setItem("zeez_settings", JSON.stringify({
+      const updated = {
         ...saved,
         shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
         airportFareYYZ, airportFareYHM, airportFareYTZ,
         airportBookingFee, airportMinNotice,
-      }));
-      try {
-        if (window.__zeezAdmin) {
-          if (window.__zeezAdmin.getAirportFare) {
-            // update bridge getters by patching the settings object
-          }
-          // Force a localStorage read on next getLive() call (already stored above)
-        }
-      } catch(e) {}
-      if (flash) flash("Airport &amp; Shuttle settings saved ✓");
+      };
+      localStorage.setItem("zeez_settings", JSON.stringify(updated));
+      // Also save to Supabase for persistence across devices/refreshes
+      getSupabase().then(sb => {
+        sb.from("settings").upsert({ key:"admin_settings", value:updated, updated_at:new Date().toISOString() })
+          .then(() => { if (flash) flash("Airport &amp; Shuttle settings saved ✓"); })
+          .catch(e => { console.error("Supabase settings save:", e); if (flash) flash("Airport &amp; Shuttle settings saved locally ✓"); });
+      });
     } catch(e) {
       if (flash) flash("Save failed: " + e.message, false);
     }
@@ -5529,7 +5580,7 @@ function PageShuttle({
     s + parseFloat((t.fare||"0").replace("CA$","")) * (t.booked||0), 0);
 
   // ── Save vehicle ───────────────────────────────────────────────────────────
-  function saveVehicle() {
+  async function saveVehicle() {
     if (!form.make) { showToast("Please select a make", false); return; }
     if (!form.model) { showToast("Please select a model", false); return; }
     if (!form.plate) { showToast("Please enter a licence plate", false); return; }
@@ -5548,18 +5599,18 @@ function PageShuttle({
     };
     if (modal === "add_vehicle") {
       const newId = "SHV-" + String(safeVehicles.length + 1).padStart(3,"0");
-      setVehicles(prev => [...(prev||[]), { id:newId, ...payload, booked:0 }]);
+      const newVeh = { id:newId, ...payload, booked:0, created_at:new Date().toISOString() };
+      setVehicles(prev => [...(prev||[]), newVeh]);
+      try { const sb = await getSupabase(); await sb.from("shuttle_vehicles").insert(newVeh); } catch(e) { console.error("SB veh insert:",e); }
       showToast(`${payload.make} ${payload.model} added as ${newId}`);
     } else {
       setVehicles(prev => (prev||[]).map(v => v.id === modal.id ? { ...v, ...payload } : v));
+      try { const sb = await getSupabase(); await sb.from("shuttle_vehicles").update(payload).eq("id", modal.id); } catch(e) { console.error("SB veh update:",e); }
       showToast(`Vehicle ${modal.id} updated`);
     }
-    setModal(null);
-    setForm({});
-  }
 
   // ── Save trip ──────────────────────────────────────────────────────────────
-  function saveTrip() {
+  async function saveTrip() {
     if (!form.pickup) { showToast("Please enter a pickup location", false); return; }
     if (!form.dropoff) { showToast("Please enter a drop-off location", false); return; }
     if (!form.date) { showToast("Please enter a date", false); return; }
@@ -5582,21 +5633,22 @@ function PageShuttle({
     };
     if (modal === "create_trip") {
       const newId = "ST-" + String(Date.now()).slice(-6);
-      setTrips(prev => [...(prev||[]), { id:newId, ...payload }]);
+      const newTrip = { id:newId, ...payload };
+      setTrips(prev => [...(prev||[]), newTrip]);
+      try { const sb = await getSupabase(); await sb.from("shuttle_trips").insert({ ...newTrip, created_at:new Date().toISOString() }); } catch(e) { console.error("SB trip insert:",e); }
       showToast(`Trip created: ${payload.route}`);
     } else {
       setTrips(prev => (prev||[]).map(t => t.id === modal.id ? { ...t, ...payload } : t));
+      try { const sb = await getSupabase(); await sb.from("shuttle_trips").update(payload).eq("id", modal.id); } catch(e) { console.error("SB trip update:",e); }
       showToast(`Trip ${modal.id} updated`);
-    }
-    setModal(null);
-    setForm({});
   }
 
   // ── Delete confirm ─────────────────────────────────────────────────────────
-  function doDelete() {
+  async function doDelete() {
     if (!confirmDelete) return;
     if (confirmDelete.type === "vehicle") {
-      setVehicles(prev => (prev||[]).filter(v => v.id !== confirmDelete.item.id));
+    setVehicles(prev => (prev||[]).filter(v => v.id !== confirmDelete.item.id));
+    try { const sb = await getSupabase(); await sb.from("shuttle_vehicles").delete().eq("id", confirmDelete.item.id); } catch(e) { console.error("SB veh delete:",e); }
       showToast(`Vehicle ${confirmDelete.item.id} removed`);
     } else {
       setTrips(prev => (prev||[]).filter(t => t.id !== confirmDelete.item.id));
@@ -5684,6 +5736,7 @@ function PageShuttle({
       {/* TAB: FLEET VEHICLES                                       */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === "vehicles" && (
+        <>
         <Panel title={`FLEET VEHICLES — ${safeVehicles.length} TOTAL`}>
           {safeVehicles.length === 0 ? (
             <div style={{ padding:"40px", textAlign:"center", color:"#334155", fontSize:13 }}>
@@ -5722,12 +5775,28 @@ function PageShuttle({
             </table>
           )}
         </Panel>
+        {/* Save Airport & Shuttle Settings */}
+        {!viewOnly && (
+          <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
+            <button onClick={saveShuttleSettings} style={{
+              padding:"11px 32px", borderRadius:10, border:"none", cursor:"pointer",
+              background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+              color:"#fff", fontSize:13, fontWeight:700,
+              fontFamily:"'Syne',sans-serif", letterSpacing:0.3,
+              boxShadow:"0 4px 14px rgba(37,99,235,0.4)"
+            }}>
+              💾 Save Airport &amp; Shuttle Settings
+            </button>
+          </div>
+        )}
+        </>
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* TAB: SHUTTLE TRIPS                                        */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === "trips" && (
+        <>
         <Panel title={`SHUTTLE TRIPS — ${safeTrips.length} TOTAL`}>
           {safeTrips.length === 0 ? (
             <div style={{ padding:"40px", textAlign:"center", color:"#334155", fontSize:13 }}>
@@ -5773,6 +5842,21 @@ function PageShuttle({
             </table>
           )}
         </Panel>
+        {/* Save Airport & Shuttle Settings */}
+        {!viewOnly && (
+          <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
+            <button onClick={saveShuttleSettings} style={{
+              padding:"11px 32px", borderRadius:10, border:"none", cursor:"pointer",
+              background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+              color:"#fff", fontSize:13, fontWeight:700,
+              fontFamily:"'Syne',sans-serif", letterSpacing:0.3,
+              boxShadow:"0 4px 14px rgba(37,99,235,0.4)"
+            }}>
+              💾 Save Airport &amp; Shuttle Settings
+            </button>
+          </div>
+        )}
+        </>
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
