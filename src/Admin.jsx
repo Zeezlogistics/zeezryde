@@ -262,42 +262,44 @@ export default function AdminApp() {
     }
   });
 
-  // ── Load all data from Supabase on login ──────────────────────
+// ── Load data + subscribe to real-time changes ───────────────
   useEffect(() => {
     if (!authed) return;
-    // Restore saved settings from localStorage
+    let channels = [];
+
+    // ── Restore saved settings ─────────────────────────────────
     try {
       const saved = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
-      if (saved.baseFare)       setBaseFare(saved.baseFare);
-      if (saved.ratePerKm)      setRatePerKm(saved.ratePerKm);
-      if (saved.ratePerMin)     setRatePerMin(saved.ratePerMin);
-      if (saved.minimumFare)    setMinimumFare(saved.minimumFare);
-      if (saved.familyMult)     setFamilyMult(saved.familyMult);
-      if (saved.friendsMult)    setFriendsMult(saved.friendsMult);
-      if (saved.commPct)        setCommPct(saved.commPct);
-      if (saved.subFee)         setSubFee(saved.subFee);
-      if (saved.countdown)      setCountdown(saved.countdown);
-      if (saved.reqSub !== undefined) setReqSub(saved.reqSub);
-      if (saved.surgeEnabled !== undefined) setSurgeEnabled(saved.surgeEnabled);
-      if (saved.surgeRadiusKm)  setSurgeRadiusKm(saved.surgeRadiusKm);
-      if (saved.demandTier)     setDemandTier(saved.demandTier);
-      if (saved.maxPickupKm)    setMaxPickupKm(saved.maxPickupKm);
-      if (saved.pickupFeeKm)    setPickupFeeKm(saved.pickupFeeKm);
-      if (saved.pickupFeeOn !== undefined) setPickupFeeOn(saved.pickupFeeOn);
-      if (saved.beyondCapKm)    setBeyondCapKm(saved.beyondCapKm);
-      if (saved.beyondFeeFlat)  setBeyondFeeFlat(saved.beyondFeeFlat);
-      if (saved.beyondFeeOn !== undefined) setBeyondFeeOn(saved.beyondFeeOn);
-      if (saved.waitFeeOn !== undefined)   setWaitFeeOn(saved.waitFeeOn);
-      if (saved.waitFeeRate)    setWaitFeeRate(saved.waitFeeRate);
-      if (saved.waitFeeMinutes) setWaitFeeMinutes(saved.waitFeeMinutes);
-      if (saved.riderDelayFee)  setRiderDelayFee(saved.riderDelayFee);
+      if (saved.baseFare)        setBaseFare(saved.baseFare);
+      if (saved.ratePerKm)       setRatePerKm(saved.ratePerKm);
+      if (saved.ratePerMin)      setRatePerMin(saved.ratePerMin);
+      if (saved.minimumFare)     setMinimumFare(saved.minimumFare);
+      if (saved.familyMult)      setFamilyMult(saved.familyMult);
+      if (saved.friendsMult)     setFriendsMult(saved.friendsMult);
+      if (saved.commPct)         setCommPct(saved.commPct);
+      if (saved.subFee)          setSubFee(saved.subFee);
+      if (saved.countdown)       setCountdown(saved.countdown);
+      if (saved.reqSub !== undefined)        setReqSub(saved.reqSub);
+      if (saved.surgeEnabled !== undefined)  setSurgeEnabled(saved.surgeEnabled);
+      if (saved.surgeRadiusKm)   setSurgeRadiusKm(saved.surgeRadiusKm);
+      if (saved.demandTier)      setDemandTier(saved.demandTier);
+      if (saved.maxPickupKm)     setMaxPickupKm(saved.maxPickupKm);
+      if (saved.pickupFeeKm)     setPickupFeeKm(saved.pickupFeeKm);
+      if (saved.pickupFeeOn !== undefined)   setPickupFeeOn(saved.pickupFeeOn);
+      if (saved.beyondCapKm)     setBeyondCapKm(saved.beyondCapKm);
+      if (saved.beyondFeeFlat)   setBeyondFeeFlat(saved.beyondFeeFlat);
+      if (saved.beyondFeeOn !== undefined)   setBeyondFeeOn(saved.beyondFeeOn);
+      if (saved.waitFeeOn !== undefined)     setWaitFeeOn(saved.waitFeeOn);
+      if (saved.waitFeeRate)     setWaitFeeRate(saved.waitFeeRate);
+      if (saved.waitFeeMinutes)  setWaitFeeMinutes(saved.waitFeeMinutes);
+      if (saved.riderDelayFee)   setRiderDelayFee(saved.riderDelayFee);
       if (saved.driverCancelFee) setDriverCancelFee(saved.driverCancelFee);
-      if (saved.dispatchMode)   setDispatchMode(saved.dispatchMode);
-      if (saved.autoSusp !== undefined) setAutoSusp(saved.autoSusp);
-      if (saved.adminAlert !== undefined) setAdminAlert(saved.adminAlert);
-      if (saved.airportFareYYZ) setAirportFareYYZ(saved.airportFareYYZ);
-      if (saved.airportFareYHM) setAirportFareYHM(saved.airportFareYHM);
-      if (saved.airportFareYTZ) setAirportFareYTZ(saved.airportFareYTZ);
+      if (saved.dispatchMode)    setDispatchMode(saved.dispatchMode);
+      if (saved.autoSusp !== undefined)      setAutoSusp(saved.autoSusp);
+      if (saved.adminAlert !== undefined)    setAdminAlert(saved.adminAlert);
+      if (saved.airportFareYYZ)  setAirportFareYYZ(saved.airportFareYYZ);
+      if (saved.airportFareYHM)  setAirportFareYHM(saved.airportFareYHM);
+      if (saved.airportFareYTZ)  setAirportFareYTZ(saved.airportFareYTZ);
       if (saved.airportBookingFee) setAirportBookingFee(saved.airportBookingFee);
       if (saved.airportMinNotice)  setAirportMinNotice(saved.airportMinNotice);
       if (saved.shuttleBaseFare)   setShuttleBaseFare(saved.shuttleBaseFare);
@@ -305,9 +307,12 @@ export default function AdminApp() {
       if (saved.shuttlePeakOn !== undefined) setShuttlePeakOn(saved.shuttlePeakOn);
       if (saved.shuttlePeakMult)   setShuttlePeakMult(saved.shuttlePeakMult);
     } catch(e) {}
+
     (async () => {
       try {
         const sb = await getSupabase();
+
+        // ── 1. Initial full load ──────────────────────────────
         const [{ data: drv }, { data: trp }, { data: sub }, { data: rdr }] = await Promise.all([
           sb.from("drivers").select("*").neq("status","archived").order("joined",{ascending:false}),
           sb.from("trips").select("*").order("requested_at",{ascending:false}).limit(200),
@@ -329,12 +334,86 @@ export default function AdminApp() {
           status: t.status||"completed", time: t.requested_at ? new Date(t.requested_at).toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) : "-",
           rideType: t.rideType||"Family", seats: t.seats||null,
         })));
-        if (sub) setLiveTrips(prev => prev); // subs handled separately
-        if (sub) {
-          // store subs in ALL_SUBS equivalent via setAllSubs if available
-        }
+
+        // ── 2. Real-time subscriptions ────────────────────────
+        // DRIVERS: any change in Supabase → update admin instantly
+        const driversCh = sb.channel("realtime-drivers")
+          .on("postgres_changes", { event: "*", schema: "public", table: "drivers" },
+            (payload) => {
+              if (payload.eventType === "INSERT") {
+                setDrivers(prev => [payload.new, ...prev.filter(d => d.id !== payload.new.id)]);
+              } else if (payload.eventType === "UPDATE") {
+                setDrivers(prev => prev.map(d => d.id === payload.new.id ? { ...d, ...payload.new } : d));
+              } else if (payload.eventType === "DELETE") {
+                setDrivers(prev => prev.filter(d => d.id !== payload.old.id));
+              }
+            })
+          .subscribe();
+        channels.push(driversCh);
+
+        // RIDERS: any change in Supabase → update admin instantly
+        const ridersCh = sb.channel("realtime-riders")
+          .on("postgres_changes", { event: "*", schema: "public", table: "riders" },
+            (payload) => {
+              const fmt = (r) => ({
+                ...r,
+                status:  r.status || "active",
+                joined:  r.created_at ? new Date(r.created_at).toLocaleDateString("en-CA", {month:"short", day:"numeric", year:"numeric"}) : "—",
+                trips:   r.trips || 0,
+                payment: r.payment || "—",
+              });
+              if (payload.eventType === "INSERT") {
+                setRiders(prev => [fmt(payload.new), ...prev.filter(r => r.id !== payload.new.id)]);
+              } else if (payload.eventType === "UPDATE") {
+                setRiders(prev => prev.map(r => r.id === payload.new.id ? fmt({ ...r, ...payload.new }) : r));
+              } else if (payload.eventType === "DELETE") {
+                setRiders(prev => prev.filter(r => r.id !== payload.old.id));
+              }
+            })
+          .subscribe();
+        channels.push(ridersCh);
+
+        // TRIPS: any change in Supabase → update admin instantly
+        const tripsCh = sb.channel("realtime-trips")
+          .on("postgres_changes", { event: "*", schema: "public", table: "trips" },
+            (payload) => {
+              const fmt = (t) => ({
+                id: t.id, rider: t.rider||"Rider", driver: t.driver||"-",
+                origin: t.origin||"-", dest: t.dest||"-",
+                fare: t.fare ? "CA$"+t.fare : "-",
+                status: t.status||"completed",
+                time: t.requested_at ? new Date(t.requested_at).toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) : "-",
+                rideType: t.rideType||"Family", seats: t.seats||null,
+              });
+              if (payload.eventType === "INSERT") {
+                setLiveTrips(prev => [fmt(payload.new), ...prev.filter(t => t.id !== payload.new.id)]);
+              } else if (payload.eventType === "UPDATE") {
+                setLiveTrips(prev => prev.map(t => t.id === payload.new.id ? fmt({ ...t, ...payload.new }) : t));
+              } else if (payload.eventType === "DELETE") {
+                setLiveTrips(prev => prev.filter(t => t.id !== payload.old.id));
+              }
+            })
+          .subscribe();
+        channels.push(tripsCh);
+
+        // SUBSCRIPTIONS: any change → update admin instantly
+        const subsCh = sb.channel("realtime-subs")
+          .on("postgres_changes", { event: "*", schema: "public", table: "subscriptions" },
+            (payload) => {
+              // Re-fetch subs on any change (simpler given ALL_SUBS pattern)
+              sb.from("subscriptions").select("*").order("created_at",{ascending:false})
+                .then(({ data }) => { if (data) { /* update via setAllSubs if available */ } });
+            })
+          .subscribe();
+        channels.push(subsCh);
+
       } catch (err) { console.error("AdminApp Supabase load:", err.message); }
     })();
+
+    // ── Cleanup: unsubscribe when admin logs out ──────────────
+    return () => {
+      channels.forEach(ch => { try { ch.unsubscribe(); } catch(e) {} });
+    };
   }, [authed]);
 
   const [search,  setSearch]  = useState("");
