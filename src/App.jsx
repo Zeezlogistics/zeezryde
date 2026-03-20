@@ -350,7 +350,8 @@ function RiderApp() {
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
-  const [liveTrips, setLiveTrips] = useState(DEMO_TRIPS); // loaded from Supabase
+  const [liveTrips, setLiveTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(true);
   const [homeAddr,   setHomeAddr]         = useState("");
   const [officeAddr, setOfficeAddr]       = useState("");
   const [promoCode, setPromoCode]       = useState("");
@@ -390,23 +391,24 @@ function RiderApp() {
           sb.from("shuttle_trips").select("*").eq("status","scheduled").order("created_at", { ascending:false }),
           sb.from("settings").select("value").eq("key","admin_settings").maybeSingle(),
         ]);
-        if (trips && trips.length > 0) {
-          // Map Supabase columns to what the rider UI expects
-          setLiveTrips(trips.map(t => ({
-            ...t,
-            depart_date:    t.date        || t.depart_date    || "",
-            depart_time:    t.time        || t.depart_time    || "",
-            fare_per_seat:  t.fare_per_seat || 12,
-            seats_total:    t.seats       || 7,
-            seats_booked:   t.booked      || 0,
-          })));
-        }
+        // Always update — if Supabase returns [] that means no trips scheduled
+        setLiveTrips((trips || []).map(t => ({
+          ...t,
+          depart_date:    t.date        || t.depart_date    || "",
+          depart_time:    t.time        || t.depart_time    || "",
+          fare_per_seat:  t.fare_per_seat || 12,
+          seats_total:    t.seats       || 7,
+          seats_booked:   t.booked      || 0,
+        })));
         if (cfg?.value) {
-          // Apply live settings from admin (airport fares etc.)
           const s = cfg.value;
           try { localStorage.setItem("zeez_settings", JSON.stringify(s)); } catch(e) {}
         }
-      } catch(e) { console.log("Shuttle load:", e.message); }
+      } catch(e) {
+        console.log("Shuttle load:", e.message);
+      } finally {
+        setTripsLoading(false);
+      }
     })();
   }, []);
 
@@ -1081,7 +1083,11 @@ function RiderApp() {
               </div>
             )}
             <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Available Trips</div>
-            {liveTrips.map(t=>(
+            {tripsLoading ? (
+              <div style={{ textAlign:"center", padding:"30px 0", color:SLATE, fontSize:13 }}>Loading trips…</div>
+            ) : liveTrips.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"30px 0", color:SLATE, fontSize:13 }}>No trips scheduled yet.</div>
+            ) : liveTrips.map(t=>(
               <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+BORDER, cursor:"pointer" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1 }}>
