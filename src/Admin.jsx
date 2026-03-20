@@ -539,7 +539,6 @@ export default function AdminApp() {
 
 
   if (!authed) return (
-    <AdminErrorBoundary>
     <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ width:380, background:"rgba(15,23,42,0.9)", border:"1px solid rgba(99,179,237,0.15)",
         borderRadius:16, padding:40, boxShadow:"0 25px 50px rgba(0,0,0,0.5)" }}>
