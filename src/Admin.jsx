@@ -564,7 +564,13 @@ function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, su
           sb.from("riders").select("*").order("created_at",{ascending:false}),
         ]);
         if (drv && setDrivers) setDrivers(drv);
-        if (rdr) setRiders(rdr.map(r => ({ ...r, status: r.status||"active" })));
+        if (rdr) setRiders(rdr.map(r => ({
+          ...r,
+          status:  r.status || "active",
+          joined:  r.created_at ? new Date(r.created_at).toLocaleDateString("en-CA", {month:"short", day:"numeric", year:"numeric"}) : "—",
+          trips:   r.trips || 0,
+          payment: r.payment || "—",
+        })));
         if (trp) setLiveTrips(trp.map(t => ({
           id: t.id, rider: t.rider||"Rider", driver: t.driver||"-",
           origin: t.origin||"-", dest: t.dest||"-",
@@ -706,6 +712,7 @@ function PageDrivers({ drivers, search, filter, setFilter, patchDriver, setModal
 
   const counts = {
     all:       activeDrivers.length,
+    pending:   activeDrivers.filter(d => d.status === "pending").length,
     active:    activeDrivers.filter(d => d.status === "active").length,
     suspended: activeDrivers.filter(d => d.status === "suspended").length,
     inactive:  activeDrivers.filter(d => d.status === "inactive").length,
