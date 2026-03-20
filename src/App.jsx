@@ -991,15 +991,9 @@ function RiderApp() {
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px 0" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
 
-              {/* LEFT: logo + rider name */}
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ background:"rgba(10,22,40,0.85)", backdropFilter:"blur(8px)", borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.4)" }}>
-                  <LogoAnim size={44} />
-                </div>
-                <div style={{ background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", borderRadius:12, padding:"6px 14px" }}>
-                  <div style={{ color:LBLUE, fontSize:9, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase" }}>Rider</div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
-                </div>
+              {/* RIGHT: logo only */}
+              <div style={{ background:"rgba(10,22,40,0.85)", backdropFilter:"blur(8px)", borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.4)", marginLeft:"auto" }}>
+                <LogoAnim size={44} />
               </div>
             </div>
             {/* Search bar */}
@@ -1045,8 +1039,7 @@ function RiderApp() {
                     <div style={{ fontSize:24, marginBottom:4 }}>{r.icon}</div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:12, color:NAVY }}>{r.label}</div>
                     <div style={{ fontSize:10, color:BLUE, fontWeight:600, marginTop:1 }}>{r.seats}</div>
-                    <div style={{ fontSize:10, color:SLATE, marginTop:1 }}>{r.price}</div>
-                  </button>
+                      </button>
                 ))}
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
