@@ -362,6 +362,18 @@ function RiderApp() {
     try {
       const { data, error } = await db.auth.signInWithPassword({ email, password: pass });
       if (error) throw error;
+      // HARD CHECK: must have a row in the riders table
+      const { data: riderRow, error: checkErr } = await db.from("riders").select("id,status").eq("id", data.user.id).maybeSingle();
+      if (checkErr || !riderRow) {
+        await db.auth.signOut();
+        setErr("No rider account found for this email. Please register as a rider first.");
+        setBusy(false); return;
+      }
+      if (riderRow.status === "suspended") {
+        await db.auth.signOut();
+        setErr("Your account has been suspended. Please contact support.");
+        setBusy(false); return;
+      }
       setUser(data.user); setName(data.user.user_metadata?.name||"");
       setOtpSent(true); setOtpValue(""); setOtpError("");
       go("otp");
@@ -2007,6 +2019,18 @@ function DriverApp() {
     try {
       const { data, error } = await db.auth.signInWithPassword({ email, password:pass });
       if (error) throw error;
+      // HARD CHECK: must have a row in the drivers table
+      const { data: driverRow, error: checkErr } = await db.from("drivers").select("id,status").eq("id", data.user.id).maybeSingle();
+      if (checkErr || !driverRow) {
+        await db.auth.signOut();
+        setErr("No driver account found for this email. Please register as a driver first.");
+        setBusy(false); return;
+      }
+      if (driverRow.status === "suspended") {
+        await db.auth.signOut();
+        setErr("Your driver account has been suspended. Please contact support.");
+        setBusy(false); return;
+      }
       setUser(data.user); setName(data.user.user_metadata?.name||"");
       setDOtpSent(true); setDOtpValue(""); setDOtpError("");
       go("dotp");
