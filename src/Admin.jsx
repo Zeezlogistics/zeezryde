@@ -4708,7 +4708,7 @@ function PageShuttle({
       model:       form.model,
       year:        parseInt(form.year) || 2023,
       plate:       form.plate.toUpperCase(),
-      capacity:    parseInt(form.capacity) || (form.vehicleType === "4-seater" ? 4 : 7),
+      capacity:    parseInt(form.capacity) || (form.vehicleType === "3-seater" ? 3 : form.vehicleType === "5-seater" ? 5 : 7),
       vehicleType: form.vehicleType || "7-seater",
       vehicle_type:form.vehicleType || "7-seater",
       color:       form.color || "White",
@@ -5047,10 +5047,11 @@ function PageShuttle({
 
             <ShuttleField label="Vehicle Type">
               <select value={form.vehicleType||"7-seater"}
-                onChange={e => setForm(f => ({...f, vehicleType:e.target.value, capacity:e.target.value==="7-seater"?"7":"4"}))}
+                onChange={e => setForm(f => ({...f, vehicleType:e.target.value, capacity:e.target.value==="7-seater"?"7":e.target.value==="5-seater"?"5":"3"}))}
                 style={SS}>
                 <option value="7-seater">7-Seater (1+3+3)</option>
-                <option value="4-seater">4-Seater (1+1+2)</option>
+                <option value="5-seater">5-Seater (1+2+2)</option>
+                <option value="3-seater">3-Seater (1+1+1)</option>
               </select>
             </ShuttleField>
 
