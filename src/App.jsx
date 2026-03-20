@@ -386,7 +386,8 @@ function RiderApp() {
     try {
       const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ name, role:"rider" } } });
       if (error) throw error;
-      await db.from("riders").insert({ id:data.user.id, name, email, phone:phone||null, status:"active", created_at:new Date().toISOString() });
+      const { error: riderInsErr } = await db.from("riders").insert({ id:data.user.id, name, email, phone:phone||null, status:"active", created_at:new Date().toISOString() });
+      if (riderInsErr) { console.error("Rider insert error:", riderInsErr); throw new Error("Could not save rider profile: " + riderInsErr.message); }
       setUser(data.user); setOtpSent(true); setOtpValue(""); setOtpError("");
       go("otp");
     } catch(e) { setErr(e.message||"Registration failed"); }
