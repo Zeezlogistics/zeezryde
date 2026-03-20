@@ -8,10 +8,44 @@ const SUPABASE_URL  = "https://bkbpsobvhxxvlzlmzsmy.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnBzb2J2aHh4dmx6bG16c215Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzQ4MTUsImV4cCI6MjA4OTA1MDgxNX0.PLJyaouYk4FLfcZwVy_YsKMmny2a6DqrYOn_3jmpgMI";
 
 // Supabase client using npm package (same as App.jsx)
-let _supabase = null;
+const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── Car makes & models (for fleet vehicle form) ──────────────────────────────
+const CAR_MAKES = [
+  { make:"Acura",       models:["ILX","MDX","RDX","TLX","RLX","NSX","Integra"] },
+  { make:"Audi",        models:["A3","A4","A5","A6","A7","A8","Q3","Q5","Q7","Q8","e-tron","TT","R8"] },
+  { make:"BMW",         models:["1 Series","2 Series","3 Series","4 Series","5 Series","7 Series","8 Series","X1","X2","X3","X4","X5","X6","X7","Z4","i3","i4","iX"] },
+  { make:"Buick",       models:["Encore","Encore GX","Envision","Enclave"] },
+  { make:"Cadillac",    models:["CT4","CT5","XT4","XT5","XT6","Escalade","LYRIQ"] },
+  { make:"Chevrolet",   models:["Spark","Sonic","Cruze","Malibu","Camaro","Corvette","Equinox","Trax","Blazer","Traverse","Tahoe","Suburban","Colorado","Silverado 1500","Silverado 2500","Bolt EV","Trailblazer"] },
+  { make:"Chrysler",    models:["300","Pacifica","Voyager"] },
+  { make:"Dodge",       models:["Charger","Challenger","Durango","Hornet","Grand Caravan"] },
+  { make:"Ford",        models:["Fiesta","Focus","Fusion","Mustang","EcoSport","Escape","Edge","Explorer","Expedition","Ranger","F-150","F-250","F-350","Bronco","Bronco Sport","Maverick","Mach-E","Transit"] },
+  { make:"Genesis",     models:["G70","G80","G90","GV70","GV80","GV60"] },
+  { make:"GMC",         models:["Terrain","Acadia","Yukon","Yukon XL","Canyon","Sierra 1500","Sierra 2500","Sierra 3500"] },
+  { make:"Honda",       models:["Fit","Civic","Accord","Insight","HR-V","CR-V","Pilot","Passport","Ridgeline","Odyssey"] },
+  { make:"Hyundai",     models:["Accent","Elantra","Sonata","Venue","Kona","Tucson","Santa Fe","Palisade","IONIQ 5","IONIQ 6","Santa Cruz","Veloster"] },
+  { make:"Infiniti",    models:["Q50","Q60","QX50","QX55","QX60","QX80"] },
+  { make:"Jaguar",      models:["XE","XF","XJ","F-Type","E-Pace","F-Pace","I-Pace"] },
+  { make:"Jeep",        models:["Renegade","Compass","Cherokee","Grand Cherokee","Wrangler","Gladiator","Wagoneer"] },
+  { make:"Kia",         models:["Rio","Forte","K5","Stinger","Soul","Seltos","Sportage","Sorento","Telluride","Carnival","EV6","Niro"] },
+  { make:"Land Rover",  models:["Defender","Discovery","Discovery Sport","Range Rover","Range Rover Sport","Range Rover Velar","Range Rover Evoque"] },
+  { make:"Lexus",       models:["IS","ES","GS","LS","RC","LC","UX","NX","RX","GX","LX","RZ"] },
+  { make:"Lincoln",     models:["Corsair","Nautilus","Aviator","Navigator","Continental"] },
+  { make:"Mazda",       models:["Mazda3","Mazda6","CX-30","CX-5","CX-50","CX-9","MX-5 Miata","MX-30"] },
+  { make:"Mercedes-Benz",models:["A-Class","C-Class","E-Class","S-Class","CLA","CLS","GLA","GLB","GLC","GLE","GLS","G-Class","EQA","EQB","EQC","EQE","EQS"] },
+  { make:"Mitsubishi",  models:["Mirage","Eclipse Cross","Outlander","Outlander Sport"] },
+  { make:"Nissan",      models:["Versa","Sentra","Altima","Maxima","370Z","GT-R","Kicks","Rogue Sport","Rogue","Murano","Pathfinder","Armada","Frontier","Titan","LEAF","Ariya"] },
+  { make:"Porsche",     models:["718 Boxster","718 Cayman","911","Panamera","Macan","Cayenne","Taycan"] },
+  { make:"Ram",         models:["1500","2500","3500","ProMaster","ProMaster City"] },
+  { make:"Subaru",      models:["Impreza","Legacy","Outback","Forester","Crosstrek","Ascent","BRZ","WRX","Solterra"] },
+  { make:"Tesla",       models:["Model 3","Model S","Model X","Model Y","Cybertruck","Roadster"] },
+  { make:"Toyota",      models:["Yaris","Corolla","Camry","Avalon","GR86","Supra","C-HR","RAV4","RAV4 Prime","Venza","Highlander","4Runner","Sequoia","Tacoma","Tundra","Prius","Prius Prime","bZ4X","Sienna"] },
+  { make:"Volkswagen",  models:["Golf","Jetta","Passat","Arteon","Tiguan","Atlas","ID.4","Taos"] },
+  { make:"Volvo",       models:["S60","S90","V60","V90","XC40","XC60","XC90","C40 Recharge"] },
+  { make:"Other",       models:["Other / Not Listed"] },
+];
 async function getSupabase() {
-  if (_supabase) return _supabase;
-  _supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
   return _supabase;
 }
 
@@ -463,7 +497,7 @@ export default function AdminApp() {
         {/* Page scroll area */}
         <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px" }}>
           {page === "overview"  && <PageOverview  drivers={drivers} trips={ALL_TRIPS} subs={ALL_SUBS} onlineCount={onlineCount} totalRev={totalRev} tripRev={tripRev} subRev={subRev} todayTrips={todayTrips} maxDrivers={MAX_DRIVERS}
-              setDrivers={setDrivers} setTrips={setLiveTrips} setAllSubs={() => {}} />}
+              setDrivers={setDrivers} setRiders={setRiders} setTrips={setLiveTrips} setAllSubs={() => {}} />}
           {page === "drivers"   && <PageDrivers   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS}  setDrivers={setDrivers} />}
           {page === "riders"    && <PageRiders    riders={riders}   search={search} filter={rFilter} setFilter={setRFilter} patchRider={patchRider}   setModal={setModal} />}
           {page === "trips"     && <PageTrips     trips={[...liveTrips.map(t => ({ id:t.id, rider:t.rider, driver:t.driver, from:t.origin, to:t.dest, fare:t.fare, status:t.status, time:t.time, rideType:t.rideType, _live:true })), ...ALL_TRIPS]} search={search} />}
@@ -494,7 +528,7 @@ export default function AdminApp() {
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: OVERVIEW
 // ─────────────────────────────────────────────────────────────────────────────
-function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, subRev, todayTrips, maxDrivers=50, setDrivers, setTrips, setAllSubs }) {
+function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, subRev, todayTrips, maxDrivers=50, setDrivers, setTrips, setAllSubs, setRiders }) {
   const completed = trips.filter(t => t.status === "completed");
   const cancelled = trips.filter(t => t.status === "cancelled");
   const paidSubs  = subs.filter(s => s.status === "paid").length;
