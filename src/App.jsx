@@ -2034,7 +2034,7 @@ function DriverApp() {
     try {
       const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ name, role:"driver" } } });
       if (error) throw error;
-      const { error: insErr } = await db.from("drivers").insert({ id:data.user.id, name, email, phone:phone||null, vehicle:(vMake&&vModel?vMake+" "+vModel:vehicle)||null, plate:plate||null, status:"pending", joined:new Date().toISOString().slice(0,10) });
+      const { error: insErr } = await db.from("drivers").insert({ id:data.user.id, name, email, phone:phone||null, vehicle:(vMake&&vModel?vMake+" "+vModel:vehicle)||null, plate:plate||null, status:"pending", joined:new Date().toISOString().slice(0,10), created_at:new Date().toISOString() });
       if (insErr) { console.error("Driver insert error:", insErr); throw new Error(insErr.message || "Could not save driver profile. Please try again."); }
       setUser(data.user); setDOtpSent(true); setDOtpValue(""); setDOtpError("");
       go("dotp");
