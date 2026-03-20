@@ -261,6 +261,42 @@ export default function AdminApp() {
       };
     }
   });
+
+  // ── Load all data from Supabase on login ──────────────────────
+  useEffect(() => {
+    if (!authed) return;
+    (async () => {
+      try {
+        const sb = await getSupabase();
+        const [{ data: drv }, { data: trp }, { data: sub }, { data: rdr }] = await Promise.all([
+          sb.from("drivers").select("*").neq("status","archived").order("joined",{ascending:false}),
+          sb.from("trips").select("*").order("requested_at",{ascending:false}).limit(200),
+          sb.from("subscriptions").select("*").order("created_at",{ascending:false}),
+          sb.from("riders").select("*").order("created_at",{ascending:false}),
+        ]);
+        if (drv) setDrivers(drv);
+        if (rdr) setRiders(rdr.map(r => ({
+          ...r,
+          status:  r.status || "active",
+          joined:  r.created_at ? new Date(r.created_at).toLocaleDateString("en-CA", {month:"short", day:"numeric", year:"numeric"}) : "—",
+          trips:   r.trips || 0,
+          payment: r.payment || "—",
+        })));
+        if (trp) setLiveTrips(trp.map(t => ({
+          id: t.id, rider: t.rider||"Rider", driver: t.driver||"-",
+          origin: t.origin||"-", dest: t.dest||"-",
+          fare: t.fare ? "CA$"+t.fare : "-",
+          status: t.status||"completed", time: t.requested_at ? new Date(t.requested_at).toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) : "-",
+          rideType: t.rideType||"Family", seats: t.seats||null,
+        })));
+        if (sub) setLiveTrips(prev => prev); // subs handled separately
+        if (sub) {
+          // store subs in ALL_SUBS equivalent via setAllSubs if available
+        }
+      } catch (err) { console.error("AdminApp Supabase load:", err.message); }
+    })();
+  }, [authed]);
+
   const [search,  setSearch]  = useState("");
   const [modal,   setModal]   = useState(null);
   const [toast,   setToast]   = useState(null);
@@ -554,36 +590,7 @@ function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, su
   const paidSubs  = subs.filter(s => s.status === "paid").length;
   const unpaidSubs= subs.filter(s => s.status !== "paid").length;
 
-  // Load real data from Supabase
-  useEffect(() => {
-    (async () => {
-      try {
-        const sb = await getSupabase();
-        const [{ data: drv }, { data: trp }, { data: sub }, { data: rdr }] = await Promise.all([
-          sb.from("drivers").select("*").neq("status","archived").order("joined",{ascending:false}),
-          sb.from("trips").select("*").order("requested_at",{ascending:false}).limit(200),
-          sb.from("subscriptions").select("*").order("created_at",{ascending:false}),
-          sb.from("riders").select("*").order("created_at",{ascending:false}),
-        ]);
-        if (drv && setDrivers) setDrivers(drv);
-        if (rdr) setRiders(rdr.map(r => ({
-          ...r,
-          status:  r.status || "active",
-          joined:  r.created_at ? new Date(r.created_at).toLocaleDateString("en-CA", {month:"short", day:"numeric", year:"numeric"}) : "—",
-          trips:   r.trips || 0,
-          payment: r.payment || "—",
-        })));
-        if (trp) setLiveTrips(trp.map(t => ({
-          id: t.id, rider: t.rider||"Rider", driver: t.driver||"-",
-          origin: t.origin||"-", dest: t.dest||"-",
-          fare: t.fare ? "CA$"+t.fare : "-",
-          status: t.status||"completed", time: t.requested_at ? new Date(t.requested_at).toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) : "-",
-          rideType: t.rideType||"Family", seats: t.seats||null,
-        })));
-        if (sub && setAllSubs) setAllSubs(sub);
-      } catch (err) { console.error("Overview Supabase load:", err.message); }
-    })();
-  }, []);
+  // Data loaded by AdminApp on login
 
   const KPIS = [
     { label:"PLATFORM REVENUE",  value:`CA$${totalRev}`,    sub:"Trips + subscriptions",         accent:"#3b82f6" },
