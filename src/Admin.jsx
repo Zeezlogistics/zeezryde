@@ -94,6 +94,7 @@ const ALL_SUBS = [];
 export default function AdminApp() {
   // ── Supabase Auth state ───────────────────────────────────────────────────
   const [authed,     setAuthed]     = useState(false);
+  const [viewOnly,   setViewOnly]   = useState(false);
   const [authEmail,  setAuthEmail]  = useState("");
   const [authPass,   setAuthPass]   = useState("");
   const [authError,  setAuthError]  = useState("");
@@ -116,6 +117,7 @@ export default function AdminApp() {
       const sb = await getSupabase();
       const { error } = await sb.auth.signInWithPassword({ email: authEmail, password: authPass });
       if (error) throw error;
+      setViewOnly(authEmail.toLowerCase() === "viewer@zeezryde.com");
       setAuthed(true);
     } catch (err) {
       setAuthError(err.message || "Login failed");
@@ -126,6 +128,7 @@ export default function AdminApp() {
     const sb = await getSupabase();
     await sb.auth.signOut();
     setAuthed(false);
+    setViewOnly(false);
   };
 
   // ── Login screen ──────────────────────────────────────────────────────────
@@ -382,15 +385,29 @@ export default function AdminApp() {
           </button>
         </form>
         <div style={{ marginTop:24, padding:"14px 16px", background:"rgba(99,179,237,0.06)", border:"1px dashed rgba(99,179,237,0.2)", borderRadius:10 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Demo Credentials</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontSize:11, color:"#64748b" }}>Email</span>
-              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin@zeezryde.com</span>
+          <div style={{ fontSize:10, fontWeight:700, color:"#64748b", letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Credentials</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <div>
+              <div style={{ fontSize:9, color:"#f59e0b", fontWeight:700, letterSpacing:1, marginBottom:3 }}>SUPER ADMIN</div>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:11, color:"#64748b" }}>Email</span>
+                <span style={{ fontSize:11, color:"#93c5fd", fontFamily:"monospace" }}>admin@zeezryde.com</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:11, color:"#64748b" }}>Password</span>
+                <span style={{ fontSize:11, color:"#93c5fd", fontFamily:"monospace" }}>admin123</span>
+              </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <span style={{ fontSize:11, color:"#64748b" }}>Password</span>
-              <span style={{ fontSize:12, color:"#93c5fd", fontFamily:"monospace", fontWeight:600 }}>admin123</span>
+            <div style={{ borderTop:"1px solid rgba(99,179,237,0.12)", paddingTop:8 }}>
+              <div style={{ fontSize:9, color:"#94a3b8", fontWeight:700, letterSpacing:1, marginBottom:3 }}>VIEW ONLY</div>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:11, color:"#64748b" }}>Email</span>
+                <span style={{ fontSize:11, color:"#93c5fd", fontFamily:"monospace" }}>viewer@zeezryde.com</span>
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:11, color:"#64748b" }}>Password</span>
+                <span style={{ fontSize:11, color:"#93c5fd", fontFamily:"monospace" }}>viewer123</span>
+              </div>
             </div>
           </div>
         </div>
@@ -462,7 +479,8 @@ export default function AdminApp() {
           <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 10px", background:"rgba(255,255,255,0.03)", borderRadius:8, border:"1px solid rgba(99,179,237,0.07)" }}>
             <div style={{ width:28, height:28, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>SA</div>
             <div style={{ minWidth:0 }}>
-              <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:600 }}>Super Admin</div>
+              <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:600 }}>{viewOnly ? "Viewer" : "Super Admin"}</div>
+              {viewOnly && <div style={{ fontSize:9, color:"#f59e0b", fontWeight:700, letterSpacing:1 }}>VIEW ONLY</div>}
               <div style={{ color:"#334155", fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>admin@zeezryde.com</div>
             </div>
           </div>
@@ -498,17 +516,17 @@ export default function AdminApp() {
         <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px" }}>
           {page === "overview"  && <PageOverview  drivers={drivers} trips={ALL_TRIPS} subs={ALL_SUBS} onlineCount={onlineCount} totalRev={totalRev} tripRev={tripRev} subRev={subRev} todayTrips={todayTrips} maxDrivers={MAX_DRIVERS}
               setDrivers={setDrivers} setRiders={setRiders} setTrips={setLiveTrips} setAllSubs={() => {}} />}
-          {page === "drivers"   && <PageDrivers   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS}  setDrivers={setDrivers} />}
-          {page === "riders"    && <PageRiders    riders={riders}   search={search} filter={rFilter} setFilter={setRFilter} patchRider={patchRider}   setModal={setModal} />}
+          {page === "drivers"   && <PageDrivers viewOnly={viewOnly}   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS}  setDrivers={setDrivers} />}
+          {page === "riders"    && <PageRiders viewOnly={viewOnly}    riders={riders}   search={search} filter={rFilter} setFilter={setRFilter} patchRider={patchRider}   setModal={setModal} />}
           {page === "trips"     && <PageTrips     trips={[...liveTrips.map(t => ({ id:t.id, rider:t.rider, driver:t.driver, from:t.origin, to:t.dest, fare:t.fare, status:t.status, time:t.time, rideType:t.rideType, _live:true })), ...ALL_TRIPS]} search={search} />}
           {page === "subs"      && <PageSubs      subs={ALL_SUBS}   drivers={drivers} />}
-          {page === "docs"      && <PageDocs       drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
+          {page === "docs"      && <PageDocs viewOnly={viewOnly}       drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
           {page === "promos"    && <PagePromos    promos={promos} setPromos={setPromos} drivers={drivers} />}
           {page === "zones"     && <PageZones     drivers={drivers} patchDriver={patchDriver} />}
-          {page === "shuttle"   && <PageShuttle   shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
-          {page === "payment"   && <PagePayment   methods={paymentMethods} setMethods={setPaymentMethods} payouts={payoutRequests} setPayouts={setPayoutRequests} trips={ALL_TRIPS} subs={ALL_SUBS} stripePublishableKey={stripePublishableKey} setStripePublishableKey={setStripePublishableKey} stripeSecretKey={stripeSecretKey} setStripeSecretKey={setStripeSecretKey} stripeWebhookSecret={stripeWebhookSecret} setStripeWebhookSecret={setStripeWebhookSecret} stripeAccountId={stripeAccountId} setStripeAccountId={setStripeAccountId} stripeMode={stripeMode} setStripeMode={setStripeMode} stripeConnected={stripeConnected} setStripeConnected={setStripeConnected} payoutSchedule={payoutSchedule} setPayoutSchedule={setPayoutSchedule} payoutDay={payoutDay} setPayoutDay={setPayoutDay} stripeAutoCapture={stripeAutoCapture} setStripeAutoCapture={setStripeAutoCapture} businessName={businessName} setBusinessName={setBusinessName} businessEmail={businessEmail} setBusinessEmail={setBusinessEmail} businessPhone={businessPhone} setBusinessPhone={setBusinessPhone} businessAddress={businessAddress} setBusinessAddress={setBusinessAddress} businessBankName={businessBankName} setBusinessBankName={setBusinessBankName} businessBankLast4={businessBankLast4} setBusinessBankLast4={setBusinessBankLast4} businessTransitNo={businessTransitNo} setBusinessTransitNo={setBusinessTransitNo} businessInstNo={businessInstNo} setBusinessInstNo={setBusinessInstNo} autoPayoutEnabled={autoPayoutEnabled} setAutoPayoutEnabled={setAutoPayoutEnabled} lastAutoPayoutDate={lastAutoPayoutDate} nextAutoPayoutDate={nextAutoPayoutDate} cashoutRequests={cashoutRequests} setCashoutRequests={setCashoutRequests} />}
-          {page === "data"      && <PageDataManagement />}
-          {page === "settings"  && <PageSettings  airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} riderDelayFee={riderDelayFee} setRiderDelayFee={setRiderDelayFee} driverCancelFee={driverCancelFee} setDriverCancelFee={setDriverCancelFee} surgeEnabled={surgeEnabled} setSurgeEnabled={setSurgeEnabled} surgeRadiusKm={surgeRadiusKm} setSurgeRadiusKm={setSurgeRadiusKm} subFee={subFee} setSubFee={setSubFee} commPct={commPct} setCommPct={setCommPct} countdown={countdown} setCountdown={setCountdown} reqSub={reqSub} setReqSub={setReqSub} autoSusp={autoSusp} setAutoSusp={setAutoSusp} adminAlert={adminAlert} setAdminAlert={setAdminAlert} flash={flash} trips={ALL_TRIPS} drivers={drivers} subs={ALL_SUBS} maxPickupKm={maxPickupKm} setMaxPickupKm={setMaxPickupKm} pickupFeeKm={pickupFeeKm} setPickupFeeKm={setPickupFeeKm} dispatchMode={dispatchMode} setDispatchMode={setDispatchMode} pickupFeeOn={pickupFeeOn} setPickupFeeOn={setPickupFeeOn} baseFare={baseFare} setBaseFare={setBaseFare} ratePerKm={ratePerKm} setRatePerKm={setRatePerKm} ratePerMin={ratePerMin} setRatePerMin={setRatePerMin} minimumFare={minimumFare} setMinimumFare={setMinimumFare} beyondCapKm={beyondCapKm} setBeyondCapKm={setBeyondCapKm} beyondFeeFlat={beyondFeeFlat} setBeyondFeeFlat={setBeyondFeeFlat} beyondFeeOn={beyondFeeOn} setBeyondFeeOn={setBeyondFeeOn} waitFeeOn={waitFeeOn} setWaitFeeOn={setWaitFeeOn} waitFeeRate={waitFeeRate} setWaitFeeRate={setWaitFeeRate} waitFeeMinutes={waitFeeMinutes} setWaitFeeMinutes={setWaitFeeMinutes} />}
+          {page === "shuttle"   && <PageShuttle viewOnly={viewOnly}   shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
+          {page === "payment"   && <PagePayment viewOnly={viewOnly}   methods={paymentMethods} setMethods={setPaymentMethods} payouts={payoutRequests} setPayouts={setPayoutRequests} trips={ALL_TRIPS} subs={ALL_SUBS} stripePublishableKey={stripePublishableKey} setStripePublishableKey={setStripePublishableKey} stripeSecretKey={stripeSecretKey} setStripeSecretKey={setStripeSecretKey} stripeWebhookSecret={stripeWebhookSecret} setStripeWebhookSecret={setStripeWebhookSecret} stripeAccountId={stripeAccountId} setStripeAccountId={setStripeAccountId} stripeMode={stripeMode} setStripeMode={setStripeMode} stripeConnected={stripeConnected} setStripeConnected={setStripeConnected} payoutSchedule={payoutSchedule} setPayoutSchedule={setPayoutSchedule} payoutDay={payoutDay} setPayoutDay={setPayoutDay} stripeAutoCapture={stripeAutoCapture} setStripeAutoCapture={setStripeAutoCapture} businessName={businessName} setBusinessName={setBusinessName} businessEmail={businessEmail} setBusinessEmail={setBusinessEmail} businessPhone={businessPhone} setBusinessPhone={setBusinessPhone} businessAddress={businessAddress} setBusinessAddress={setBusinessAddress} businessBankName={businessBankName} setBusinessBankName={setBusinessBankName} businessBankLast4={businessBankLast4} setBusinessBankLast4={setBusinessBankLast4} businessTransitNo={businessTransitNo} setBusinessTransitNo={setBusinessTransitNo} businessInstNo={businessInstNo} setBusinessInstNo={setBusinessInstNo} autoPayoutEnabled={autoPayoutEnabled} setAutoPayoutEnabled={setAutoPayoutEnabled} lastAutoPayoutDate={lastAutoPayoutDate} nextAutoPayoutDate={nextAutoPayoutDate} cashoutRequests={cashoutRequests} setCashoutRequests={setCashoutRequests} />}
+          {page === "data"      && <PageDataManagement viewOnly={viewOnly} />}
+          {page === "settings"  && <PageSettings viewOnly={viewOnly}  airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} riderDelayFee={riderDelayFee} setRiderDelayFee={setRiderDelayFee} driverCancelFee={driverCancelFee} setDriverCancelFee={setDriverCancelFee} surgeEnabled={surgeEnabled} setSurgeEnabled={setSurgeEnabled} surgeRadiusKm={surgeRadiusKm} setSurgeRadiusKm={setSurgeRadiusKm} subFee={subFee} setSubFee={setSubFee} commPct={commPct} setCommPct={setCommPct} countdown={countdown} setCountdown={setCountdown} reqSub={reqSub} setReqSub={setReqSub} autoSusp={autoSusp} setAutoSusp={setAutoSusp} adminAlert={adminAlert} setAdminAlert={setAdminAlert} flash={flash} trips={ALL_TRIPS} drivers={drivers} subs={ALL_SUBS} maxPickupKm={maxPickupKm} setMaxPickupKm={setMaxPickupKm} pickupFeeKm={pickupFeeKm} setPickupFeeKm={setPickupFeeKm} dispatchMode={dispatchMode} setDispatchMode={setDispatchMode} pickupFeeOn={pickupFeeOn} setPickupFeeOn={setPickupFeeOn} baseFare={baseFare} setBaseFare={setBaseFare} ratePerKm={ratePerKm} setRatePerKm={setRatePerKm} ratePerMin={ratePerMin} setRatePerMin={setRatePerMin} minimumFare={minimumFare} setMinimumFare={setMinimumFare} beyondCapKm={beyondCapKm} setBeyondCapKm={setBeyondCapKm} beyondFeeFlat={beyondFeeFlat} setBeyondFeeFlat={setBeyondFeeFlat} beyondFeeOn={beyondFeeOn} setBeyondFeeOn={setBeyondFeeOn} waitFeeOn={waitFeeOn} setWaitFeeOn={setWaitFeeOn} waitFeeRate={waitFeeRate} setWaitFeeRate={setWaitFeeRate} waitFeeMinutes={waitFeeMinutes} setWaitFeeMinutes={setWaitFeeMinutes} />}
         </main>
       </div>
 
@@ -1256,7 +1274,7 @@ function calcFare(cfg, distKm, durationMin) {
 // PAGE: SETTINGS
 // ─────────────────────────────────────────────────────────────────────────────
 // ─── PAGE: DATA MANAGEMENT ───────────────────────────────────────────────────
-function PageDataManagement() {
+function PageDataManagement({ viewOnly }) {
   const SUPABASE_URL  = "https://bkbpsobvhxxvlzlmzsmy.supabase.co";
   const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnBzb2J2aHh4dmx6bG16c215Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzQ4MTUsImV4cCI6MjA4OTA1MDgxNX0.PLJyaouYk4FLfcZwVy_YsKMmny2a6DqrYOn_3jmpgMI";
 
@@ -1374,15 +1392,53 @@ function PageDataManagement() {
         ))}
       </div>
 
-      {/* Delete button */}
-      {!confirming ? (
-        <button
-          onClick={()=>setConfirming(true)}
-          disabled={selected.length===0}
-          style={{ padding:"12px 28px", borderRadius:10, border:"none", background:selected.length>0?"#ef4444":"#334155", color:"#fff", fontWeight:700, fontSize:14, cursor:selected.length>0?"pointer":"not-allowed", opacity:selected.length>0?1:0.5 }}>
-          {selected.length===0 ? "Select tables to delete" : `Delete ${selected.length} table${selected.length>1?"s":""}`}
-        </button>
-      ) : (
+      {/* Action buttons */}
+      {viewOnly && <div style={{ padding:"12px 16px", background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.2)", borderRadius:8, color:"#f59e0b", fontSize:12, fontWeight:600 }}>👁 View Only — you cannot delete or download data</div>}
+      {!viewOnly && !confirming ? (
+        <div style={{ display:"flex", gap:10 }}>
+          <button
+            onClick={() => {
+              if (selected.length === 0) return;
+              const SB_URL = "https://bkbpsobvhxxvlzlmzsmy.supabase.co";
+              const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnBzb2J2aHh4dmx6bG16c215Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NzQ4MTUsImV4cCI6MjA4OTA1MDgxNX0.PLJyaouYk4FLfcZwVy_YsKMmny2a6DqrYOn_3jmpgMI";
+              selected.forEach(async (tbl) => {
+                try {
+                  const res = await fetch(`${SB_URL}/rest/v1/${tbl.id}?select=*`, {
+                    headers:{ apikey:SB_KEY, Authorization:`Bearer ${SB_KEY}` }
+                  });
+                  const rows = await res.json();
+                  if (!rows||!rows.length){ alert(`No data in ${tbl.label}`); return; }
+                  const cols = Object.keys(rows[0]);
+                  const csv = [cols.join(","),...rows.map(r=>cols.map(c=>JSON.stringify(r[c]??'')).join(","))].join("\n");
+                  const blob = new Blob([csv],{type:"text/csv"});
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href=url; a.download=`${tbl.id}_${new Date().toISOString().slice(0,10)}.csv`;
+                  a.click(); URL.revokeObjectURL(url);
+                } catch(e){ console.error("CSV:",e); }
+              });
+            }}
+            disabled={selected.length===0}
+            style={{ padding:"12px 20px", borderRadius:10, border:"none",
+              cursor:selected.length>0?"pointer":"not-allowed",
+              background:selected.length>0?"#22c55e":"#1e293b",
+              color:selected.length>0?"#fff":"#475569",
+              fontSize:13, fontWeight:700 }}>
+            ↓ Download CSV
+          </button>
+          <button
+            onClick={()=>setConfirming(true)}
+            disabled={selected.length===0}
+            style={{ padding:"12px 28px", borderRadius:10, border:"none",
+              background:selected.length>0?"#ef4444":"#334155",
+              color:"#fff", fontWeight:700, fontSize:14,
+              cursor:selected.length>0?"pointer":"not-allowed",
+              opacity:selected.length>0?1:0.5 }}>
+            {selected.length===0 ? "Delete" : `Delete ${selected.length} table${selected.length>1?"s":""}`}
+          </button>
+        </div>
+      ) : null}
+      {!viewOnly && confirming && (
         <div style={{ background:"rgba(239,68,68,0.1)", border:"1.5px solid #ef4444", borderRadius:12, padding:20 }}>
           <div style={{ fontSize:14, fontWeight:700, color:"#fca5a5", marginBottom:8 }}>⚠️ Are you sure?</div>
           <div style={{ fontSize:13, color:"#94a3b8", marginBottom:16 }}>
@@ -1591,7 +1647,6 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
           <button onClick={handleSave} style={{ background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", color:"#fff", border:"none", borderRadius:8, padding:"10px 24px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit", letterSpacing:0.5, alignSelf:"flex-start" }}>
             SAVE ALL SETTINGS
           </button>
-        </div>
 
           {/* ── CANCELLATION & DELAY FEES ── */}
           <SettingsPanel title="CANCELLATION &amp; DELAY FEES">
@@ -1665,6 +1720,7 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
               </>
             )}
           </SettingsPanel>
+        </div>
 
         {/* ── RIGHT COLUMN — AI Advisor + Pricing preview ── */}
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -4651,7 +4707,7 @@ function ShuttleModal({ title, children, onClose }) {
 // PAGE: SHUTTLE / AIRPORT
 // ─────────────────────────────────────────────────────────────────────────────
 function PageShuttle({
-  vehicles, setVehicles, trips, setTrips, drivers,
+  viewOnly, vehicles, setVehicles, trips, setTrips, drivers,
   shuttleBaseFare, setShuttleBaseFare,
   shuttleBookingFee, setShuttleBookingFee,
   shuttlePeakOn, setShuttlePeakOn,
@@ -4822,7 +4878,7 @@ function PageShuttle({
           </button>
         ))}
         <div style={{ flex:1 }} />
-        {tab === "vehicles" && (
+        {tab === "vehicles" && !viewOnly && (
           <button onClick={() => {
             setForm({ make:"", model:"", year:"2023", plate:"", capacity:"7",
               color:"White", driver:"Unassigned", status:"active",
@@ -4835,7 +4891,7 @@ function PageShuttle({
             + Add Vehicle
           </button>
         )}
-        {tab === "trips" && (
+        {tab === "trips" && !viewOnly && (
           <button onClick={() => {
             setForm({ pickup:"", dropoff:"", vehicle:"", date:"",
               time:TIMES[7], fare:shuttleBaseFare||"12", seats:"7",
@@ -4879,11 +4935,11 @@ function PageShuttle({
                     <Td><StatusBadge s={v.status||"active"} /></Td>
                     <Td>
                       <div style={{ display:"flex", gap:6 }}>
-                        <ActBtn onClick={() => {
+                        {!viewOnly && <ActBtn onClick={() => {
                           setForm({ ...v });
                           setModal({ id:v.id, type:"edit_vehicle" });
-                        }}>Edit</ActBtn>
-                        <ActBtn danger onClick={() => setConfirmDelete({ type:"vehicle", item:v })}>Delete</ActBtn>
+                        }}>Edit</ActBtn>}
+                        {!viewOnly && <ActBtn danger onClick={() => setConfirmDelete({ type:"vehicle", item:v })}>Delete</ActBtn>}
                       </div>
                     </Td>
                   </tr>
@@ -4923,7 +4979,7 @@ function PageShuttle({
                     <Td><StatusBadge s={t.status||"scheduled"} /></Td>
                     <Td>
                       <div style={{ display:"flex", gap:6 }}>
-                        <ActBtn onClick={() => {
+                        {!viewOnly && <ActBtn onClick={() => {
                           setForm({
                             pickup: t.pickup || (t.route||"").split("→")[0]?.trim() || "",
                             dropoff:t.dropoff|| (t.route||"").split("→")[1]?.trim() || "",
@@ -4933,8 +4989,8 @@ function PageShuttle({
                             notes:  t.notes||"", days: t.days||[],
                           });
                           setModal({ id:t.id, type:"edit_trip" });
-                        }}>Edit</ActBtn>
-                        <ActBtn danger onClick={() => setConfirmDelete({ type:"trip", item:t })}>Delete</ActBtn>
+                        }}>Edit</ActBtn>}
+                        {!viewOnly && <ActBtn danger onClick={() => setConfirmDelete({ type:"trip", item:t })}>Delete</ActBtn>}
                       </div>
                     </Td>
                   </tr>
