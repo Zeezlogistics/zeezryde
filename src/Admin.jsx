@@ -265,6 +265,46 @@ export default function AdminApp() {
   // ── Load all data from Supabase on login ──────────────────────
   useEffect(() => {
     if (!authed) return;
+    // Restore saved settings from localStorage
+    try {
+      const saved = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
+      if (saved.baseFare)       setBaseFare(saved.baseFare);
+      if (saved.ratePerKm)      setRatePerKm(saved.ratePerKm);
+      if (saved.ratePerMin)     setRatePerMin(saved.ratePerMin);
+      if (saved.minimumFare)    setMinimumFare(saved.minimumFare);
+      if (saved.familyMult)     setFamilyMult(saved.familyMult);
+      if (saved.friendsMult)    setFriendsMult(saved.friendsMult);
+      if (saved.commPct)        setCommPct(saved.commPct);
+      if (saved.subFee)         setSubFee(saved.subFee);
+      if (saved.countdown)      setCountdown(saved.countdown);
+      if (saved.reqSub !== undefined) setReqSub(saved.reqSub);
+      if (saved.surgeEnabled !== undefined) setSurgeEnabled(saved.surgeEnabled);
+      if (saved.surgeRadiusKm)  setSurgeRadiusKm(saved.surgeRadiusKm);
+      if (saved.demandTier)     setDemandTier(saved.demandTier);
+      if (saved.maxPickupKm)    setMaxPickupKm(saved.maxPickupKm);
+      if (saved.pickupFeeKm)    setPickupFeeKm(saved.pickupFeeKm);
+      if (saved.pickupFeeOn !== undefined) setPickupFeeOn(saved.pickupFeeOn);
+      if (saved.beyondCapKm)    setBeyondCapKm(saved.beyondCapKm);
+      if (saved.beyondFeeFlat)  setBeyondFeeFlat(saved.beyondFeeFlat);
+      if (saved.beyondFeeOn !== undefined) setBeyondFeeOn(saved.beyondFeeOn);
+      if (saved.waitFeeOn !== undefined)   setWaitFeeOn(saved.waitFeeOn);
+      if (saved.waitFeeRate)    setWaitFeeRate(saved.waitFeeRate);
+      if (saved.waitFeeMinutes) setWaitFeeMinutes(saved.waitFeeMinutes);
+      if (saved.riderDelayFee)  setRiderDelayFee(saved.riderDelayFee);
+      if (saved.driverCancelFee) setDriverCancelFee(saved.driverCancelFee);
+      if (saved.dispatchMode)   setDispatchMode(saved.dispatchMode);
+      if (saved.autoSusp !== undefined) setAutoSusp(saved.autoSusp);
+      if (saved.adminAlert !== undefined) setAdminAlert(saved.adminAlert);
+      if (saved.airportFareYYZ) setAirportFareYYZ(saved.airportFareYYZ);
+      if (saved.airportFareYHM) setAirportFareYHM(saved.airportFareYHM);
+      if (saved.airportFareYTZ) setAirportFareYTZ(saved.airportFareYTZ);
+      if (saved.airportBookingFee) setAirportBookingFee(saved.airportBookingFee);
+      if (saved.airportMinNotice)  setAirportMinNotice(saved.airportMinNotice);
+      if (saved.shuttleBaseFare)   setShuttleBaseFare(saved.shuttleBaseFare);
+      if (saved.shuttleBookingFee) setShuttleBookingFee(saved.shuttleBookingFee);
+      if (saved.shuttlePeakOn !== undefined) setShuttlePeakOn(saved.shuttlePeakOn);
+      if (saved.shuttlePeakMult)   setShuttlePeakMult(saved.shuttlePeakMult);
+    } catch(e) {}
     (async () => {
       try {
         const sb = await getSupabase();
@@ -1541,7 +1581,29 @@ function PageSettings({ airportFareYYZ, setAirportFareYYZ, airportFareYHM, setAi
     if (isNaN(parseFloat(minimumFare))|| parseFloat(minimumFare)< 0) errors.push("Min fare");
     if (isNaN(parseFloat(commPct))    || parseFloat(commPct) < 0 || parseFloat(commPct) > 100) errors.push("Commission %");
     if (errors.length) { flash(`Invalid values: ${errors.join(", ")}`, false); return; }
-    flash("Pricing & settings saved successfully");
+    // Persist to localStorage so settings survive page refresh
+    const settings = {
+      baseFare, ratePerKm, ratePerMin, minimumFare, familyMult, friendsMult,
+      commPct, subFee, countdown, reqSub, surgeEnabled, surgeRadiusKm,
+      demandTier, maxPickupKm, pickupFeeKm, pickupFeeOn,
+      beyondCapKm, beyondFeeFlat, beyondFeeOn, waitFeeOn, waitFeeRate, waitFeeMinutes,
+      riderDelayFee, driverCancelFee, dispatchMode, autoSusp, adminAlert,
+      airportFareYYZ, airportFareYHM, airportFareYTZ, airportBookingFee, airportMinNotice,
+      shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
+    };
+    try { localStorage.setItem("zeez_settings", JSON.stringify(settings)); } catch(e) {}
+    // Push live to rider/driver app via bridge
+    try {
+      if (window.__zeezAdmin) {
+        if (window.__zeezAdmin.setBaseFare)    window.__zeezAdmin.setBaseFare(baseFare);
+        if (window.__zeezAdmin.setRatePerKm)   window.__zeezAdmin.setRatePerKm(ratePerKm);
+        if (window.__zeezAdmin.setRatePerMin)  window.__zeezAdmin.setRatePerMin(ratePerMin);
+        if (window.__zeezAdmin.setCommPct)     window.__zeezAdmin.setCommPct(commPct);
+        if (window.__zeezAdmin.setSubFee)      window.__zeezAdmin.setSubFee(subFee);
+        if (window.__zeezAdmin.setSurgeEnabled) window.__zeezAdmin.setSurgeEnabled(surgeEnabled);
+      }
+    } catch(e) {}
+    flash("Settings saved successfully ✓");
   }
 
   const inp = (val, set, w=80) => (
