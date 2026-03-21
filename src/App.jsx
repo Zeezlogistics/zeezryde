@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AdminApp from "./Admin";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
@@ -2015,9 +2015,9 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
 
 // ─── SLIDE ONLINE TOGGLE ────────────────────────────────────────────────────
 function SlideToggle({ online, onToggle, subPaid }) {
-  const [dragging, setDragging] = React.useState(false);
-  const [startX,   setStartX]   = React.useState(0);
-  const [offsetX,  setOffsetX]  = React.useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [startX,   setStartX]   = useState(0);
+  const [offsetX,  setOffsetX]  = useState(0);
   const trackW = 260; // total track width px
   const thumbW = 52;  // thumb width px
   const maxX   = trackW - thumbW - 8; // max drag distance
@@ -2641,6 +2641,28 @@ const ROLE_ANIM_CSS = `
   @keyframes roadMove    { from{background-position:0 0} to{background-position:-200px 0} }
 `;
 
+// ─── DRIVER ERROR BOUNDARY ────────────────────────────────────────────────────
+class DriverErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding:30, background:"#0a1628", minHeight:"100vh", color:"#f0f9ff", fontFamily:"sans-serif" }}>
+        <div style={{ fontSize:24, marginBottom:12 }}>⚠️ Driver App Error</div>
+        <div style={{ color:"#ef4444", fontSize:14, marginBottom:8 }}>{this.state.error.message}</div>
+        <pre style={{ fontSize:11, color:"#475569", whiteSpace:"pre-wrap", wordBreak:"break-all" }}>
+          {this.state.error.stack?.slice(0,600)}
+        </pre>
+        <button onClick={()=>this.setState({error:null})}
+          style={{ marginTop:16, padding:"10px 24px", background:"#2563eb", color:"#fff", border:"none", borderRadius:8, cursor:"pointer" }}>
+          Retry
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 export default function App() {
   // Route to admin if URL contains /admin
   if (typeof window !== "undefined" && window.location.pathname.includes("admin")) {
@@ -2699,5 +2721,5 @@ export default function App() {
     </div>
   );
 
-  return role==="rider" ? <RiderApp /> : <DriverApp />;
+  return role==="rider" ? <RiderApp /> : <DriverErrorBoundary><DriverApp /></DriverErrorBoundary>;
 }
