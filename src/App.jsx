@@ -382,35 +382,39 @@ function RiderApp() {
 
   const go = (s) => { setErr(""); setScr(s); };
 
-  // Load shuttle trips + airport fares from Supabase on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const sb = db; // same client
-        const [{ data: trips }, { data: cfg }] = await Promise.all([
-          sb.from("shuttle_trips").select("*").eq("status","scheduled").order("created_at", { ascending:false }),
-          sb.from("settings").select("value").eq("key","admin_settings").maybeSingle(),
-        ]);
-        // Always update — if Supabase returns [] that means no trips scheduled
-        setLiveTrips((trips || []).map(t => ({
-          ...t,
-          depart_date:    t.date        || t.depart_date    || "",
-          depart_time:    t.time        || t.depart_time    || "",
-          fare_per_seat:  t.fare_per_seat || 12,
-          seats_total:    t.seats       || 7,
-          seats_booked:   t.booked      || 0,
-        })));
-        if (cfg?.value) {
-          const s = cfg.value;
-          try { localStorage.setItem("zeez_settings", JSON.stringify(s)); } catch(e) {}
-        }
-      } catch(e) {
-        console.log("Shuttle load:", e.message);
-      } finally {
-        setTripsLoading(false);
+  // Load shuttle trips + airport fares from Supabase
+  async function loadSettingsAndTrips() {
+    try {
+      const [{ data: trips }, { data: cfg }] = await Promise.all([
+        db.from("shuttle_trips").select("*").eq("status","scheduled").order("created_at", { ascending:false }),
+        db.from("settings").select("value").eq("key","admin_settings").maybeSingle(),
+      ]);
+      setLiveTrips((trips || []).map(t => ({
+        ...t,
+        depart_date:   t.date        || t.depart_date    || "",
+        depart_time:   t.time        || t.depart_time    || "",
+        fare_per_seat: t.fare_per_seat || 12,
+        seats_total:   t.seats       || 7,
+        seats_booked:  t.booked      || 0,
+      })));
+      if (cfg?.value) {
+        // Write fresh fares into localStorage so getLive() picks them up
+        try { localStorage.setItem("zeez_settings", JSON.stringify(cfg.value)); } catch(e) {}
       }
-    })();
-  }, []);
+    } catch(e) {
+      console.log("Settings load:", e.message);
+    } finally {
+      setTripsLoading(false);
+    }
+  }
+
+  // Run on mount
+  useEffect(() => { loadSettingsAndTrips(); }, []);
+
+  // Re-fetch fares whenever rider navigates to airport screen (so prices are always current)
+  useEffect(() => {
+    if (scr === "airport") loadSettingsAndTrips();
+  }, [scr]);
 
   useEffect(() => {
     db.auth.getSession().then(({ data }) => {
