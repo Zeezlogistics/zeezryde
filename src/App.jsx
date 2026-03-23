@@ -406,7 +406,7 @@ function RiderApp() {
     try {
       const [{ data: trips }, { data: airports }, { data: cfg }] = await Promise.all([
         // Shuttle trips from shuttle_trips table
-        db.from("shuttle_trips").select("*").eq("status","scheduled").order("created_at", { ascending:false }),
+        db.from("shuttle_trips").select("*").eq("status","scheduled").order("date", { ascending:true }).order("time", { ascending:true }),
         // Airport fares from dedicated airport_trips table
         db.from("airport_trips").select("*"),
         // Fallback: admin settings blob
@@ -1148,13 +1148,13 @@ function RiderApp() {
                 ))}
               </div>
             )}
-            <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Available Trips</div>
+            <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Upcoming &amp; Scheduled Trips</div>
             {tripsLoading ? (
               <div style={{ textAlign:"center", padding:"30px 0", color:SLATE, fontSize:13 }}>Loading trips…</div>
             ) : liveTrips.length === 0 ? (
               <div style={{ textAlign:"center", padding:"30px 0", color:SLATE, fontSize:13 }}>No trips scheduled yet.</div>
-            ) : liveTrips.map(t=>(
-              <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+BORDER, cursor:"pointer" }}>
+) : liveTrips.map(t=>{ const isPast=t.depart_date&&t.depart_date<new Date().toISOString().slice(0,10); return (
+            <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:isPast?"#f8fafc":WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+(isPast?"#e2e8f0":BORDER), cursor:"pointer", opacity:isPast?0.7:1 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:NAVY, marginBottom:3 }}>{t.route}</div>
@@ -1167,7 +1167,7 @@ function RiderApp() {
                   <div style={{ width:(t.seats_booked/t.seats_total*100)+"%", background:BLUE, height:"100%", borderRadius:4 }} />
                 </div>
               </button>
-            ))}
+            ); })}
           </div>
         </div>
       )}
