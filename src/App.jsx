@@ -832,7 +832,7 @@ function RiderApp() {
           <RolePill>SHUTTLE</RolePill>
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY, marginTop:8, marginBottom:12 }}>{selectedTrip.route}</h2>
             <Card style={{ marginBottom:14 }}>
-              {[["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_type||selectedTrip.vehicleType||"7-seater")],["Driver",selectedTrip.driver||"TBD"],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"]].map(([k,v])=>(
+              {[["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.make&&selectedTrip.model ? selectedTrip.make+" "+selectedTrip.model : selectedTrip.vehicle||selectedTrip.vehicle_type||"")],["Driver",selectedTrip.driver||"TBD"],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"]].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
                 <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
                 <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
