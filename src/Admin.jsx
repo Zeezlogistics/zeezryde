@@ -5414,7 +5414,7 @@ function PageShuttle({
   airportBookingFee, setAirportBookingFee,
   airportMinNotice, setAirportMinNotice,
 }) {
-  const [tab,           setTab]           = useState("vehicles");
+  const [tab,           setTab]           = useState("drivers");
   const [modal,         setModal]         = useState(null);
   const [form,          setForm]          = useState({});
 
@@ -5613,7 +5613,7 @@ function PageShuttle({
 
       {/* ── Tab bar ── */}
       <div style={{ display:"flex", gap:6, marginBottom:16, alignItems:"center" }}>
-        {[["vehicles","🚐 Fleet Vehicles"],["trips","🗓 Shuttle Trips"],["drivers","👤 Drivers"],["airport","✈️ Airport Settings"]].map(([id, label]) => (
+        {[["drivers","👤 Drivers"],["vehicles","🚐 Fleet Vehicles"],["trips","🗓 Shuttle Trips"],["airport","✈️ Airport Settings"]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             style={{ padding:"7px 20px", borderRadius:8,
               border:`1px solid ${tab===id ? "#3b82f6" : "rgba(99,179,237,0.12)"}`,
