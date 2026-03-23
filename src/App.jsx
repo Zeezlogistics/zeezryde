@@ -965,30 +965,30 @@ function RiderApp() {
               </div>
             )}
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Pickup Date</div>
-              <input type="date" value={airportDate}
-                onChange={e=>{ setAirportDate(e.target.value); e.target.blur(); }}
-                style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportDate?BLUE:BORDER), background:airportDate?VLIGHT:WHITE, fontSize:13, color:airportDate?NAVY:SLATE, boxSizing:"border-box", outline:"none", cursor:"pointer" }}
-              />
-            </div>
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Pickup Time</div>
-              <div style={{ display:"flex", border:"1.5px solid "+(airportHour&&airportMin?BLUE:BORDER), borderRadius:10, background:WHITE, overflow:"hidden" }}>
-                <select value={airportHour} onChange={e=>{ setAirportHour(e.target.value); setAirportTime(e.target.value+":"+airportMin); }}
-                  style={{ flex:1, padding:"10px 12px", border:"none", borderRight:"1px solid "+BORDER, background:"transparent", fontSize:13, color:airportHour?NAVY:SLATE, outline:"none", cursor:"pointer", appearance:"none", WebkitAppearance:"none" }}>
-                  <option value="">HH</option>
-                  {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h=>(
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-                <span style={{ display:"flex", alignItems:"center", padding:"0 6px", color:SLATE, fontWeight:700, fontSize:16, pointerEvents:"none" }}>:</span>
-                <select value={airportMin} onChange={e=>{ setAirportMin(e.target.value); setAirportTime(airportHour+":"+e.target.value); }}
-                  style={{ flex:1, padding:"10px 12px", border:"none", background:"transparent", fontSize:13, color:airportMin?NAVY:SLATE, outline:"none", cursor:"pointer", appearance:"none", WebkitAppearance:"none" }}>
-                  <option value="">MM</option>
-                  {["00","15","30","45"].map(m=>(
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
+              <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Pickup Date &amp; Time</div>
+              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <input type="date" value={airportDate}
+                  onChange={e=>{ setAirportDate(e.target.value); e.target.blur(); }}
+                  style={{ flex:"1 1 55%", padding:"9px 10px", borderRadius:10, border:"1.5px solid "+(airportDate?BLUE:BORDER),
+                    background:airportDate?VLIGHT:WHITE, fontSize:12, color:airportDate?NAVY:SLATE, outline:"none", cursor:"pointer" }}
+                />
+                <div style={{ flex:"1 1 45%", display:"flex", border:"1.5px solid "+(airportHour&&airportMin?BLUE:BORDER), borderRadius:10, background:WHITE, overflow:"hidden" }}>
+                  <select value={airportHour} onChange={e=>{ setAirportHour(e.target.value); setAirportTime(e.target.value+":"+airportMin); }}
+                    style={{ flex:1, padding:"9px 6px", border:"none", borderRight:"1px solid "+BORDER, background:"transparent", fontSize:12, color:airportHour?NAVY:SLATE, outline:"none" }}>
+                    <option value="">HH</option>
+                    {Array.from({length:24},(_,i)=>String(i).padStart(2,"0")).map(h=>(
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                  <span style={{ display:"flex", alignItems:"center", padding:"0 3px", color:SLATE, fontWeight:700, fontSize:14, pointerEvents:"none" }}>:</span>
+                  <select value={airportMin} onChange={e=>{ setAirportMin(e.target.value); setAirportTime(airportHour+":"+e.target.value); }}
+                    style={{ flex:1, padding:"9px 6px", border:"none", background:"transparent", fontSize:12, color:airportMin?NAVY:SLATE, outline:"none" }}>
+                    <option value="">MM</option>
+                    {["00","15","30","45"].map(m=>(
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <div style={{ marginBottom:14 }}>
