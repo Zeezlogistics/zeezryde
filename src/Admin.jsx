@@ -210,6 +210,7 @@ export default function AdminApp() {
   const [surgeEnabled,     setSurgeEnabled]     = useState(true);
   const [surgeRadiusKm,    setSurgeRadiusKm]    = useState("5");
   const [baseFare,    setBaseFare]    = useState("2.50");
+  const [dispatchEmail, setDispatchEmail] = useState("info@zeezlogistics.com");  // airport trip notifications
   const [ratePerKm,   setRatePerKm]   = useState("1.20");
   const [ratePerMin,  setRatePerMin]  = useState("0.25");
   const [minimumFare, setMinimumFare] = useState("5.00");
@@ -248,7 +249,8 @@ export default function AdminApp() {
           ));
         },
         // Airport pricing getters — read by rider app
-        getAirportFare: (airportId) => {
+        getDispatchEmail: () => dispatchEmail,
+      getAirportFare: (airportId) => {
           if (airportId === "yyz") return airportFareYYZ;
           if (airportId === "yhm") return airportFareYHM;
           if (airportId === "ytz") return airportFareYTZ;
@@ -5800,7 +5802,7 @@ function PageShuttle({
         <Panel title="SHUTTLE DRIVERS">
           {/* Add Driver Form */}
           {!viewOnly && (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr auto", gap:10, marginBottom:16, alignItems:"end" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr auto", gap:10, marginBottom:16, alignItems:"end" }}>
               <div>
                 <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Full Name</div>
                 <input value={form.driverName||""} onChange={e=>setForm(f=>({...f,driverName:e.target.value}))}
@@ -5822,13 +5824,20 @@ function PageShuttle({
                   style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
                     padding:"7px 10px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }} />
               </div>
+              <div>
+                <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Email</div>
+                <input value={form.driverEmail||""} onChange={e=>setForm(f=>({...f,driverEmail:e.target.value}))}
+                  placeholder="e.g. driver@email.com"
+                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
+                    padding:"7px 10px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+              </div>
               <button onClick={()=>{
                 if (!form.driverName?.trim()) { showToast("Name is required", false); return; }
-                const nd = { id:"SD-"+String(Date.now()).slice(-5), name:form.driverName.trim(), phone:form.driverPhone||"", licence:form.driverLicence||"", status:"active" };
+            const nd = { id:"SD-"+String(Date.now()).slice(-5), name:form.driverName.trim(), phone:form.driverPhone||"", email:form.driverEmail||"", licence:form.driverLicence||"", status:"active" };
                 setShuttleDrivers(prev=>[...prev, nd]);
                 getSupabase().then(sb=>sb.from("shuttle_drivers").insert(nd).then(()=>{}).catch(e=>console.error(e)));
                 showToast(`${nd.name} added`);
-                setForm(f=>({...f, driverName:"", driverPhone:"", driverLicence:""}));
+                setForm(f=>({...f, driverName:"", driverPhone:"", driverEmail:"", driverLicence:""}));
               }} style={{ padding:"7px 18px", borderRadius:8, border:"none", cursor:"pointer",
                 background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff", fontSize:12, fontWeight:700, whiteSpace:"nowrap" }}>
                 + Add Driver
@@ -5843,7 +5852,7 @@ function PageShuttle({
           ) : (
             <table style={{ width:"100%", borderCollapse:"collapse" }}>
               <thead>
-                <tr>{["ID","NAME","PHONE","LICENCE","STATUS",""].map(h=>(
+              <tr>{["ID","NAME","PHONE","EMAIL","LICENCE","STATUS",""].map(h=>(
                   <Th key={h}>{h}</Th>
                 ))}</tr>
               </thead>
@@ -5853,6 +5862,7 @@ function PageShuttle({
                     <Td><Mono small>{d.id}</Mono></Td>
                     <Td><span style={{ color:"#f0f9ff", fontWeight:600 }}>{d.name}</span></Td>
                     <Td muted>{d.phone||"—"}</Td>
+              <Td muted>{d.email||"—"}</Td>
                     <Td muted>{d.licence||"—"}</Td>
                     <Td><StatusBadge s={d.status||"active"} /></Td>
                     <Td>
@@ -5917,7 +5927,20 @@ function PageShuttle({
             ))}
           </Panel>
 
-        {/* Save Shuttle/Airport Settings */}
+        {/* Dispatch Email */}
+        <Panel title="DISPATCH NOTIFICATIONS">
+          <div style={{ padding:"10px 0" }}>
+            <div style={{ color:"#94a3b8", fontSize:12, marginBottom:8 }}>Dispatch Email — receives notification for every airport booking</div>
+            <input
+              value={dispatchEmail}
+              onChange={e=>setDispatchEmail(e.target.value)}
+              placeholder="e.g. dispatch@zeezryde.com"
+              style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)",
+                borderRadius:6, padding:"8px 12px", color:"#60a5fa", fontSize:13,
+                outline:"none", boxSizing:"border-box" }}
+            />
+          </div>
+        </Panel>
         {!viewOnly && (
           <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
             <button
