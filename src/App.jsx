@@ -386,10 +386,16 @@ function RiderApp() {
   // Load shuttle trips + airport fares from Supabase
   async function loadSettingsAndTrips() {
     try {
-      const [{ data: trips }, { data: cfg }] = await Promise.all([
+      const [{ data: trips }, { data: airports }, { data: cfg }] = await Promise.all([
+        // Shuttle trips from shuttle_trips table
         db.from("shuttle_trips").select("*").eq("status","scheduled").order("created_at", { ascending:false }),
+        // Airport fares from dedicated airport_trips table
+        db.from("airport_trips").select("*"),
+        // Fallback: admin settings blob
         db.from("settings").select("value").eq("key","admin_settings").maybeSingle(),
       ]);
+
+      // Shuttle trips
       setLiveTrips((trips || []).map(t => ({
         ...t,
         depart_date:   t.date        || t.depart_date    || "",
@@ -398,13 +404,19 @@ function RiderApp() {
         seats_total:   t.seats       || 7,
         seats_booked:  t.booked      || 0,
       })));
-      if (cfg?.value) {
-        // Store in React state so UI re-renders with fresh fares
-        setLiveSettings(cfg.value);
-        // Also write to localStorage as fallback
+
+      // Airport fares — build a settings object from airport_trips rows
+      let settingsObj = cfg?.value || {};
+      if (airports && airports.length > 0) {
+        airports.forEach(a => {
+          settingsObj = { ...settingsObj, ["airportFare" + a.code.toUpperCase()]: String(a.fare) };
+        });
+      }
+      if (Object.keys(settingsObj).length > 0) {
+        setLiveSettings(settingsObj);
         try {
           const clean = Object.fromEntries(
-            Object.entries(cfg.value).filter(([,v]) => v === null || typeof v !== "object")
+            Object.entries(settingsObj).filter(([,v]) => v === null || typeof v !== "object")
           );
           localStorage.setItem("zeez_settings", JSON.stringify(clean));
         } catch(e) {
