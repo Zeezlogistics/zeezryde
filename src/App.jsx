@@ -832,7 +832,7 @@ function RiderApp() {
           <RolePill>SHUTTLE</RolePill>
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY, marginTop:8, marginBottom:12 }}>{selectedTrip.route}</h2>
             <Card style={{ marginBottom:14 }}>
-              {[["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.make&&selectedTrip.model ? selectedTrip.make+" "+selectedTrip.model : selectedTrip.vehicle||selectedTrip.vehicle_type||"")],["Driver",selectedTrip.driver||"TBD"],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"]].map(([k,v])=>(
+              {[["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_plate ? selectedTrip.vehicle_plate : selectedTrip.vehicle||"—")],["Driver",selectedTrip.driver||"TBD"],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"]].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
                 <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
                 <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
@@ -852,7 +852,10 @@ function RiderApp() {
                       style={{ padding:"8px 16px", borderRadius:10, border:"2px solid "+(isSel?BLUE:BORDER),
                         background:isSel?BLUE:WHITE, color:isSel?"#fff":NAVY,
                         fontSize:12, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}>
-                      {day}
+                      <span style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                        <span style={{ fontSize:12, fontWeight:800 }}>{day.length===10&&day.includes("-") ? new Date(day+"T12:00").toLocaleDateString("en-CA",{weekday:"short"}) : day}</span>
+                        {day.length===10&&day.includes("-") && <span style={{ fontSize:9, opacity:0.85 }}>{new Date(day+"T12:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</span>}
+                      </span>
                     </button>
                     );
                   })}
