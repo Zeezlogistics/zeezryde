@@ -531,6 +531,7 @@ export default function AdminApp() {
   // ── Shuttle Service state ─────────────────────────────────────────────────
   const [shuttleVehicles, setShuttleVehicles] = useState([]);
   const [shuttleTrips,    setShuttleTrips]    = useState([]);
+  const [shuttleDrivers,  setShuttleDrivers]  = useState([]);
 
   // ── Payment state ─────────────────────────────────────────────────────────
   // ── Stripe configuration (persisted to Settings in real backend) ──────────
@@ -756,7 +757,7 @@ export default function AdminApp() {
           {page === "docs"      && <PageDocs viewOnly={viewOnly}       drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
           {page === "promos"    && <PagePromos    promos={promos} setPromos={setPromos} drivers={drivers} />}
           {page === "zones"     && <PageZones     drivers={drivers} patchDriver={patchDriver} />}
-          {page === "shuttle"   && <PageShuttle viewOnly={viewOnly} flash={flash} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
+          {page === "shuttle"   && <PageShuttle viewOnly={viewOnly} flash={flash} shuttleDrivers={shuttleDrivers} setShuttleDrivers={setShuttleDrivers} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
           {page === "payment"   && <PagePayment viewOnly={viewOnly}   methods={paymentMethods} setMethods={setPaymentMethods} payouts={payoutRequests} setPayouts={setPayoutRequests} trips={ALL_TRIPS} subs={ALL_SUBS} stripePublishableKey={stripePublishableKey} setStripePublishableKey={setStripePublishableKey} stripeSecretKey={stripeSecretKey} setStripeSecretKey={setStripeSecretKey} stripeWebhookSecret={stripeWebhookSecret} setStripeWebhookSecret={setStripeWebhookSecret} stripeAccountId={stripeAccountId} setStripeAccountId={setStripeAccountId} stripeMode={stripeMode} setStripeMode={setStripeMode} stripeConnected={stripeConnected} setStripeConnected={setStripeConnected} payoutSchedule={payoutSchedule} setPayoutSchedule={setPayoutSchedule} payoutDay={payoutDay} setPayoutDay={setPayoutDay} stripeAutoCapture={stripeAutoCapture} setStripeAutoCapture={setStripeAutoCapture} businessName={businessName} setBusinessName={setBusinessName} businessEmail={businessEmail} setBusinessEmail={setBusinessEmail} businessPhone={businessPhone} setBusinessPhone={setBusinessPhone} businessAddress={businessAddress} setBusinessAddress={setBusinessAddress} businessBankName={businessBankName} setBusinessBankName={setBusinessBankName} businessBankLast4={businessBankLast4} setBusinessBankLast4={setBusinessBankLast4} businessTransitNo={businessTransitNo} setBusinessTransitNo={setBusinessTransitNo} businessInstNo={businessInstNo} setBusinessInstNo={setBusinessInstNo} autoPayoutEnabled={autoPayoutEnabled} setAutoPayoutEnabled={setAutoPayoutEnabled} lastAutoPayoutDate={lastAutoPayoutDate} nextAutoPayoutDate={nextAutoPayoutDate} cashoutRequests={cashoutRequests} setCashoutRequests={setCashoutRequests} />}
           {page === "data"      && <PageDataManagement viewOnly={viewOnly} />}
           {page === "users"     && <PageUsers viewOnly={viewOnly} />}
@@ -5402,6 +5403,7 @@ function ShuttleModal({ title, children, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function PageShuttle({
   viewOnly, flash, vehicles, setVehicles, trips, setTrips, drivers,
+  shuttleDrivers, setShuttleDrivers,
   shuttleBaseFare, setShuttleBaseFare,
   shuttleBookingFee, setShuttleBookingFee,
   shuttlePeakOn, setShuttlePeakOn,
@@ -5464,9 +5466,10 @@ function PageShuttle({
   const [toast,         setToast]         = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const safeVehicles = vehicles || [];
-  const safeTrips    = trips    || [];
-  const safeDrivers  = drivers  || [];
+  const safeVehicles      = vehicles       || [];
+  const safeTrips         = trips          || [];
+  const safeDrivers       = drivers         || [];
+  const safeShuttleDrivers = shuttleDrivers || [];
 
   const TIMES = [
     "12:00 AM","1:00 AM","2:00 AM","3:00 AM","4:00 AM","5:00 AM",
@@ -5610,7 +5613,7 @@ function PageShuttle({
 
       {/* ── Tab bar ── */}
       <div style={{ display:"flex", gap:6, marginBottom:16, alignItems:"center" }}>
-        {[["vehicles","🚐 Fleet Vehicles"],["trips","🗓 Shuttle Trips"],["airport","✈️ Airport Settings"]].map(([id, label]) => (
+        {[["vehicles","🚐 Fleet Vehicles"],["trips","🗓 Shuttle Trips"],["drivers","👤 Drivers"],["airport","✈️ Airport Settings"]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             style={{ padding:"7px 20px", borderRadius:8,
               border:`1px solid ${tab===id ? "#3b82f6" : "rgba(99,179,237,0.12)"}`,
@@ -5775,6 +5778,87 @@ function PageShuttle({
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: SHUTTLE DRIVERS                                       */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "drivers" && (
+        <>
+        <Panel title="SHUTTLE DRIVERS">
+          {/* Add Driver Form */}
+          {!viewOnly && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr auto", gap:10, marginBottom:16, alignItems:"end" }}>
+              <div>
+                <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Full Name</div>
+                <input value={form.driverName||""} onChange={e=>setForm(f=>({...f,driverName:e.target.value}))}
+                  placeholder="e.g. John Smith"
+                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
+                    padding:"7px 10px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Phone</div>
+                <input value={form.driverPhone||""} onChange={e=>setForm(f=>({...f,driverPhone:e.target.value}))}
+                  placeholder="e.g. 905-555-0100"
+                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
+                    padding:"7px 10px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize:9, fontWeight:700, color:"#94a3b8", letterSpacing:1.2, textTransform:"uppercase", marginBottom:4 }}>Licence #</div>
+                <input value={form.driverLicence||""} onChange={e=>setForm(f=>({...f,driverLicence:e.target.value}))}
+                  placeholder="e.g. A12345-67890-AB000"
+                  style={{ width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
+                    padding:"7px 10px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+              </div>
+              <button onClick={()=>{
+                if (!form.driverName?.trim()) { showToast("Name is required", false); return; }
+                const nd = { id:"SD-"+String(Date.now()).slice(-5), name:form.driverName.trim(), phone:form.driverPhone||"", licence:form.driverLicence||"", status:"active" };
+                setShuttleDrivers(prev=>[...prev, nd]);
+                getSupabase().then(sb=>sb.from("shuttle_drivers").insert(nd).then(()=>{}).catch(e=>console.error(e)));
+                showToast(`${nd.name} added`);
+                setForm(f=>({...f, driverName:"", driverPhone:"", driverLicence:""}));
+              }} style={{ padding:"7px 18px", borderRadius:8, border:"none", cursor:"pointer",
+                background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff", fontSize:12, fontWeight:700, whiteSpace:"nowrap" }}>
+                + Add Driver
+              </button>
+            </div>
+          )}
+          {/* Drivers Table */}
+          {(shuttleDrivers||[]).length === 0 ? (
+            <div style={{ padding:"30px", textAlign:"center", color:"#334155", fontSize:13 }}>
+              No shuttle drivers yet. Add one above.
+            </div>
+          ) : (
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>{["ID","NAME","PHONE","LICENCE","STATUS",""].map(h=>(
+                  <Th key={h}>{h}</Th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {(shuttleDrivers||[]).map(d=>(
+                  <tr key={d.id} className="trow">
+                    <Td><Mono small>{d.id}</Mono></Td>
+                    <Td><span style={{ color:"#f0f9ff", fontWeight:600 }}>{d.name}</span></Td>
+                    <Td muted>{d.phone||"—"}</Td>
+                    <Td muted>{d.licence||"—"}</Td>
+                    <Td><StatusBadge s={d.status||"active"} /></Td>
+                    <Td>
+                      {!viewOnly && (
+                        <ActBtn danger onClick={()=>{
+                          setShuttleDrivers(prev=>prev.filter(x=>x.id!==d.id));
+                          getSupabase().then(sb=>sb.from("shuttle_drivers").delete().eq("id",d.id).then(()=>{}).catch(e=>console.error(e)));
+                          showToast(`${d.name} removed`);
+                        }}>Remove</ActBtn>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
       {/* TAB: AIRPORT SETTINGS                                     */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === "airport" && (
@@ -5900,7 +5984,7 @@ function PageShuttle({
             <ShuttleField label="Assigned Driver" full>
               <select value={form.driver||"Unassigned"} onChange={e => setForm(f => ({...f, driver:e.target.value}))} style={SS}>
                 <option value="Unassigned">Unassigned</option>
-                {safeDrivers.filter(d => d.status === "active").map(d =>
+                {safeShuttleDrivers.filter(d => d.status === "active").map(d =>
                   <option key={d.id} value={d.name}>{d.name}</option>)}
               </select>
             </ShuttleField>
@@ -6015,7 +6099,7 @@ function PageShuttle({
             <ShuttleField label="Assign Driver" full>
               <select value={form.driver||"Unassigned"} onChange={e => setForm(f => ({...f, driver:e.target.value}))} style={SS}>
                 <option value="Unassigned">Unassigned</option>
-                {safeDrivers.filter(d => d.status === "active").map(d =>
+                {safeShuttleDrivers.filter(d => d.status === "active").map(d =>
                   <option key={d.id} value={d.name}>{d.name}</option>)}
               </select>
             </ShuttleField>
