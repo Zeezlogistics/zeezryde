@@ -856,20 +856,32 @@ function RiderApp() {
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Select Travel Days <span style={{ color:SLATE, fontWeight:400 }}>(tap to select multiple)</span></div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                  {selectedTrip.days.map(day => {
-                    const isSel = selectedDates.includes(day);
-                    return (
-                    <button key={day} onClick={()=>setSelectedDates(prev=>isSel?prev.filter(d=>d!==day):[...prev,day])}
-                      style={{ padding:"8px 16px", borderRadius:10, border:"2px solid "+(isSel?BLUE:BORDER),
-                        background:isSel?BLUE:WHITE, color:isSel?"#fff":NAVY,
-                        fontSize:12, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
-                        <span style={{ fontSize:12, fontWeight:800 }}>{day.length===10&&day.includes("-") ? new Date(day+"T12:00:00").toLocaleDateString("en-CA",{weekday:"short"}) : day}</span>
-                        {(day.length===10&&day.includes("-")) && <span style={{ fontSize:9, fontWeight:400, opacity:0.85 }}>{new Date(day+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</span>}
-                      </div>
-                    </button>
-                    );
-                  })}
+            {selectedTrip.days.map(day => {
+              const isSel = selectedDates.includes(day);
+              // Compute next occurrence of this weekday from today
+              const DAY_IDX = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+              const today = new Date();
+              const todayIdx = today.getDay();
+              const targetIdx = DAY_IDX[day] ?? -1;
+              let nextDate = "";
+              if (targetIdx >= 0) {
+                const diff = (targetIdx - todayIdx + 7) % 7;
+                const d = new Date(today);
+                d.setDate(today.getDate() + diff);
+                nextDate = d.toLocaleDateString("en-CA",{month:"short",day:"numeric"});
+              }
+              return (
+              <button key={day} onClick={()=>setSelectedDates(prev=>isSel?prev.filter(d=>d!==day):[...prev,day])}
+                style={{ padding:"10px 14px", borderRadius:10, border:"2px solid "+(isSel?BLUE:BORDER),
+                  background:isSel?BLUE:WHITE, color:isSel?"#fff":NAVY,
+                  cursor:"pointer", transition:"all 0.15s", minWidth:56 }}>
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                  <span style={{ fontSize:12, fontWeight:800 }}>{day}</span>
+                  {nextDate && <span style={{ fontSize:9, fontWeight:500, opacity:0.85 }}>{nextDate}</span>}
+                </div>
+              </button>
+              );
+            })}
                 </div>
                 {selectedDates.length > 0 && (
                   <div style={{ marginTop:8, fontSize:11, color:BLUE, fontWeight:600 }}>
