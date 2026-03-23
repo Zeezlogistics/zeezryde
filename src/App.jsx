@@ -892,6 +892,9 @@ function RiderApp() {
                 ["Date",      airportDate],
                 ["Time",      airportTime],
                 ["Passengers",airportPax],
+                ["Fare",     "CA$"+getLiveAirportFare(airportCode).toFixed(2)],
+                ["HST (13%)", "CA$"+taxAmt(getLiveAirportFare(airportCode)).toFixed(2)],
+                ["Total",     "CA$"+withTax(getLiveAirportFare(airportCode)).toFixed(2)],
               ].map(([k,v])=>(
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
                   <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
