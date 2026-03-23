@@ -923,12 +923,28 @@ function RiderApp() {
             </div>
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Select Airport</div>
-              {AIRPORTS.map(a=>(
-                <button key={a.code} onClick={()=>setAirportCode(a.code)} style={{ width:"100%", padding:"11px 14px", borderRadius:10, border:"2px solid "+(airportCode===a.code?BLUE:BORDER), background:airportCode===a.code?VLIGHT:WHITE, cursor:"pointer", display:"flex", justifyContent:"space-between", marginBottom:6, textAlign:"left" }}>
-                  <span style={{ fontWeight:600, color:NAVY, fontSize:13 }}>{a.name}</span>
-                  <span style={{ fontWeight:700, color:BLUE }}>{"CA$"+a.fare}</span>
-                </button>
-              ))}
+              <select value={airportCode} onChange={e=>setAirportCode(e.target.value)}
+                style={{ width:"100%", padding:"11px 14px", borderRadius:10,
+                  border:"1.5px solid "+(airportCode?BLUE:BORDER),
+                  background:WHITE, color:NAVY, fontSize:13, fontWeight:600,
+                  cursor:"pointer", outline:"none",
+                  fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+                {AIRPORTS.map(a=>(
+                  <option key={a.code} value={a.code}>
+                    {a.name} — CA${getLiveAirportFare(a.code).toFixed(2)}
+                  </option>
+                ))}
+              </select>
+              {airportCode && (
+                <div style={{ marginTop:8, padding:"8px 12px", background:VLIGHT, borderRadius:8,
+                  display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:SLATE }}>Fare per passenger</span>
+                  <span style={{ fontSize:14, fontWeight:800, color:BLUE,
+                    fontFamily:"'Syne',sans-serif" }}>
+                    CA${getLiveAirportFare(airportCode).toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
             {airportDir==="from" && (
               <div style={{ marginBottom:14 }}>
