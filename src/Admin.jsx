@@ -5578,12 +5578,12 @@ function PageShuttle({
   async function doDelete() {
     if (!confirmDelete) return;
     if (confirmDelete.type === "vehicle") {
-    setVehicles(prev => (prev||[]).filter(v => v.id !== confirmDelete.item.id));
-    try { const sb = await getSupabase(); await sb.from("shuttle_vehicles").delete().eq("id", confirmDelete.item.id); } catch(e) { console.error("SB veh delete:",e); }
+      setVehicles(prev => (prev||[]).filter(v => v.id !== confirmDelete.item.id));
+      try { const sb = await getSupabase(); await sb.from("shuttle_vehicles").delete().eq("id", confirmDelete.item.id); } catch(e) { console.error("SB veh delete:",e); }
       showToast(`Vehicle ${confirmDelete.item.id} removed`);
     } else {
       setTrips(prev => (prev||[]).filter(t => t.id !== confirmDelete.item.id));
-      try { const sb = await getSupabase(); await sb.from("shuttle_trips").delete().eq("id", confirmDelete.item.id); } catch(e) { console.error("SB trip delete:", e); }
+      try { const sb = await getSupabase(); await sb.from("shuttle_trips").delete().eq("id", confirmDelete.item.id); } catch(e) { console.error("SB trip delete:",e); }
       showToast(`Trip removed`);
     }
     setConfirmDelete(null);
