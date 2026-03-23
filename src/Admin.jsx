@@ -5794,41 +5794,6 @@ function PageShuttle({
             ))}
           </Panel>
 
-          {/* Shuttle Pricing */}
-          <Panel title="SHUTTLE PRICING">
-            {[
-              ["Base Fare / Seat (CA$)", shuttleBaseFare, setShuttleBaseFare],
-              ["Booking Fee (CA$)",      shuttleBookingFee, setShuttleBookingFee],
-              ["Peak Multiplier (x)",    shuttlePeakMult,   setShuttlePeakMult],
-              ["Airport Booking Fee",    airportBookingFee, setAirportBookingFee],
-              ["Min Notice (hours)",     airportMinNotice,  setAirportMinNotice],
-            ].map(([label, val, setter]) => (
-              <div key={label} style={{ display:"flex", justifyContent:"space-between",
-                alignItems:"center", padding:"10px 0",
-                borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
-                <span style={{ color:"#94a3b8", fontSize:12 }}>{label}</span>
-                <input value={val} onChange={e => setter(e.target.value)}
-                  style={{ width:70, background:"#0d1220",
-                    border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
-                    padding:"5px 8px", color:"#60a5fa", fontSize:13,
-                    fontWeight:700, fontFamily:"'JetBrains Mono',monospace",
-                    outline:"none", textAlign:"center" }} />
-              </div>
-            ))}
-            <div style={{ display:"flex", justifyContent:"space-between",
-              alignItems:"center", padding:"10px 0" }}>
-              <span style={{ color:"#94a3b8", fontSize:12 }}>Peak Pricing</span>
-              <button onClick={() => setShuttlePeakOn(v => !v)}
-                style={{ padding:"4px 12px", borderRadius:6, fontSize:11, fontWeight:700,
-                  cursor:"pointer", border:`1px solid ${shuttlePeakOn ? "rgba(34,197,94,0.3)" : "rgba(99,179,237,0.2)"}`,
-                  background:shuttlePeakOn ? "rgba(34,197,94,0.1)" : "rgba(99,179,237,0.05)",
-                  color:shuttlePeakOn ? "#22c55e" : "#64748b" }}>
-                {shuttlePeakOn ? "ON" : "OFF"}
-              </button>
-            </div>
-          </Panel>
-        </div>
-
         {/* Save Shuttle/Airport Settings */}
         {!viewOnly && (
           <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
