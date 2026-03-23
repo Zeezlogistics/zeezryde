@@ -352,6 +352,7 @@ function RiderApp() {
   const [newBooking, setNewBooking] = useState(null);
   const [liveTrips, setLiveTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
+  const [liveSettings, setLiveSettings] = useState({});  // admin fares & settings
   const [homeAddr,   setHomeAddr]         = useState("");
   const [officeAddr, setOfficeAddr]       = useState("");
   const [promoCode, setPromoCode]       = useState("");
@@ -398,7 +399,9 @@ function RiderApp() {
         seats_booked:  t.booked      || 0,
       })));
       if (cfg?.value) {
-        // Write fresh fares - filter to primitives only to avoid quota errors
+        // Store in React state so UI re-renders with fresh fares
+        setLiveSettings(cfg.value);
+        // Also write to localStorage as fallback
         try {
           const clean = Object.fromEntries(
             Object.entries(cfg.value).filter(([,v]) => v === null || typeof v !== "object")
@@ -892,9 +895,9 @@ function RiderApp() {
                 ["Date",      airportDate],
                 ["Time",      airportTime],
                 ["Passengers",airportPax],
-                ["Fare",     "CA$"+getLiveAirportFare(airportCode).toFixed(2)],
-                ["HST (13%)", "CA$"+taxAmt(getLiveAirportFare(airportCode)).toFixed(2)],
-                ["Total",     "CA$"+withTax(getLiveAirportFare(airportCode)).toFixed(2)],
+                ["Fare",     "CA$"+(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                ["HST (13%)", "CA$"+taxAmt(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                ["Total",     "CA$"+withTax(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
               ].map(([k,v])=>(
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
                   <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
