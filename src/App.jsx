@@ -465,6 +465,26 @@ function RiderApp() {
   useEffect(() => { loadSettingsAndTrips(); }, []);
   useEffect(() => { if (user) loadSettingsAndTrips(); }, [user]);
 
+  // ── Weekly refresh: every Saturday at midnight, reload trips for the new week
+  useEffect(() => {
+    function msUntilSaturdayMidnight() {
+      const now = new Date();
+      const next = new Date(now);
+      // 6 = Saturday
+      const daysUntilSat = (6 - now.getDay() + 7) % 7 || 7;
+      next.setDate(now.getDate() + daysUntilSat);
+      next.setHours(0, 0, 0, 0);
+      return next.getTime() - now.getTime();
+    }
+    // Schedule first timeout to hit next Saturday midnight
+    let timeout = setTimeout(function tick() {
+      loadSettingsAndTrips();          // reload fresh week's trips
+      setSelectedDates([]);            // clear any selected days
+      timeout = setTimeout(tick, 7 * 24 * 60 * 60 * 1000); // then every 7 days
+    }, msUntilSaturdayMidnight());
+    return () => clearTimeout(timeout);
+  }, []);
+
   // Re-fetch whenever rider opens airport or shuttle tab (so prices and trips are always current)
   useEffect(() => {
     if (scr === "airport" || tab === "shuttle") loadSettingsAndTrips();
