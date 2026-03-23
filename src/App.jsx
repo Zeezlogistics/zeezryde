@@ -408,13 +408,14 @@ function RiderApp() {
     }
   }
 
-  // Run on mount
+  // Run on mount and again after user logs in
   useEffect(() => { loadSettingsAndTrips(); }, []);
+  useEffect(() => { if (user) loadSettingsAndTrips(); }, [user]);
 
-  // Re-fetch fares whenever rider navigates to airport screen (so prices are always current)
+  // Re-fetch whenever rider opens airport or shuttle tab (so prices and trips are always current)
   useEffect(() => {
-    if (scr === "airport") loadSettingsAndTrips();
-  }, [scr]);
+    if (scr === "airport" || tab === "shuttle") loadSettingsAndTrips();
+  }, [scr, tab]);
 
   useEffect(() => {
     db.auth.getSession().then(({ data }) => {
