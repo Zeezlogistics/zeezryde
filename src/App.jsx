@@ -892,9 +892,6 @@ function RiderApp() {
                 ["Date",      airportDate],
                 ["Time",      airportTime],
                 ["Passengers",airportPax],
-                ["Base Fare",  "CA$"+(getLiveAirportFare(airportCode)*airportPax).toFixed(2)],
-                ["HST (13%)",  "CA$"+taxAmt(getLiveAirportFare(airportCode)*airportPax).toFixed(2)],
-                ["Total Fare", "CA$"+withTax(getLiveAirportFare(airportCode)*airportPax).toFixed(2)],
               ].map(([k,v])=>(
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
                   <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
@@ -931,20 +928,10 @@ function RiderApp() {
                   fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
                 {AIRPORTS.map(a=>(
                   <option key={a.code} value={a.code}>
-                    {a.name} — CA${getLiveAirportFare(a.code).toFixed(2)}
+                    {a.name}
                   </option>
                 ))}
               </select>
-              {airportCode && (
-                <div style={{ marginTop:8, padding:"8px 12px", background:VLIGHT, borderRadius:8,
-                  display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:12, color:SLATE }}>Fare per passenger</span>
-                  <span style={{ fontSize:14, fontWeight:800, color:BLUE,
-                    fontFamily:"'Syne',sans-serif" }}>
-                    CA${getLiveAirportFare(airportCode).toFixed(2)}
-                  </span>
-                </div>
-              )}
             </div>
             {airportDir==="from" && (
               <div style={{ marginBottom:14 }}>
@@ -993,10 +980,6 @@ function RiderApp() {
                 <span style={{ fontSize:20, fontWeight:800, color:NAVY, minWidth:24, textAlign:"center" }}>{airportPax}</span>
                 <button onClick={()=>setAirportPax(Math.min(8,airportPax+1))} style={{ width:36, height:36, borderRadius:"50%", border:"1.5px solid "+BORDER, background:WHITE, fontSize:18, cursor:"pointer" }}>+</button>
               </div>
-            </div>
-            <div style={{ background:VLIGHT, borderRadius:10, padding:"11px 14px", marginBottom:16, display:"flex", justifyContent:"space-between" }}>
-              <span style={{ color:SLATE, fontSize:13 }}>Estimated Total <span style={{ fontSize:10, color:LBLUE }}>(incl. 13% HST)</span></span>
-              <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE }}>{"CA$"+(getLiveAirportFare(airportCode)*airportPax).toFixed(2)}</span>
             </div>
             <Err msg={err} />
             <BigBtn onClick={()=>{ if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } if (airportDir==="from"&&!airportDropoff.trim()) { setErr("Please enter a drop-off address"); return; } setAirportTime(airportHour+":"+airportMin); const aFare=withTax(getLiveAirportFare(airportCode)*airportPax); try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?"Current Location":AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {} try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?"Current Location":AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {} setAirportDone(true); }}>Request Airport Ride</BigBtn>
