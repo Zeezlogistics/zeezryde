@@ -5769,9 +5769,7 @@ function PageShuttle({
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === "airport" && (
         <>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-          {/* Airport Fares */}
-          <Panel title="AIRPORT FARES">
+        <Panel title="AIRPORT FARES">
             {[
               ["Pearson International (YYZ)", airportFareYYZ, setAirportFareYYZ],
               ["Hamilton Airport (YHM)",       airportFareYHM, setAirportFareYHM],
@@ -5791,6 +5789,22 @@ function PageShuttle({
                       outline:"none", textAlign:"center" }} />
                 </div>
               </div>
+            ))}
+            {[
+              ["Platform Booking Fee (CA$)", airportBookingFee, setAirportBookingFee],
+              ["Min Booking Notice (hrs)",   airportMinNotice,  setAirportMinNotice],
+            ].map(([label, val, setter]) => (
+            <div key={label} style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", padding:"10px 0",
+              borderBottom:"1px solid rgba(99,179,237,0.07)" }}>
+              <span style={{ color:"#94a3b8", fontSize:12 }}>{label}</span>
+              <input value={val} onChange={e => setter(e.target.value)}
+                style={{ width:70, background:"#0d1220",
+                border:"1px solid rgba(99,179,237,0.15)", borderRadius:6,
+                padding:"5px 8px", color:"#60a5fa", fontSize:13,
+                fontWeight:700, fontFamily:"'JetBrains Mono',monospace",
+                outline:"none", textAlign:"center" }} />
+            </div>
             ))}
           </Panel>
 
