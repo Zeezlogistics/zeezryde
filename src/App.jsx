@@ -321,6 +321,21 @@ function isNiagaraAddress(addr) {
   return NIAGARA.some(k => lower.includes(k));
 }
 
+// ─── SMS NOTIFICATION via Supabase Edge Function ─────────────────────────────
+async function sendDriverSMS(phone, message) {
+  if (!phone) return;
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/send-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_ANON}`,
+      },
+      body: JSON.stringify({ phone, message }),
+    });
+  } catch(e) { console.log("SMS send error:", e.message); }
+}
+
 function RiderApp() {
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
@@ -590,13 +605,30 @@ function RiderApp() {
     go("finding");
   }
 
-  function bookShuttle() {
+  async function bookShuttle() {
     const b = { id:"ZS-"+String(Date.now()).slice(-5), trip:selectedTrip, seats:selectedSeats, total:withTax(selectedSeats.length*selectedTrip.fare_per_seat) };
     setNewBooking(b);
     setBookings(prev=>[...prev, b]);
     setSelectedSeats([]);
     try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:selectedTrip.route.split(" to ")[0]||"Shuttle", dest:selectedTrip.route.split(" to ")[1]||selectedTrip.route, fare:b.total.toFixed(2), rideType:"Shuttle", seats:selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(","), status:"confirmed", requested_at:new Date().toISOString() }); } catch(_) {}
     try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:b.id, rider:displayName, origin:selectedTrip.route, dest:"Shuttle", fare:"CA$"+b.total.toFixed(2), rideType:"Shuttle", status:"confirmed", time:new Date().toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) }); } catch(_) {}
+    // Email the assigned driver
+    try {
+      const driverName = selectedTrip.driver;
+      if (driverName && driverName !== "Unassigned") {
+        const sb3 = createClient(SUPABASE_URL, SUPABASE_ANON);
+        const { data: drv } = await sb3.from("shuttle_drivers").select("name,email").eq("name", driverName).maybeSingle();
+        if (drv?.email) {
+          const seats = selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(", ");
+          const days  = selectedDates.length > 0 ? selectedDates.join(", ") : "—";
+          sendDriverEmail(drv.email, drv.name, {
+            booking_type:"Shuttle", rider_name:displayName, route:selectedTrip.route,
+            date:selectedTrip.depart_date, time:selectedTrip.depart_time,
+            days, seats, total:"CA$"+b.total.toFixed(2),
+          });
+        }
+      }
+    } catch(_) {}
     go("shuttle-booked");
   }
 
@@ -997,32 +1029,76 @@ function RiderApp() {
       <style>{STYLES}</style>
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
         <BackBtn onClick={()=>go("dash")} />
-        {airportDone ? (
-          <div className="fade" style={{ textAlign:"center", paddingTop:40 }}>
-            <div style={{ fontSize:56, marginBottom:14 }}>✈️</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, marginBottom:6 }}>Booking Requested!</div>
-            <div style={{ color:SLATE, fontSize:13, marginBottom:24 }}>Admin will confirm within 2 hours</div>
-            <Card style={{ textAlign:"left", marginBottom:20 }}>
-              {[
-                ["Direction", airportDir==="to" ? "To Airport" : "From Airport"],
-                ["Airport",   AIRPORTS.find(a=>a.code===airportCode)?.name],
-              ...(airportDir==="to" ? [["Pickup", airportPickup]] : [["Drop-off", airportDropoff]]),
-                ["Date",      airportDate],
-                ["Time",      airportTime],
-                ["Passengers",airportPax],
-                ["Fare",     "CA$"+(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
-                ["HST (13%)", "CA$"+taxAmt(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
-                ["Total",     "CA$"+withTax(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
-              ].map(([k,v])=>(
-                <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
-                  <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
-                  <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
+            {airportDone ? (
+              // ── BOOKING CONFIRMED ──────────────────────────────────
+              <div className="fade" style={{ textAlign:"center", paddingTop:40 }}>
+                <div style={{ fontSize:56, marginBottom:14 }}>✅</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, marginBottom:6 }}>Booking Submitted!</div>
+                <div style={{ color:SLATE, fontSize:13, marginBottom:24 }}>Admin will confirm within 2 hours</div>
+                <Card style={{ textAlign:"left", marginBottom:20 }}>
+                  {[
+                    ["Direction", airportDir==="to" ? "To Airport" : "From Airport"],
+                    ["Airport",   AIRPORTS.find(a=>a.code===airportCode)?.name],
+                    ...(airportDir==="to" ? [["Pickup", airportPickup]] : [["Drop-off", airportDropoff]]),
+                    ["Date",      airportDate],
+                    ["Time",      airportTime],
+                    ["Passengers",airportPax],
+                    ["Fare",     "CA$"+(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                    ["HST (13%)", "CA$"+taxAmt(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                    ["Total",     "CA$"+withTax(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                  ].map(([k,v])=>(
+                    <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid "+BORDER }}>
+                      <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
+                      <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
+                    </div>
+                  ))}
+                </Card>
+                <BigBtn onClick={()=>{ setAirportDone(false); setAirportReview(false); go("dash"); }}>Back to Home</BigBtn>
+              </div>
+            ) : airportReview ? (
+              // ── REVIEW SUMMARY — vetting before final confirm ───────
+              <div className="fade">
+                <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Review Your Booking</div>
+                <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:4, marginBottom:16 }}>✈️ Confirm Airport Trip</h2>
+                <Card style={{ textAlign:"left", marginBottom:16 }}>
+                  {[
+                    ["Direction",  airportDir==="to" ? "To Airport ✈️" : "From Airport 🛬"],
+                    ["Airport",    AIRPORTS.find(a=>a.code===airportCode)?.name],
+                    ...(airportDir==="to" ? [["Pickup Address", airportPickup]] : [["Drop-off Address", airportDropoff]]),
+                    ["Date",       airportDate],
+                    ["Time",       airportHour+":"+airportMin],
+                    ["Passengers", airportPax],
+                    ["Fare",       "CA$"+(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                    ["HST (13%)",  "CA$"+taxAmt(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                    ["Total",      "CA$"+withTax(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                  ].map(([k,v])=>(
+                    <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"9px 0", borderBottom:"1px solid "+BORDER }}>
+                      <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
+                      <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
+                    </div>
+                  ))}
+                </Card>
+                <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:12, color:"#92400e" }}>
+                  ⚠️ Please review all details carefully before confirming. Once submitted, changes require contacting us directly.
                 </div>
-              ))}
-            </Card>
-            <BigBtn onClick={()=>{ setAirportDone(false); go("dash"); }}>Back to Home</BigBtn>
-          </div>
-        ) : (
+                <div style={{ display:"flex", gap:10, marginBottom:8 }}>
+                  <button onClick={()=>setAirportReview(false)}
+                    style={{ flex:1, padding:"13px", borderRadius:12, border:"1.5px solid "+BORDER,
+                      background:WHITE, color:NAVY, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                    ✏️ Edit
+                  </button>
+                  <BigBtn style={{ flex:2 }} onClick={async ()=>{
+                    const aFare = withTax(getLiveAirportFare(airportCode)*airportPax);
+                    try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {}
+                    try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {}
+                    const airportAddr = airportDir==="to" ? airportPickup : airportDropoff;
+                    const dispatchEmail = typeof window.__zeezAdmin?.getDispatchEmail === "function" ? window.__zeezAdmin.getDispatchEmail() : "";
+                    sendDriverEmail(dispatchEmail, "Dispatch", { booking_type:"Airport", rider_name:displayName, route:(airportDir==="to"?"To":"From")+" "+AIRPORTS.find(a=>a.code===airportCode)?.name, date:airportDate, time:airportHour+":"+airportMin, days:"—", seats:airportPax+" passenger"+(airportPax>1?"s":""), total:"CA$"+aFare.toFixed(2), address:airportAddr });
+                    setAirportDone(true);
+                  }}>Confirm &amp; Submit</BigBtn>
+                </div>
+              </div>
+            ) : (
           <div className="fade">
             <RolePill>AIRPORT</RolePill>
             <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:8, marginBottom:16 }}>Airport Ride Booking</h2>
@@ -1118,11 +1194,14 @@ function RiderApp() {
               </div>
             </div>
             <Err msg={err} />
-            <BigBtn onClick={()=>{ if (airportDir==="to" && !airportPickup.trim()) { setErr("Please enter your pickup address"); return; }
-        if (airportDir==="to" && !isNiagaraAddress(airportPickup)) { setErr("Pickup address must be in the Niagara Region"); return; }
-        if (airportDir==="from" && !airportDropoff.trim()) { setErr("Please enter your drop-off address"); return; }
-        if (airportDir==="from" && !isNiagaraAddress(airportDropoff)) { setErr("Drop-off address must be in the Niagara Region"); return; }
-        if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } setAirportTime(airportHour+":"+airportMin); const aFare=withTax(getLiveAirportFare(airportCode)*airportPax); try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {} try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {} setAirportDone(true); }}>Request Airport Ride</BigBtn>
+            <BigBtn onClick={()=>{
+              if (airportDir==="to" && !airportPickup.trim()) { setErr("Please enter your pickup address"); return; }
+              if (airportDir==="to" && !isNiagaraAddress(airportPickup)) { setErr("Pickup address must be in the Niagara Region"); return; }
+              if (airportDir==="from" && !airportDropoff.trim()) { setErr("Please enter your drop-off address"); return; }
+              if (airportDir==="from" && !isNiagaraAddress(airportDropoff)) { setErr("Drop-off address must be in the Niagara Region"); return; }
+              if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; }
+              setErr(""); setAirportTime(airportHour+":"+airportMin); setAirportReview(true);
+            }}>Review Booking</BigBtn>
           </div>
         )}
       </div>
