@@ -1729,7 +1729,7 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
   const TIER_LABELS = { low:"Low (1.0x)", med:"Medium (1.2x)", high:"High (1.5x)", peak:"Peak (2.0x)" };
   const TIER_COLORS = { low:"#22c55e", med:"#f59e0b", high:"#f97316", peak:"#ef4444" };
 
-  async async function handleSave() {
+  async function handleSave() {
     const errors = [];
     if (isNaN(parseFloat(baseFare))   || parseFloat(baseFare)   < 0) errors.push("Base fare");
     if (isNaN(parseFloat(ratePerKm))  || parseFloat(ratePerKm)  < 0) errors.push("Rate/km");
