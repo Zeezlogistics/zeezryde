@@ -1747,7 +1747,18 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
       airportFareYYZ, airportFareYHM, airportFareYTZ, airportBookingFee, airportMinNotice,
       shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
     };
-    try { localStorage.setItem("zeez_settings", JSON.stringify(settings)); } catch(e) {}
+    try {
+      const clean = Object.fromEntries(
+        Object.entries(settings).filter(([,v]) => typeof v !== "object" || v === null)
+      );
+      localStorage.setItem("zeez_settings", JSON.stringify(clean));
+    } catch(e) {
+      // Quota exceeded - clear old bloat and try again with minimal data
+      try {
+        localStorage.removeItem("zeez_settings");
+        localStorage.setItem("zeez_settings", JSON.stringify(settings));
+      } catch(e2) { console.error("localStorage quota:", e2); }
+    }
     // Also save to Supabase settings table for cross-device persistence
     try {
       const sb = await getSupabase();
@@ -5407,14 +5418,27 @@ function PageShuttle({
 
   function saveShuttleSettings() {
     try {
-      const saved = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
+      // Read existing, merge ONLY our keys (avoid bloating with old data)
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem("zeez_settings") || "{}"); } catch(e) {}
       const updated = {
         ...saved,
         shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
         airportFareYYZ, airportFareYHM, airportFareYTZ,
         airportBookingFee, airportMinNotice,
       };
-      localStorage.setItem("zeez_settings", JSON.stringify(updated));
+      // Remove any bloat (non-primitive values, long strings)
+      const clean = Object.fromEntries(
+        Object.entries(updated).filter(([,v]) => typeof v !== "object" || v === null)
+      );
+      try { localStorage.setItem("zeez_settings", JSON.stringify(clean)); } catch(e) {
+        // If still too large, save ONLY the critical fare keys
+        localStorage.setItem("zeez_settings", JSON.stringify({
+          airportFareYYZ, airportFareYHM, airportFareYTZ,
+          shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
+          airportBookingFee, airportMinNotice,
+        }));
+      }
       // Also save to Supabase so settings persist on refresh and across devices
       getSupabase().then(sb => {
         sb.from("settings").upsert(
