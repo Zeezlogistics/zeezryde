@@ -416,11 +416,11 @@ function RiderApp() {
       // Shuttle trips
       setLiveTrips((trips || []).map(t => ({
         ...t,
-        depart_date:   t.date        || t.depart_date    || "",
-        depart_time:   t.time        || t.depart_time    || "",
+        depart_date:   t.date          || t.depart_date    || "",
+        depart_time:   t.time          || t.depart_time    || "",
         fare_per_seat: t.fare_per_seat || 12,
-        seats_total:   t.seats       || 7,
-        seats_booked:  t.booked      || 0,
+        seats_total:   t.seats         != null ? parseInt(t.seats) : (t.seats_total || 7),
+        seats_booked:  t.booked        != null ? parseInt(t.booked) : (t.seats_booked || 0),
       })));
 
       // Airport fares — build a settings object from airport_trips rows
