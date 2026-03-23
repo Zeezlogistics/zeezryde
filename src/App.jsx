@@ -57,29 +57,32 @@ const AIRPORTS = [
 // 5-Seater: F2, M3, M4, B5, B6
 // 7-Seater: F2, M3, M4, M5, B6, B7, B8
 const SEAT_LAYOUTS = {
+  // 3 passengers: 1 front + 2 back (no middle row)
   "3-seater": { total:3, seats:[
-    {id:"F1",label:"F1",row:"front",pilot:true},
-    {id:"M2",label:"M2",row:"middle",pilot:false},
-    {id:"M3",label:"M3",row:"middle",pilot:false},
-    {id:"B4",label:"B4",row:"back",pilot:false},
-    {id:"B5",label:"B5",row:"back",pilot:false},
+    {id:"D",  label:"D",  row:"front", pilot:true},   // driver — not bookable
+    {id:"F1", label:"F1", row:"front", pilot:false},  // 1 front passenger
+    {id:"B2", label:"B2", row:"back",  pilot:false},  // 2 back passengers
+    {id:"B3", label:"B3", row:"back",  pilot:false},
   ]},
+  // 5 passengers: 1 front + 2 middle + 2 back
   "5-seater": { total:5, seats:[
-    {id:"F1",label:"F1",row:"front",pilot:true},
-    {id:"M2",label:"M2",row:"middle",pilot:false},
-    {id:"M3",label:"M3",row:"middle",pilot:false},
-    {id:"B4",label:"B4",row:"back",pilot:false},
-    {id:"B5",label:"B5",row:"back",pilot:false},
+    {id:"D",  label:"D",  row:"front",  pilot:true},  // driver — not bookable
+    {id:"F1", label:"F1", row:"front",  pilot:false}, // 1 front passenger
+    {id:"M2", label:"M2", row:"middle", pilot:false}, // 2 middle passengers
+    {id:"M3", label:"M3", row:"middle", pilot:false},
+    {id:"B4", label:"B4", row:"back",   pilot:false}, // 2 back passengers
+    {id:"B5", label:"B5", row:"back",   pilot:false},
   ]},
+  // 7 passengers: 1 front + 3 middle + 3 back
   "7-seater": { total:7, seats:[
-    {id:"F1",label:"F1",row:"front",pilot:true},
-    {id:"F2",label:"F2",row:"front",pilot:false},
-    {id:"M3",label:"M3",row:"middle",pilot:false},
-    {id:"M4",label:"M4",row:"middle",pilot:false},
-    {id:"M5",label:"M5",row:"middle",pilot:false},
-    {id:"B6",label:"B6",row:"back",pilot:false},
-    {id:"B7",label:"B7",row:"back",pilot:false},
-    {id:"B8",label:"B8",row:"back",pilot:false},
+    {id:"D",  label:"D",  row:"front",  pilot:true},  // driver — not bookable
+    {id:"F1", label:"F1", row:"front",  pilot:false}, // 1 front passenger
+    {id:"M2", label:"M2", row:"middle", pilot:false}, // 3 middle passengers
+    {id:"M3", label:"M3", row:"middle", pilot:false},
+    {id:"M4", label:"M4", row:"middle", pilot:false},
+    {id:"B5", label:"B5", row:"back",   pilot:false}, // 3 back passengers
+    {id:"B6", label:"B6", row:"back",   pilot:false},
+    {id:"B7", label:"B7", row:"back",   pilot:false},
   ]},
 };
 
