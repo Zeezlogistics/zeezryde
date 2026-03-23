@@ -157,6 +157,7 @@ export default function AdminApp() {
     const sb = await getSupabase();
     await sb.auth.signOut();
     setAuthed(false);
+    dataLoadedRef.current = false; // reset so next login reloads data
     setViewOnly(false);
   };
 
@@ -292,8 +293,11 @@ export default function AdminApp() {
   });
 
 // ── Load data + subscribe to real-time changes ───────────────
+  const dataLoadedRef = React.useRef(false);
   useEffect(() => {
     if (!authed) return;
+    if (dataLoadedRef.current) return; // prevent double-load on re-render
+    dataLoadedRef.current = true;
     let channels = [];
 
     // ── Restore saved settings ─────────────────────────────────
@@ -5510,19 +5514,18 @@ function PageShuttle({
     if (!form.make) { showToast("Please select a make", false); return; }
     if (!form.model) { showToast("Please select a model", false); return; }
     if (!form.plate) { showToast("Please enter a licence plate", false); return; }
-    const payload = {
-      make:        form.make,
-      model:       form.model,
-      year:        parseInt(form.year) || 2023,
-      plate:       form.plate.toUpperCase(),
-      capacity:    parseInt(form.capacity) || (form.vehicleType === "3-seater" ? 3 : form.vehicleType === "5-seater" ? 5 : 7),
-      vehicleType: form.vehicleType || "7-seater",
-      vehicle_type:form.vehicleType || "7-seater",
-      color:       form.color || "White",
-      driver:      form.driver || "Unassigned",
-      status:      form.status || "active",
-      defaultRoute:form.defaultRoute || "",
-    };
+        const payload = {
+          make:         form.make,
+          model:        form.model,
+          year:         parseInt(form.year) || 2023,
+          plate:        form.plate.toUpperCase(),
+          capacity:     parseInt(form.capacity) || (form.vehicleType === "3-seater" ? 3 : form.vehicleType === "5-seater" ? 5 : 7),
+          vehicle_type: form.vehicleType || "7-seater",
+          color:        form.color || "White",
+          driver:       form.driver || "Unassigned",
+          status:       form.status || "active",
+          default_route:form.defaultRoute || "",
+        };
     if (modal === "add_vehicle") {
       const newId = "SHV-" + String(safeVehicles.length + 1).padStart(3,"0");
       const newVeh = { id:newId, ...payload, booked:0, created_at:new Date().toISOString() };
