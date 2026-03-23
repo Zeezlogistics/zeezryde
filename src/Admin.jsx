@@ -5583,6 +5583,7 @@ function PageShuttle({
       showToast(`Vehicle ${confirmDelete.item.id} removed`);
     } else {
       setTrips(prev => (prev||[]).filter(t => t.id !== confirmDelete.item.id));
+      try { const sb = await getSupabase(); await sb.from("shuttle_trips").delete().eq("id", confirmDelete.item.id); } catch(e) { console.error("SB trip delete:", e); }
       showToast(`Trip removed`);
     }
     setConfirmDelete(null);
