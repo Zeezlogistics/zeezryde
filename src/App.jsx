@@ -922,7 +922,6 @@ function RiderApp() {
                 ["Direction", airportDir==="to" ? "To Airport" : "From Airport"],
                 ["Airport",   AIRPORTS.find(a=>a.code===airportCode)?.name],
               ...(airportDir==="to" ? [["Pickup", airportPickup]] : [["Drop-off", airportDropoff]]),
-                ...(airportDir==="from" ? [["Drop-off", airportDropoff]] : []),
                 ["Date",      airportDate],
                 ["Time",      airportTime],
                 ["Passengers",airportPax],
