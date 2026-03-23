@@ -398,8 +398,15 @@ function RiderApp() {
         seats_booked:  t.booked      || 0,
       })));
       if (cfg?.value) {
-        // Write fresh fares into localStorage so getLive() picks them up
-        try { localStorage.setItem("zeez_settings", JSON.stringify(cfg.value)); } catch(e) {}
+        // Write fresh fares - filter to primitives only to avoid quota errors
+        try {
+          const clean = Object.fromEntries(
+            Object.entries(cfg.value).filter(([,v]) => v === null || typeof v !== "object")
+          );
+          localStorage.setItem("zeez_settings", JSON.stringify(clean));
+        } catch(e) {
+          try { localStorage.removeItem("zeez_settings"); } catch(_) {}
+        }
       }
     } catch(e) {
       console.log("Settings load:", e.message);
