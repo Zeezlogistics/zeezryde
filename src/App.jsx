@@ -301,6 +301,23 @@ function DriverBottomNav({ tab, onTab }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // RIDER APP
 // ─────────────────────────────────────────────────────────────────────────────
+// ─── NIAGARA REGION VALIDATOR ─────────────────────────────────────────────────
+function isNiagaraAddress(addr) {
+  if (!addr || !addr.trim()) return false;
+  const lower = addr.toLowerCase();
+  const NIAGARA = [
+    'niagara falls','st. catharines','st catharines','saint catharines',
+    'welland','grimsby','thorold','pelham','fonthill','wainfleet',
+    'port colborne','fort erie','crystal beach','ridgeway','stevensville',
+    'beamsville','lincoln','vineland','smithville','west lincoln',
+    'niagara-on-the-lake','niagara on the lake','notl','queenston',
+    'virgil','merritton','port dalhousie','port weller','grantham','niagara',
+    'l0s','l2e','l2g','l2h','l2j','l2m','l2n','l2p','l2q','l2r','l2s',
+    'l2t','l2v','l2w','l3b','l3c','l3k','l0r','l3m','l0l',
+  ];
+  return NIAGARA.some(k => lower.includes(k));
+}
+
 function RiderApp() {
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
@@ -338,6 +355,7 @@ function RiderApp() {
   const [pendingRate, setPendingRate] = useState(false);
   const [airportCode, setAirportCode]     = useState("yyz");
   const [airportDir,  setAirportDir]      = useState("to");   // "to" | "from"
+  const [airportPickup,  setAirportPickup]  = useState("");
   const [airportDropoff, setAirportDropoff] = useState("");
   const [airportDate, setAirportDate] = useState("");
   const [airportTime, setAirportTime] = useState("");
@@ -903,6 +921,7 @@ function RiderApp() {
               {[
                 ["Direction", airportDir==="to" ? "To Airport" : "From Airport"],
                 ["Airport",   AIRPORTS.find(a=>a.code===airportCode)?.name],
+              ...(airportDir==="to" ? [["Pickup", airportPickup]] : [["Drop-off", airportDropoff]]),
                 ...(airportDir==="from" ? [["Drop-off", airportDropoff]] : []),
                 ["Date",      airportDate],
                 ["Time",      airportTime],
@@ -951,6 +970,21 @@ function RiderApp() {
                 ))}
               </select>
             </div>
+            {/* Pickup address — only for TO airport */}
+            {airportDir==="to" && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Pickup Address (Niagara Region)</div>
+                <input
+                  type="text"
+                  value={airportPickup}
+                  onChange={e=>setAirportPickup(e.target.value)}
+                  placeholder="e.g. 123 Main St, Niagara Falls, ON"
+                  style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportPickup?BLUE:BORDER), background:WHITE, fontSize:13, color:NAVY, outline:"none", boxSizing:"border-box" }}
+                />
+                <div style={{ fontSize:10, color:SLATE, marginTop:5 }}>We serve Niagara Falls, St. Catharines, Welland, Grimsby &amp; surrounding areas.</div>
+              </div>
+            )}
+            {/* Drop-off address — only for FROM airport */}
             {airportDir==="from" && (
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Drop-off Address (Niagara Region)</div>
@@ -1000,7 +1034,11 @@ function RiderApp() {
               </div>
             </div>
             <Err msg={err} />
-            <BigBtn onClick={()=>{ if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } if (airportDir==="from"&&!airportDropoff.trim()) { setErr("Please enter a drop-off address"); return; } setAirportTime(airportHour+":"+airportMin); const aFare=withTax(getLiveAirportFare(airportCode)*airportPax); try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?"Current Location":AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {} try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?"Current Location":AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {} setAirportDone(true); }}>Request Airport Ride</BigBtn>
+            <BigBtn onClick={()=>{ if (airportDir==="to" && !airportPickup.trim()) { setErr("Please enter your pickup address"); return; }
+        if (airportDir==="to" && !isNiagaraAddress(airportPickup)) { setErr("Pickup address must be in the Niagara Region"); return; }
+        if (airportDir==="from" && !airportDropoff.trim()) { setErr("Please enter your drop-off address"); return; }
+        if (airportDir==="from" && !isNiagaraAddress(airportDropoff)) { setErr("Drop-off address must be in the Niagara Region"); return; }
+        if (!airportDate||!airportHour||!airportMin) { setErr("Please select date and time"); return; } setAirportTime(airportHour+":"+airportMin); const aFare=withTax(getLiveAirportFare(airportCode)*airportPax); try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {} try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {} setAirportDone(true); }}>Request Airport Ride</BigBtn>
           </div>
         )}
       </div>
