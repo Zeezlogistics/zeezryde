@@ -5427,6 +5427,16 @@ function PageShuttle({
         airportFareYYZ, airportFareYHM, airportFareYTZ,
         airportBookingFee, airportMinNotice,
       };
+      // Also write airport fares to dedicated airport_trips table
+      getSupabase().then(sb => {
+        const rows = [
+          { code:"yyz", name:"Pearson International (YYZ)",       fare:parseFloat(airportFareYYZ)||55, booking_fee:parseFloat(airportBookingFee)||3, min_notice_hrs:parseInt(airportMinNotice)||2, updated_at:new Date().toISOString() },
+          { code:"yhm", name:"John C. Munro Hamilton (YHM)",       fare:parseFloat(airportFareYHM)||35, booking_fee:parseFloat(airportBookingFee)||3, min_notice_hrs:parseInt(airportMinNotice)||2, updated_at:new Date().toISOString() },
+          { code:"ytz", name:"Billy Bishop Toronto City (YTZ)",    fare:parseFloat(airportFareYTZ)||28, booking_fee:parseFloat(airportBookingFee)||3, min_notice_hrs:parseInt(airportMinNotice)||2, updated_at:new Date().toISOString() },
+        ];
+        sb.from("airport_trips").upsert(rows, { onConflict:"code" })
+          .then(()=>{}).catch(e=>console.error("airport_trips upsert:", e));
+      });
       // Remove any bloat (non-primitive values, long strings)
       const clean = Object.fromEntries(
         Object.entries(updated).filter(([,v]) => typeof v !== "object" || v === null)
