@@ -410,7 +410,7 @@ function RiderApp() {
         db.from("shuttle_trips").select("*").eq("status","scheduled").order("date", { ascending:true }).order("time", { ascending:true }),
         db.from("airport_trips").select("*"),
         db.from("settings").select("value").eq("key","admin_settings").maybeSingle(),
-        db.from("shuttle_vehicles").select("id,plate,make,model"),
+        db.from("shuttle_vehicles").select("id,plate,make,model,vehicle_type,capacity"),
       ]);
       // Build vehicle lookup map id → {plate, make, model}
       const vMap = {};
@@ -424,8 +424,8 @@ function RiderApp() {
           depart_date:   t.date          || t.depart_date || "",
           depart_time:   t.time          || t.depart_time || "",
           fare_per_seat: t.fare_per_seat || 12,
-          seats_total:   v ? parseInt(v.capacity) : (t.seats != null ? parseInt(t.seats) : 7),
-          seats_booked:  t.booked != null ? parseInt(t.booked) : 0,
+          seats_total:   v && v.capacity ? parseInt(v.capacity) : (t.seats != null && !isNaN(parseInt(t.seats)) ? parseInt(t.seats) : 7),
+          seats_booked:  t.booked != null && !isNaN(parseInt(t.booked)) ? parseInt(t.booked) : 0,
           vehicle_type:  v ? (v.vehicle_type||v.vehicleType||"7-seater") : (t.vehicle_type||"7-seater"),
           vehicle_plate: t.vehicle_plate || (v ? v.plate : ""),
           vehicle_make:  t.vehicle_make  || (v ? v.make  : ""),
@@ -860,10 +860,10 @@ function RiderApp() {
                       style={{ padding:"8px 16px", borderRadius:10, border:"2px solid "+(isSel?BLUE:BORDER),
                         background:isSel?BLUE:WHITE, color:isSel?"#fff":NAVY,
                         fontSize:12, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}>
-                      <span style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                        <span style={{ fontSize:12, fontWeight:800 }}>{day.length===10&&day.includes("-") ? new Date(day+"T12:00").toLocaleDateString("en-CA",{weekday:"short"}) : day}</span>
-                        {day.length===10&&day.includes("-") && <span style={{ fontSize:9, opacity:0.85 }}>{new Date(day+"T12:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</span>}
-                      </span>
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+                        <span style={{ fontSize:12, fontWeight:800 }}>{day.length===10&&day.includes("-") ? new Date(day+"T12:00:00").toLocaleDateString("en-CA",{weekday:"short"}) : day}</span>
+                        {(day.length===10&&day.includes("-")) && <span style={{ fontSize:9, fontWeight:400, opacity:0.85 }}>{new Date(day+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</span>}
+                      </div>
                     </button>
                     );
                   })}
