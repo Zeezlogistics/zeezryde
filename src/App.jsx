@@ -406,24 +406,32 @@ function RiderApp() {
   // Load shuttle trips + airport fares from Supabase
   async function loadSettingsAndTrips() {
     try {
-      const [{ data: trips }, { data: airports }, { data: cfg }] = await Promise.all([
-        // Shuttle trips from shuttle_trips table
+      const [{ data: trips }, { data: airports }, { data: cfg }, { data: vehicles }] = await Promise.all([
         db.from("shuttle_trips").select("*").eq("status","scheduled").order("date", { ascending:true }).order("time", { ascending:true }),
-        // Airport fares from dedicated airport_trips table
         db.from("airport_trips").select("*"),
-        // Fallback: admin settings blob
         db.from("settings").select("value").eq("key","admin_settings").maybeSingle(),
+        db.from("shuttle_vehicles").select("id,plate,make,model"),
       ]);
+      // Build vehicle lookup map id → {plate, make, model}
+      const vMap = {};
+      (vehicles||[]).forEach(v => { vMap[v.id] = v; });
 
       // Shuttle trips
-      setLiveTrips((trips || []).map(t => ({
-        ...t,
-        depart_date:   t.date          || t.depart_date    || "",
-        depart_time:   t.time          || t.depart_time    || "",
-        fare_per_seat: t.fare_per_seat || 12,
-        seats_total:   t.seats         != null ? parseInt(t.seats) : (t.seats_total || 7),
-        seats_booked:  t.booked        != null ? parseInt(t.booked) : (t.seats_booked || 0),
-      })));
+      setLiveTrips((trips || []).map(t => {
+        const v = vMap[t.vehicle];
+        return {
+          ...t,
+          depart_date:   t.date          || t.depart_date || "",
+          depart_time:   t.time          || t.depart_time || "",
+          fare_per_seat: t.fare_per_seat || 12,
+          seats_total:   v ? parseInt(v.capacity) : (t.seats != null ? parseInt(t.seats) : 7),
+          seats_booked:  t.booked != null ? parseInt(t.booked) : 0,
+          vehicle_type:  v ? (v.vehicle_type||v.vehicleType||"7-seater") : (t.vehicle_type||"7-seater"),
+          vehicle_plate: t.vehicle_plate || (v ? v.plate : ""),
+          vehicle_make:  t.vehicle_make  || (v ? v.make  : ""),
+          vehicle_model: t.vehicle_model || (v ? v.model : ""),
+        };
+      }));
 
       // Airport fares — build a settings object from airport_trips rows
       let settingsObj = cfg?.value || {};
@@ -832,7 +840,7 @@ function RiderApp() {
           <RolePill>SHUTTLE</RolePill>
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY, marginTop:8, marginBottom:12 }}>{selectedTrip.route}</h2>
             <Card style={{ marginBottom:14 }}>
-              {[["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_plate ? selectedTrip.vehicle_plate : selectedTrip.vehicle||"—")],["Driver",selectedTrip.driver||"TBD"],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"]].map(([k,v])=>(
+              {[["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_plate || (selectedTrip.vehicle&&!selectedTrip.vehicle.startsWith("SHV-") ? selectedTrip.vehicle : "")) || "—"],["Driver",selectedTrip.driver||"TBD"],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"]].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
                 <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
                 <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
