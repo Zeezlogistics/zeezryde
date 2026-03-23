@@ -365,13 +365,15 @@ export default function AdminApp() {
         })));
 
         // ── Load shuttle vehicles, trips and settings from Supabase ──
-        const [{ data: sv }, { data: st }, { data: cfg }] = await Promise.all([
+        const [{ data: sv }, { data: st }, { data: sd }, { data: cfg }] = await Promise.all([
           sb.from("shuttle_vehicles").select("*").order("created_at",{ascending:false}),
           sb.from("shuttle_trips").select("*").order("created_at",{ascending:false}),
+          sb.from("shuttle_drivers").select("*").order("created_at",{ascending:true}),
           sb.from("settings").select("*").eq("key","admin_settings").maybeSingle(),
         ]);
         if (sv) setShuttleVehicles(sv);
         if (st) setShuttleTrips(st);
+        if (sd) setShuttleDrivers(sd);
         if (cfg?.value) {
           const s = cfg.value;
           const applyIfSet = (key, fn) => { if (s[key] !== undefined) fn(s[key]); };
