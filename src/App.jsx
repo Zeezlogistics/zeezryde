@@ -365,6 +365,8 @@ function RiderApp() {
   const [airportMin,  setAirportMin]  = useState("");
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [selectedDate, setSelectedDate]   = useState("");     // single chosen date
+  const [selectedDates, setSelectedDates] = useState([]);     // multi-day booking
   const [seats, setSeats]   = useState(1);
   const [bookings, setBookings] = useState([]);
   const [newBooking, setNewBooking] = useState(null);
@@ -727,7 +729,7 @@ function RiderApp() {
             <div style={{ fontSize:11, fontWeight:700, color:LBLUE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Order Summary</div>
             {[
               ["Route",  selectedTrip.route],
-              ["Date",   selectedTrip.depart_date+" at "+selectedTrip.depart_time],
+              ["Date",   selectedTrip.days&&selectedTrip.days.length>0&&selectedDates.length>0 ? selectedDates.join(", ")+" at "+selectedTrip.depart_time : (selectedDate||selectedTrip.depart_date)+" at "+selectedTrip.depart_time],
               ["Seats",  selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(", ")+" ("+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+")"],
             ].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
@@ -746,7 +748,7 @@ function RiderApp() {
               </div>
               <div style={{ display:"flex", justifyContent:"space-between", paddingTop:6, borderTop:"1px solid "+BORDER }}>
                 <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:NAVY, fontSize:14 }}>Total</span>
-                <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, color:BLUE, fontSize:16 }}>{"CA$"+withTax(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)}</span>
+                <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, color:BLUE, fontSize:16 }}>{"CA$"+withTax(selectedSeats.length*selectedTrip.fare_per_seat*Math.max(1,selectedDates.length)).toFixed(2)}</span>
               </div>
             </div>
           </Card>
@@ -829,14 +831,51 @@ function RiderApp() {
         <div style={{ marginTop:8 }}>
           <RolePill>SHUTTLE</RolePill>
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:17, color:NAVY, marginTop:8, marginBottom:12 }}>{selectedTrip.route}</h2>
-          <Card style={{ marginBottom:14 }}>
-            {[["Date",selectedTrip.depart_date],["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_type||"7-seater").toUpperCase()],["Fare","CA$"+withTax(selectedTrip.fare_per_seat).toFixed(2)+"/seat (incl. HST)"]].map(([k,v])=>(
+            <Card style={{ marginBottom:14 }}>
+              {[["Time",selectedTrip.depart_time],["Vehicle",(selectedTrip.vehicle_type||selectedTrip.vehicleType||"7-seater")],["Driver",selectedTrip.driver||"TBD"],["Available",(selectedTrip.seats_total-selectedTrip.seats_booked)+" seats"]].map(([k,v])=>(
               <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:"1px solid "+BORDER }}>
                 <span style={{ color:SLATE, fontSize:12 }}>{k}</span>
                 <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{v}</span>
               </div>
-            ))}
-          </Card>
+              ))}
+            </Card>
+
+            {/* ── Date / Days Selection ─────────────────────────── */}
+            {selectedTrip.days && selectedTrip.days.length > 0 ? (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Select Travel Days <span style={{ color:SLATE, fontWeight:400 }}>(tap to select multiple)</span></div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                  {selectedTrip.days.map(day => {
+                    const isSel = selectedDates.includes(day);
+                    return (
+                    <button key={day} onClick={()=>setSelectedDates(prev=>isSel?prev.filter(d=>d!==day):[...prev,day])}
+                      style={{ padding:"8px 16px", borderRadius:10, border:"2px solid "+(isSel?BLUE:BORDER),
+                        background:isSel?BLUE:WHITE, color:isSel?"#fff":NAVY,
+                        fontSize:12, fontWeight:700, cursor:"pointer", transition:"all 0.15s" }}>
+                      {day}
+                    </button>
+                    );
+                  })}
+                </div>
+                {selectedDates.length > 0 && (
+                  <div style={{ marginTop:8, fontSize:11, color:BLUE, fontWeight:600 }}>
+                    {selectedDates.length} day{selectedDates.length>1?"s":""} selected
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Travel Date</div>
+                <select value={selectedDate||selectedTrip.depart_date}
+                  onChange={e=>setSelectedDate(e.target.value)}
+                  style={{ width:"100%", padding:"10px 14px", borderRadius:10,
+                    border:"1.5px solid "+(selectedDate?BLUE:BORDER),
+                    background:WHITE, color:NAVY, fontSize:13, fontWeight:600, outline:"none" }}>
+                  <option value={selectedTrip.depart_date}>{selectedTrip.depart_date} at {selectedTrip.depart_time}</option>
+                </select>
+              </div>
+            )}
+
 
           <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Choose Your Seat</div>
           <div style={{ display:"flex", gap:10, marginBottom:12, flexWrap:"wrap" }}>
@@ -898,8 +937,8 @@ function RiderApp() {
               👆 Tap an available seat above to select it
             </div>
           )}
-          <BigBtn onClick={()=>go("shuttle-payment")} disabled={selectedSeats.length===0}>
-            {selectedSeats.length>0 ? ("Confirm "+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+" - CA$"+(withTax(selectedSeats.length*selectedTrip.fare_per_seat)).toFixed(2)) : "Select seats to continue"}
+          <BigBtn onClick={()=>go("shuttle-payment")} disabled={selectedSeats.length===0||(selectedTrip.days&&selectedTrip.days.length>0&&selectedDates.length===0)}>
+            {selectedSeats.length===0 ? "Select seats to continue" : (selectedTrip.days&&selectedTrip.days.length>0&&selectedDates.length===0) ? "Select at least one day" : "Confirm "+selectedSeats.length+" seat"+(selectedSeats.length>1?"s":"")+" - CA$"+(withTax(selectedSeats.length*selectedTrip.fare_per_seat*(Math.max(1,selectedDates.length)))).toFixed(2)}
           </BigBtn>
         </div>
       </div>
@@ -1154,7 +1193,7 @@ function RiderApp() {
             ) : liveTrips.length === 0 ? (
               <div style={{ textAlign:"center", padding:"30px 0", color:SLATE, fontSize:13 }}>No trips scheduled yet.</div>
 ) : liveTrips.map(t=>{ const isPast=t.depart_date&&t.depart_date<new Date().toISOString().slice(0,10); return (
-            <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:isPast?"#f8fafc":WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+(isPast?"#e2e8f0":BORDER), cursor:"pointer", opacity:isPast?0.7:1 }}>
+            <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSelectedDate(""); setSelectedDates([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:isPast?"#f8fafc":WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+(isPast?"#e2e8f0":BORDER), cursor:"pointer", opacity:isPast?0.7:1 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:NAVY, marginBottom:3 }}>{t.route}</div>
