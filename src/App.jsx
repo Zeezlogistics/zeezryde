@@ -597,8 +597,13 @@ function RiderApp() {
     setFinding(true);
     setTimeout(() => {
       setFinding(false);
-      const liveFare = chosen.id==="family" ? getLive("baseFare", chosen.fare) : getLive("baseFare", chosen.fare) * (getLive("ratePerKm", 1.8) || 1);
-    setTrips(h=>[{ id:Date.now(), dest, type:chosen.label, fare:"CA$"+withTax(liveFare).toFixed(2), date:new Date().toLocaleDateString("en-CA") }, ...h]);
+      const base = parseFloat(getLive("baseFare", 9.40)) || 9.40;
+      const liveFare = chosen.id==="family"
+        ? base * (parseFloat(getLive("familyMult", 1)) || 1)
+        : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
+      const totalFare = withTax(liveFare).toFixed(2);
+      setLastFare(totalFare);
+      setTrips(h=>[{ id:Date.now(), dest, type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA") }, ...h]);
       setPendingRate(true);
       setDest("");
       go("complete");
@@ -744,7 +749,7 @@ function RiderApp() {
       <div className="slide" style={{ textAlign:"center", width:"100%" }}>
         <div style={{ fontSize:60, marginBottom:14 }}>🎉</div>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:26, color:NAVY, marginBottom:4 }}>Trip Complete!</div>
-        <div style={{ color:BLUE, fontSize:15, fontWeight:700, marginBottom:24 }}>{"CA$" + (chosen?.fare.toFixed(2)||"0.00")}</div>
+        <div style={{ color:BLUE, fontSize:15, fontWeight:700, marginBottom:24 }}>{"CA$"+lastFare}</div>
         {pendingRate && (
           <Card style={{ marginBottom:20 }}>
             <p style={{ color:LBLUE, fontSize:12, marginBottom:12, fontWeight:600 }}>Rate your driver</p>
