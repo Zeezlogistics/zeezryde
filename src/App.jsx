@@ -1063,7 +1063,7 @@ function RiderApp() {
               ))}
             </Card>
             <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:12, color:"#92400e" }}>
-              {"⚠️ Please review all details before confirming. Once submitted, contact us to make changes."}
+              {"⚠️ Please review all details before confirming."}
             </div>
             <div style={{ display:"flex", gap:10, marginBottom:8 }}>
               <button onClick={()=>setAirportReview(false)}
