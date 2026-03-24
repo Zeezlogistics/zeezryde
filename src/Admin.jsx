@@ -166,40 +166,7 @@ export default function AdminApp() {
   // ── API connection state ──────────────────────────────────────────────────
   const [page, setPage]       = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [promos, setPromos]   = useState([
-    {
-      id: "PROMO-001",
-      code: "NEWDRIVER",
-      name: "New Driver Welcome",
-      type: "sub_discount",
-      discount: 100,
-      discountType: "pct",
-      duration: 1,
-      maxUses: 500,
-      used: 47,
-      target: "new_drivers",
-      status: "active",
-      created: "Mar 1 2026",
-      expiry: "May 31 2026",
-      description: "100% off the weekly subscription fee for the first month (4 weeks) for newly registered drivers.",
-    },
-    {
-      id: "PROMO-002",
-      code: "STUDENT50",
-      name: "Student Discount",
-      type: "sub_discount",
-      discount: 50,
-      discountType: "pct",
-      duration: 4,
-      maxUses: 200,
-      used: 0,
-      target: "all_drivers",
-      status: "active",
-      created: "Mar 8 2026",
-      expiry: "Sep 30 2026",
-      description: "50% off the weekly subscription fee for 4 weeks for eligible students with valid student ID.",
-    },
-  ]);
+  const [promos, setPromos]   = useState([]);
   const MAX_DRIVERS = 50;
   // ── Live demo integration ────────────────────────────────────────────────
   const [liveTrips,    setLiveTrips]    = useState([]);      // trips from live rider/driver demo
@@ -4524,6 +4491,7 @@ function Styles() {
 // ─── PROMOS PAGE ──────────────────────────────────────────────────────────────
 function PagePromos({ viewOnly, promos, setPromos, drivers }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [editingPromoId, setEditingPromoId] = useState(null);
   const [form, setForm] = useState({
     code:"", name:"", description:"", discountType:"pct", discount:"", duration:"4",
     maxUses:"", target:"new_drivers", expiry:"", status:"active",
@@ -4557,14 +4525,24 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
       created: new Date().toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}),
     };
     setPromos(p => [...p, newPromo]);
+    getSupabase().then(sb=>sb.from("promos").insert({...newPromo,created_at:new Date().toISOString()}).catch(e=>console.error(e)));
     setForm({ code:"", name:"", description:"", discountType:"pct", discount:"", duration:"4", maxUses:"", target:"new_drivers", expiry:"", status:"active" });
     setShowCreate(false);
     setFlash("Promo created successfully");
     setTimeout(() => setFlash(null), 3000);
   };
 
+  const saveEdit = (editId, form, rawDuration) => {
+    const updatedFields = {...form, discount:parseFloat(form.discount), duration:rawDuration, maxUses:form.maxUses?parseInt(form.maxUses):null};
+    setPromos(p => p.map(pr => pr.id === editId ? { ...pr, ...updatedFields } : pr));
+    getSupabase().then(sb=>sb.from("promos").update(updatedFields).eq("id",editId).catch(e=>console.error(e)));
+  };
+
   const toggleStatus = id => setPromos(p => p.map(pr => pr.id===id ? {...pr, status: pr.status==="active"?"paused":"active"} : pr));
-  const deletePromo  = id => setPromos(p => p.filter(pr => pr.id !== id));
+  const deletePromo = id => {
+    setPromos(p => p.filter(pr => pr.id !== id));
+    getSupabase().then(sb=>sb.from("promos").delete().eq("id",id).catch(e=>console.error(e)));
+  };
 
   const inp = { background:"#0a0f1a", border:"1px solid rgba(99,179,237,0.15)", borderRadius:8, padding:"8px 12px", color:"#e2e8f0", fontSize:12, outline:"none", fontFamily:"'JetBrains Mono',monospace", width:"100%", boxSizing:"border-box" };
   const lbl = { color:"rgba(148,163,184,0.5)", fontSize:8, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:4, display:"block", textTransform:"uppercase" };
@@ -4577,7 +4555,7 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
           <p style={{ color:"#334155", fontSize:12, marginTop:4, fontFamily:"'JetBrains Mono',monospace" }}>Driver promotions &amp; subscription discounts</p>
         </div>
         {!viewOnly && <button
-          onClick={() => setShowCreate(o=>!o)}
+          onClick={() => { setShowCreate(o=>!o); setEditingPromoId(null); setForm({ code:'', name:'', description:'', discountType:'pct', discount:'', duration:'4', maxUses:'', target:'new_drivers', expiry:'', status:'active' }); }}
           style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"9px 18px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}
         >
           {showCreate ? "✕ CANCEL" : "+ NEW PROMO"}
@@ -4608,7 +4586,7 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
       {/* Create promo form */}
       {showCreate && (
         <div style={{ background:"#0d1220", border:"1px solid rgba(59,130,246,0.18)", borderRadius:12, padding:"22px", marginBottom:18 }}>
-          <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:16 }}>{editingPromo ? "EDIT PROMO" : "CREATE NEW PROMO"}</div>
+          <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:16 }}>{editingPromoId ? "EDIT PROMO" : "CREATE NEW PROMO"}</div>
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
             <div>
@@ -4688,9 +4666,19 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
           )}
 
           <div style={{ display:"flex", justifyContent:"flex-end" }}>
-            {!viewOnly && <button onClick={createPromo} style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"10px 22px", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
-              CREATE PROMO
-            </button>}
+            {!viewOnly && <button onClick={()=>{
+            if (editingPromoId) {
+              const rawDuration = parseInt(form.duration)||1;
+              if (!form.code||!form.name||!form.discount) return;
+              if (rawDuration > MAX_PROMO_WEEKS) { setFlash("Duration cannot exceed "+MAX_PROMO_WEEKS+" weeks."); setTimeout(()=>setFlash(null),3000); return; }
+              saveEdit(editingPromoId, form, rawDuration);
+              setEditingPromoId(null); setShowCreate(false);
+              setForm({ code:"", name:"", description:"", discountType:"pct", discount:"", duration:"4", maxUses:"", target:"new_drivers", expiry:"", status:"active" });
+              setFlash("Promo updated successfully"); setTimeout(()=>setFlash(null),3000);
+            } else { createPromo(); }
+          }} style={{ background:"#2563eb", border:"none", color:"#fff", borderRadius:8, padding:"9px 22px", fontSize:11, fontWeight:700, cursor:"pointer", letterSpacing:1, fontFamily:"'JetBrains Mono',monospace" }}>
+          {editingPromoId ? "SAVE CHANGES" : "CREATE PROMO"}
+          </button>}
           </div>
         </div>
       )}
@@ -4728,7 +4716,7 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
                   <Td>
                     {!viewOnly && <div style={{ display:"flex", gap:6 }}>
               <button onClick={()=>{
-                setEditingPromo(p.id);
+                setEditingPromoId(p.id);
                 setForm({ code:p.code, name:p.name, description:p.description||"", discountType:p.discountType||"pct", discount:String(p.discount), duration:String(p.duration), maxUses:p.maxUses?String(p.maxUses):"", target:p.target||"new_drivers", expiry:p.expiry||"", status:p.status||"active" });
                 setShowCreate(true);
                 window.scrollTo({top:0,behavior:"smooth"});
