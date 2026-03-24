@@ -1247,14 +1247,28 @@ function RiderApp() {
             <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
               <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Choose ride</div>
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-                {RIDES.map(r=>(
-                  <button key={r.id} onClick={()=>setRide(r.id)} style={{ flex:1, padding:"11px 8px", borderRadius:12, cursor:"pointer", textAlign:"left", border:"2px solid "+(ride===r.id?BLUE:BORDER), background:ride===r.id?VLIGHT:WHITE }}>
+                {RIDES.map(r=>{
+                  const locked = !dest.trim();
+                  return (
+                  <button key={r.id} onClick={()=>{ if(locked) return; setRide(r.id); }}
+                    style={{ flex:1, padding:"11px 8px", borderRadius:12, textAlign:"left",
+                      cursor:locked?"not-allowed":"pointer",
+                      opacity:locked?0.4:1,
+                      border:"2px solid "+(ride===r.id?BLUE:BORDER),
+                      background:ride===r.id?VLIGHT:WHITE,
+                      transition:"opacity 0.2s" }}>
                     <div style={{ fontSize:24, marginBottom:4 }}>{r.icon}</div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:12, color:NAVY }}>{r.label}</div>
                     <div style={{ fontSize:10, color:BLUE, fontWeight:600, marginTop:1 }}>{r.seats}</div>
-                      </button>
-                ))}
+                  </button>
+                  );
+                })}
               </div>
+              {!dest.trim() && (
+                <div style={{ fontSize:11, color:SLATE, textAlign:"center", marginTop:-8, marginBottom:10 }}>
+                  {"Enter a destination above to select a ride type"}
+                </div>
+              )}
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 <button onClick={()=>{ setAirportDone(false); setAirportReview(false); go("airport"); }} style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:"#f8fafc", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
                   <span style={{ fontSize:16 }}>✈️</span>
