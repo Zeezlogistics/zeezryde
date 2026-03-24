@@ -378,7 +378,8 @@ function RiderApp() {
   const [airportDate, setAirportDate] = useState("");
   const [airportTime, setAirportTime] = useState("");
   const [airportPax, setAirportPax]   = useState(1);
-  const [airportDone, setAirportDone] = useState(false);
+  const [airportDone,   setAirportDone]   = useState(false);
+  const [airportReview, setAirportReview] = useState(false);
   const [airportHour, setAirportHour] = useState("");
   const [airportMin,  setAirportMin]  = useState("");
   const [selectedTrip, setSelectedTrip] = useState(null);
@@ -1255,7 +1256,7 @@ function RiderApp() {
                 ))}
               </div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                <button onClick={()=>go("airport")} style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:"#f8fafc", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+                <button onClick={()=>{ setAirportDone(false); setAirportReview(false); go("airport"); }} style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:"#f8fafc", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
                   <span style={{ fontSize:16 }}>✈️</span>
                   <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>Airport</span>
                 </button>
