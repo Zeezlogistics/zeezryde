@@ -1039,46 +1039,45 @@ function RiderApp() {
                 </Card>
                 <BigBtn onClick={()=>{ setAirportDone(false); setAirportReview(false); go("dash"); }}>Back to Home</BigBtn>
               </div>
-            ) : airportReview ? (
-
-              <div className="fade">
-                <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Review Your Booking</div>
-                <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:4, marginBottom:16 }}>✈️ Confirm Airport Trip</h2>
-                <Card style={{ textAlign:"left", marginBottom:16 }}>
-                  {[
-                    ["Direction",  airportDir==="to" ? "To Airport ✈️" : "From Airport 🛬"],
-                    ["Airport",    AIRPORTS.find(a=>a.code===airportCode)?.name],
-                    ...(airportDir==="to" ? [["Pickup Address", airportPickup]] : [["Drop-off Address", airportDropoff]]),
-                    ["Date",       airportDate],
-                    ["Time",       airportHour+":"+airportMin],
-                    ["Passengers", airportPax],
-                    ["Fare",       "CA$"+(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
-                    ["HST (13%)",  "CA$"+taxAmt(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
-                    ["Total",      "CA$"+withTax(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
-                  ].map(([k,v])=>(
-                    <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"9px 0", borderBottom:"1px solid "+BORDER }}>
-                      <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
-                      <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
-                    </div>
-                  ))}
-                </Card>
-                <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:12, color:"#92400e" }}>
-                  ⚠️ Please review all details carefully before confirming. Once submitted, changes require contacting us directly.
+        ) : airportReview ? (
+          <div className="fade">
+            <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Review Your Booking</div>
+            <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:4, marginBottom:16 }}>{"✈️ Confirm Airport Trip"}</h2>
+            <Card style={{ textAlign:"left", marginBottom:16 }}>
+              {[
+                ["Direction",  airportDir==="to" ? "To Airport" : "From Airport"],
+                ["Airport",    AIRPORTS.find(a=>a.code===airportCode)?.name],
+                ...(airportDir==="to" ? [["Pickup", airportPickup]] : [["Drop-off", airportDropoff]]),
+                ["Date",       airportDate],
+                ["Time",       airportHour+":"+airportMin],
+                ["Passengers", airportPax],
+                ["Fare",       "CA$"+(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                ["HST (13%)",  "CA$"+taxAmt(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+                ["Total",      "CA$"+withTax(parseFloat(liveSettings["airportFare"+airportCode.toUpperCase()])||getLiveAirportFare(airportCode)).toFixed(2)],
+              ].map(([k,v])=>(
+                <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"9px 0", borderBottom:"1px solid "+BORDER }}>
+                  <span style={{ color:SLATE, fontSize:13 }}>{k}</span>
+                  <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{String(v)}</span>
                 </div>
-                <div style={{ display:"flex", gap:10, marginBottom:8 }}>
-                  <button onClick={()=>setAirportReview(false)}
-                    style={{ flex:1, padding:"13px", borderRadius:12, border:"1.5px solid "+BORDER,
-                      background:WHITE, color:NAVY, fontSize:14, fontWeight:700, cursor:"pointer" }}>
-                    ✏️ Edit
-                  </button>
-                  <BigBtn style={{ flex:2 }} onClick={()=>{
-                    const aFare = withTax(getLiveAirportFare(airportCode)*airportPax);
-                    try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {}
-                    try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {}
-                    setAirportDone(true);
-                  }}>Confirm &amp; Submit</BigBtn>
-                </div>
-              </div>
+              ))}
+            </Card>
+            <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:12, color:"#92400e" }}>
+              {"⚠️ Please review all details before confirming. Once submitted, contact us to make changes."}
+            </div>
+            <div style={{ display:"flex", gap:10, marginBottom:8 }}>
+              <button onClick={()=>setAirportReview(false)}
+                style={{ flex:1, padding:"13px", borderRadius:12, border:"1.5px solid "+BORDER,
+                  background:WHITE, color:NAVY, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                {"✏️ Edit"}
+              </button>
+              <BigBtn style={{ flex:2 }} onClick={()=>{
+                const aFare = withTax(getLiveAirportFare(airportCode)*airportPax);
+                try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {}
+                try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {}
+                setAirportDone(true);
+              }}>{"Confirm & Submit"}</BigBtn>
+            </div>
+          </div>
             ) : (
           <div className="fade">
             <RolePill>AIRPORT</RolePill>
