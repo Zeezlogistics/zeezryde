@@ -2673,7 +2673,6 @@ function DriverApp() {
                       fontSize:13, color:NAVY, outline:"none", background:WHITE,
                       fontFamily:"'Plus Jakarta Sans',sans-serif" }}
                   />
-                  <button
               <button
                 onClick={async ()=>{
                   if (!promoCode.trim()) return;
