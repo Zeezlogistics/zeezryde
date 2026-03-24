@@ -43,8 +43,8 @@ const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const RIDES = [
-  { id: "family",  label: "Family",  icon: "🚗", seats: "1-4 persons",  price: "CA$10-12", fare: 9.40  },
-  { id: "friends", label: "Friends", icon: "🚐", seats: "1-7 persons", price: "CA$20-27", fare: 21.50 },
+  { id: "family",  label: "Family",  icon: "🚗", seats: "1-4 persons", fare: 9.40  },
+  { id: "friends", label: "Friends", icon: "🚐", seats: "1-7 persons", fare: 21.50 },
 ];
 const AIRPORTS = [
   { code: "yyz", name: "Pearson International (YYZ)", fare: 55 },
@@ -1249,11 +1249,12 @@ function RiderApp() {
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {RIDES.map(r=>{
                   const locked = !dest.trim();
-                  // Estimate fare per ride type once address entered
-                  // Show each ride type's own fare (Family < Friends by design)
-                  const estFare = r.fare;
-
-
+                  // Live fares from admin settings
+                  const base = parseFloat(getLive("baseFare", 9.40)) || 9.40;
+                  const estFare = r.id==="family"
+                    ? base * (parseFloat(getLive("familyMult", 1)) || 1)
+                    : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
+                  const estTotal = withTax(estFare).toFixed(2);
                   return (
                   <button key={r.id} onClick={()=>{ if(locked) return; setRide(r.id); }}
                     style={{ flex:1, padding:"11px 8px", borderRadius:12, textAlign:"left",
@@ -1266,9 +1267,8 @@ function RiderApp() {
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                       <div style={{ fontSize:24 }}>{r.icon}</div>
                       {!locked && (
-                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:12, color:BLUE, textAlign:"right", lineHeight:1.2 }}>
-                          <div>{"CA$"+estTotal}</div>
-
+                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:12, color:BLUE, textAlign:"right" }}>
+                          {"CA$"+estTotal}
                         </div>
                       )}
                     </div>
