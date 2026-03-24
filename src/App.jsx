@@ -1250,10 +1250,10 @@ function RiderApp() {
                 {RIDES.map(r=>{
                   const locked = !dest.trim();
                   // Estimate fare per ride type once address entered
-                  const estFare = r.id==="family"
-                    ? getLive("baseFare", r.fare)
-                    : getLive("baseFare", r.fare) * (getLive("ratePerKm", 1.8) || 1);
-                  const estTotal = withTax(estFare).toFixed(2);
+                  // Show each ride type's own fare (Family < Friends by design)
+                  const estFare = r.fare;
+
+
                   return (
                   <button key={r.id} onClick={()=>{ if(locked) return; setRide(r.id); }}
                     style={{ flex:1, padding:"11px 8px", borderRadius:12, textAlign:"left",
@@ -1268,7 +1268,7 @@ function RiderApp() {
                       {!locked && (
                         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:12, color:BLUE, textAlign:"right", lineHeight:1.2 }}>
                           <div>{"CA$"+estTotal}</div>
-                          <div style={{ fontSize:9, color:SLATE, fontWeight:500 }}>{"incl. HST"}</div>
+
                         </div>
                       )}
                     </div>
