@@ -716,7 +716,7 @@ export default function AdminApp() {
             <button onClick={()=>setSidebarOpen(false)}
               title="Collapse sidebar"
               style={{ background:"none", border:"none", cursor:"pointer", color:"#334155", fontSize:16, padding:"2px 4px", flexShrink:0, lineHeight:1 }}>
-              ◀
+              {"◀"}
             </button>
           )}
         </div>
@@ -769,17 +769,18 @@ export default function AdminApp() {
           )}
         </div>
 
+      </aside>
       {/* ── MAIN ───────────────────────────── */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
         {/* Topbar */}
         <header style={{ height:54, background:"rgba(8,12,20,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", alignItems:"center", padding:"0 24px", gap:14, flexShrink:0 }}>
-          { /* Sidebar toggle */ }
+
           {!sidebarOpen && (
             <button onClick={()=>setSidebarOpen(true)} title="Expand sidebar"
               style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:7,
                 color:"#64748b", fontSize:14, cursor:"pointer", padding:"6px 10px", flexShrink:0, lineHeight:1 }}>
-              ▶
+              {"▶"}
             </button>
           )}
           <div style={{ display:"flex", alignItems:"center", gap:7, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:7, padding:"6px 12px", flex:1, maxWidth:320 }}>
