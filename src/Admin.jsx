@@ -4608,7 +4608,7 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
       {/* Create promo form */}
       {showCreate && (
         <div style={{ background:"#0d1220", border:"1px solid rgba(59,130,246,0.18)", borderRadius:12, padding:"22px", marginBottom:18 }}>
-          <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:16 }}>CREATE NEW PROMO</div>
+          <div style={{ color:"rgba(148,163,184,0.5)", fontSize:9, fontWeight:700, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:16 }}>{editingPromo ? "EDIT PROMO" : "CREATE NEW PROMO"}</div>
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
             <div>
@@ -4727,6 +4727,14 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
                   </Td>
                   <Td>
                     {!viewOnly && <div style={{ display:"flex", gap:6 }}>
+              <button onClick={()=>{
+                setEditingPromo(p.id);
+                setForm({ code:p.code, name:p.name, description:p.description||"", discountType:p.discountType||"pct", discount:String(p.discount), duration:String(p.duration), maxUses:p.maxUses?String(p.maxUses):"", target:p.target||"new_drivers", expiry:p.expiry||"", status:p.status||"active" });
+                setShowCreate(true);
+                window.scrollTo({top:0,behavior:"smooth"});
+              }} style={{ background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", borderRadius:6, color:"#60a5fa", fontSize:10, fontWeight:700, padding:"4px 10px", cursor:"pointer", letterSpacing:0.5, fontFamily:"'JetBrains Mono',monospace" }}>
+              EDIT
+              </button>
                       <button onClick={()=>toggleStatus(p.id)} style={{ background:"rgba(99,179,237,0.07)", border:"1px solid rgba(99,179,237,0.15)", color:"#93c5fd", borderRadius:6, padding:"4px 10px", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
                         {isActive?"PAUSE":"RESUME"}
                       </button>
