@@ -165,6 +165,7 @@ export default function AdminApp() {
 
   // ── API connection state ──────────────────────────────────────────────────
   const [page, setPage]       = useState("overview");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [promos, setPromos]   = useState([
     {
       id: "PROMO-001",
@@ -692,60 +693,95 @@ export default function AdminApp() {
       <Styles />
 
       {/* ── SIDEBAR ─────────────────────────── */}
-      <aside style={{ width:220, background:"#080c14", borderRight:"1px solid rgba(99,179,237,0.08)", display:"flex", flexDirection:"column", flexShrink:0 }}>
-        {/* Brand */}
-        <div style={{ padding:"22px 20px 18px", borderBottom:"1px solid rgba(99,179,237,0.08)" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-            <div style={{ width:32, height:32, borderRadius:8, background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 0 18px rgba(59,130,246,0.5)" }}>
+      <aside style={{ width:sidebarOpen?220:56, background:"#080c14", borderRight:"1px solid rgba(99,179,237,0.08)", display:"flex", flexDirection:"column", flexShrink:0, transition:"width 0.22s cubic-bezier(.4,0,.2,1)", overflow:"hidden" }}>
+        {/* Brand + collapse toggle */}
+        <div style={{ padding:"22px 12px 18px", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between", minWidth:0 }}>
+          {sidebarOpen && (
+            <div style={{ display:"flex", alignItems:"center", gap:9, minWidth:0 }}>
+              <div style={{ width:32, height:32, borderRadius:8, background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ color:"#fff", fontWeight:900, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>Z</span>
+              </div>
+              <div style={{ minWidth:0 }}>
+                <div style={{ color:"#f0f9ff", fontWeight:700, fontSize:14, letterSpacing:0.3, whiteSpace:"nowrap" }}>ZeezRyde</div>
+                <div style={{ color:"#3b82f6", fontSize:8, fontWeight:600, letterSpacing:2.5, textTransform:"uppercase", whiteSpace:"nowrap" }}>ADMIN</div>
+              </div>
+            </div>
+          )}
+          {!sidebarOpen && (
+            <div style={{ width:32, height:32, borderRadius:8, background:"linear-gradient(135deg,#3b82f6,#1d4ed8)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto" }}>
               <span style={{ color:"#fff", fontWeight:900, fontSize:14, fontFamily:"'JetBrains Mono',monospace" }}>Z</span>
             </div>
-            <div>
-              <div style={{ color:"#f0f9ff", fontWeight:700, fontSize:14, letterSpacing:0.3 }}>ZeezRyde</div>
-              <div style={{ color:"#3b82f6", fontSize:8, fontWeight:600, letterSpacing:2.5, textTransform:"uppercase", marginTop:1 }}>Admin Console</div>
-            </div>
-          </div>
+          )}
+          {sidebarOpen && (
+            <button onClick={()=>setSidebarOpen(false)}
+              title="Collapse sidebar"
+              style={{ background:"none", border:"none", cursor:"pointer", color:"#334155", fontSize:16, padding:"2px 4px", flexShrink:0, lineHeight:1 }}>
+              ◀
+            </button>
+          )}
         </div>
 
         {/* Nav links */}
-        <nav style={{ flex:1, padding:"14px 10px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
-          <div style={{ color:"rgba(99,179,237,0.3)", fontSize:8, fontWeight:700, letterSpacing:2.5, textTransform:"uppercase", padding:"4px 10px 8px" }}>Platform</div>
+        <nav style={{ flex:1, padding:"14px 6px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
+          {sidebarOpen && <div style={{ color:"rgba(99,179,237,0.3)", fontSize:8, fontWeight:700, letterSpacing:2.5, textTransform:"uppercase", padding:"0 8px 8px" }}>Navigation</div>}
           {NAV.filter(n => !viewOnly || !["settings","data","subs","docs","promos","payment","users"].includes(n.id)).map(n => {
             const active = page === n.id;
             return (
-              <button key={n.id} onClick={() => { setPage(n.id); setSearch(""); }} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", borderRadius:7, border:"none", cursor:"pointer", background:active?"rgba(59,130,246,0.12)":"transparent", width:"100%", textAlign:"left", transition:"all 0.15s" }}>
-                <span style={{ fontSize:15, color:active?"#60a5fa":"rgba(148,163,184,0.5)", width:18, flexShrink:0, fontFamily:"monospace" }}>{n.icon}</span>
-                <span style={{ color:active?"#93c5fd":"#64748b", fontSize:12, fontWeight:active?600:400, flex:1 }}>{n.label}</span>
-                {n.badge > 0 && <span style={{ background:"#ef4444", color:"#fff", fontSize:9, fontWeight:700, padding:"1px 5px", borderRadius:10 }}>{n.badge}</span>}
-                {active && <div style={{ width:3, height:14, borderRadius:2, background:"#3b82f6", flexShrink:0 }} />}
+              <button key={n.id} onClick={() => { setPage(n.id); setSearch(""); }}
+                title={!sidebarOpen ? n.label : ""}
+                style={{ display:"flex", alignItems:"center", gap:sidebarOpen?10:0, padding:sidebarOpen?"8px 10px":"10px 0",
+                  justifyContent:sidebarOpen?"flex-start":"center",
+                  borderRadius:8, border:"none", cursor:"pointer", width:"100%", textAlign:"left",
+                  background:active?"rgba(59,130,246,0.12)":"transparent", transition:"background 0.15s" }}>
+                <span style={{ fontSize:15, color:active?"#60a5fa":"rgba(148,163,184,0.5)", width:18, flexShrink:0, fontFamily:"'JetBrains Mono',monospace", textAlign:"center" }}>{n.icon}</span>
+                {sidebarOpen && <span style={{ color:active?"#93c5fd":"#64748b", fontSize:12, fontWeight:active?600:400, flex:1, whiteSpace:"nowrap" }}>{n.label}</span>}
+                {sidebarOpen && n.badge > 0 && <span style={{ background:"#ef4444", color:"#fff", fontSize:9, fontWeight:700, padding:"1px 5px", borderRadius:10 }}>{n.badge}</span>}
+                {sidebarOpen && active && <div style={{ width:3, height:14, borderRadius:2, background:"#3b82f6", flexShrink:0 }} />}
               </button>
             );
           })}
         </nav>
 
         {/* Admin user */}
-        <div style={{ padding:"12px 14px 18px", borderTop:"1px solid rgba(99,179,237,0.08)" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 10px", background:"rgba(255,255,255,0.03)", borderRadius:8, border:"1px solid rgba(99,179,237,0.07)" }}>
-            <div style={{ width:28, height:28, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>SA</div>
-            <div style={{ minWidth:0 }}>
-              <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:600 }}>{viewOnly ? "Viewer" : "Super Admin"}</div>
-              {viewOnly && <div style={{ fontSize:9, color:"#f59e0b", fontWeight:700, letterSpacing:1 }}>VIEW ONLY</div>}
-              <div style={{ color:"#334155", fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>admin@zeezryde.com</div>
-            </div>
-          </div>
-          <button onClick={handleLogout}
-            style={{ width:"100%", marginTop:8, padding:"7px 10px", borderRadius:7,
-              border:"1px solid rgba(239,68,68,0.2)", background:"rgba(239,68,68,0.05)",
-              color:"#ef4444", fontSize:11, fontWeight:600, cursor:"pointer", textAlign:"left" }}>
-            ⏻ Sign Out
-          </button>
+        <div style={{ padding:"12px 8px 18px", borderTop:"1px solid rgba(99,179,237,0.08)" }}>
+          {sidebarOpen ? (
+            <>
+              <div style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 10px", background:"rgba(255,255,255,0.03)", borderRadius:8, marginBottom:8 }}>
+                <div style={{ width:28, height:28, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <span style={{ color:"#fff", fontSize:11, fontWeight:700 }}>{viewOnly?"V":"A"}</span>
+                </div>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:600 }}>{viewOnly ? "Viewer" : "Super Admin"}</div>
+                  {viewOnly && <div style={{ fontSize:9, color:"#f59e0b", fontWeight:700, letterSpacing:1 }}>VIEW ONLY</div>}
+                  <div style={{ color:"#334155", fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{authEmail}</div>
+                </div>
+              </div>
+              <button onClick={handleLogout}
+                style={{ width:"100%", padding:"7px 10px", borderRadius:7, border:"1px solid rgba(239,68,68,0.2)", background:"rgba(239,68,68,0.05)", color:"#ef4444", fontSize:11, fontWeight:600, cursor:"pointer", textAlign:"left" }}>
+                {"⏻ Sign Out"}
+              </button>
+            </>
+          ) : (
+            <button onClick={handleLogout} title="Sign Out"
+              style={{ width:"100%", padding:"9px 0", borderRadius:7, border:"1px solid rgba(239,68,68,0.2)", background:"rgba(239,68,68,0.05)", color:"#ef4444", fontSize:14, cursor:"pointer", textAlign:"center" }}>
+              {"⏻"}
+            </button>
+          )}
         </div>
-      </aside>
 
       {/* ── MAIN ───────────────────────────── */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
         {/* Topbar */}
         <header style={{ height:54, background:"rgba(8,12,20,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", alignItems:"center", padding:"0 24px", gap:14, flexShrink:0 }}>
+          { /* Sidebar toggle */ }
+          {!sidebarOpen && (
+            <button onClick={()=>setSidebarOpen(true)} title="Expand sidebar"
+              style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:7,
+                color:"#64748b", fontSize:14, cursor:"pointer", padding:"6px 10px", flexShrink:0, lineHeight:1 }}>
+              ▶
+            </button>
+          )}
           <div style={{ display:"flex", alignItems:"center", gap:7, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:7, padding:"6px 12px", flex:1, maxWidth:320 }}>
             <span style={{ color:"#334155", fontSize:12 }}>⌕</span>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${page}…`} style={{ background:"none", border:"none", outline:"none", fontSize:12, color:"#94a3b8", width:"100%", fontFamily:"inherit" }} />
