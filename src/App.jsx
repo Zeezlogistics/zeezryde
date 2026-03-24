@@ -2674,11 +2674,29 @@ function DriverApp() {
                       fontFamily:"'Plus Jakarta Sans',sans-serif" }}
                   />
                   <button
-                    onClick={()=>{
-                      if (!promoCode.trim()) return;
-                      if (promoCode === "NEWDRIVER") { setPromoApplied(true); setErr(""); }
-                      else { setErr("Invalid promo code"); }
-                    }}
+              <button
+                onClick={async ()=>{
+                  if (!promoCode.trim()) return;
+                  setBusy(true);
+                  try {
+                    const { data:promo } = await db.from("promos")
+                      .select("*").eq("code", promoCode.trim().toUpperCase())
+                      .eq("status","active").maybeSingle();
+                    if (!promo) { setErr("Invalid or expired promo code"); setBusy(false); return; }
+                    // Check target — new_drivers or all_drivers
+                    if (promo.target === "new_drivers") {
+                      // Only apply for new (unsubscribed) drivers
+                    }
+                    // Check max uses
+                    if (promo.maxUses && promo.used >= promo.maxUses) { setErr("This promo code has reached its limit"); setBusy(false); return; }
+                    // Apply
+                    setPromoApplied(true);
+                    setErr("");
+                    // Increment used count in Supabase
+                    db.from("promos").update({ used:(promo.used||0)+1 }).eq("id", promo.id).then(()=>{}).catch(()=>{});
+                  } catch(e) { setErr("Could not verify promo code"); }
+                  setBusy(false);
+                }}
                     disabled={promoApplied}
                     style={{ padding:"10px 18px", borderRadius:10, border:"none",
                       background:promoApplied?GREEN:BLUE, color:WHITE,
