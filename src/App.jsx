@@ -1249,6 +1249,11 @@ function RiderApp() {
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {RIDES.map(r=>{
                   const locked = !dest.trim();
+                  // Estimate fare per ride type once address entered
+                  const estFare = r.id==="family"
+                    ? getLive("baseFare", r.fare)
+                    : getLive("baseFare", r.fare) * (getLive("ratePerKm", 1.8) || 1);
+                  const estTotal = withTax(estFare).toFixed(2);
                   return (
                   <button key={r.id} onClick={()=>{ if(locked) return; setRide(r.id); }}
                     style={{ flex:1, padding:"11px 8px", borderRadius:12, textAlign:"left",
@@ -1256,9 +1261,18 @@ function RiderApp() {
                       opacity:locked?0.4:1,
                       border:"2px solid "+(ride===r.id?BLUE:BORDER),
                       background:ride===r.id?VLIGHT:WHITE,
-                      transition:"opacity 0.2s" }}>
-                    <div style={{ fontSize:24, marginBottom:4 }}>{r.icon}</div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:12, color:NAVY }}>{r.label}</div>
+                      transition:"opacity 0.2s",
+                      position:"relative" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                      <div style={{ fontSize:24 }}>{r.icon}</div>
+                      {!locked && (
+                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:12, color:BLUE, textAlign:"right", lineHeight:1.2 }}>
+                          <div>{"CA$"+estTotal}</div>
+                          <div style={{ fontSize:9, color:SLATE, fontWeight:500 }}>{"incl. HST"}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:12, color:NAVY, marginTop:4 }}>{r.label}</div>
                     <div style={{ fontSize:10, color:BLUE, fontWeight:600, marginTop:1 }}>{r.seats}</div>
                   </button>
                   );
