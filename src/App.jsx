@@ -605,30 +605,14 @@ function RiderApp() {
     go("finding");
   }
 
-  async function bookShuttle() {
+  function bookShuttle() {
     const b = { id:"ZS-"+String(Date.now()).slice(-5), trip:selectedTrip, seats:selectedSeats, total:withTax(selectedSeats.length*selectedTrip.fare_per_seat) };
     setNewBooking(b);
     setBookings(prev=>[...prev, b]);
     setSelectedSeats([]);
     try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:selectedTrip.route.split(" to ")[0]||"Shuttle", dest:selectedTrip.route.split(" to ")[1]||selectedTrip.route, fare:b.total.toFixed(2), rideType:"Shuttle", seats:selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(","), status:"confirmed", requested_at:new Date().toISOString() }); } catch(_) {}
     try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:b.id, rider:displayName, origin:selectedTrip.route, dest:"Shuttle", fare:"CA$"+b.total.toFixed(2), rideType:"Shuttle", status:"confirmed", time:new Date().toLocaleTimeString("en-CA",{hour:"2-digit",minute:"2-digit"}) }); } catch(_) {}
-    // Email the assigned driver
-    try {
-      const driverName = selectedTrip.driver;
-      if (driverName && driverName !== "Unassigned") {
-        const sb3 = createClient(SUPABASE_URL, SUPABASE_ANON);
-        const { data: drv } = await sb3.from("shuttle_drivers").select("name,email").eq("name", driverName).maybeSingle();
-        if (drv?.email) {
-          const seats = selectedSeats.map(s=>s.replace(/[^0-9]/g,"")).join(", ");
-          const days  = selectedDates.length > 0 ? selectedDates.join(", ") : "—";
-          sendDriverEmail(drv.email, drv.name, {
-            booking_type:"Shuttle", rider_name:displayName, route:selectedTrip.route,
-            date:selectedTrip.depart_date, time:selectedTrip.depart_time,
-            days, seats, total:"CA$"+b.total.toFixed(2),
-          });
-        }
-      }
-    } catch(_) {}
+
     go("shuttle-booked");
   }
 
@@ -1030,7 +1014,7 @@ function RiderApp() {
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
         <BackBtn onClick={()=>go("dash")} />
             {airportDone ? (
-              // ── BOOKING CONFIRMED ──────────────────────────────────
+
               <div className="fade" style={{ textAlign:"center", paddingTop:40 }}>
                 <div style={{ fontSize:56, marginBottom:14 }}>✅</div>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, marginBottom:6 }}>Booking Submitted!</div>
@@ -1056,7 +1040,7 @@ function RiderApp() {
                 <BigBtn onClick={()=>{ setAirportDone(false); setAirportReview(false); go("dash"); }}>Back to Home</BigBtn>
               </div>
             ) : airportReview ? (
-              // ── REVIEW SUMMARY — vetting before final confirm ───────
+
               <div className="fade">
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Review Your Booking</div>
                 <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:NAVY, marginTop:4, marginBottom:16 }}>✈️ Confirm Airport Trip</h2>
@@ -1087,13 +1071,10 @@ function RiderApp() {
                       background:WHITE, color:NAVY, fontSize:14, fontWeight:700, cursor:"pointer" }}>
                     ✏️ Edit
                   </button>
-                  <BigBtn style={{ flex:2 }} onClick={async ()=>{
+                  <BigBtn style={{ flex:2 }} onClick={()=>{
                     const aFare = withTax(getLiveAirportFare(airportCode)*airportPax);
                     try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ rider_id:user?.id, rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:aFare.toFixed(2), rideType:"Airport", status:"pending", requested_at:new Date().toISOString() }); } catch(_) {}
                     try { if(window.__zeezAdmin?.pushTrip) window.__zeezAdmin.pushTrip({ id:"AP-"+Date.now(), rider:displayName, origin:airportDir==="to"?airportPickup:AIRPORTS.find(a=>a.code===airportCode)?.name, dest:airportDir==="from"?airportDropoff:AIRPORTS.find(a=>a.code===airportCode)?.name, fare:"CA$"+aFare.toFixed(2), rideType:"Airport", status:"pending", time:airportDate+" "+airportHour+":"+airportMin }); } catch(_) {}
-                    const airportAddr = airportDir==="to" ? airportPickup : airportDropoff;
-                    const dispatchEmail = typeof window.__zeezAdmin?.getDispatchEmail === "function" ? window.__zeezAdmin.getDispatchEmail() : "";
-                    sendDriverEmail(dispatchEmail, "Dispatch", { booking_type:"Airport", rider_name:displayName, route:(airportDir==="to"?"To":"From")+" "+AIRPORTS.find(a=>a.code===airportCode)?.name, date:airportDate, time:airportHour+":"+airportMin, days:"—", seats:airportPax+" passenger"+(airportPax>1?"s":""), total:"CA$"+aFare.toFixed(2), address:airportAddr });
                     setAirportDone(true);
                   }}>Confirm &amp; Submit</BigBtn>
                 </div>
