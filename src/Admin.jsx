@@ -4735,6 +4735,25 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
           </tbody>
         </table>
       </Panel>
+
+        {/* Save All Promos */}
+        {!viewOnly && (
+          <div style={{ marginTop:16, display:"flex", justifyContent:"flex-end" }}>
+            <button onClick={()=>{
+              getSupabase().then(sb=>{
+                Promise.all(promos.map(p=>
+                  sb.from("promos").upsert({...p, created_at:p.created_at||new Date().toISOString()},{onConflict:"id"})
+                )).then(()=>{ setFlash("All promos saved ✓"); setTimeout(()=>setFlash(null),3000); })
+                  .catch(e=>{ setFlash("Save failed: "+e.message); setTimeout(()=>setFlash(null),3000); });
+              });
+            }} style={{ padding:"11px 32px", borderRadius:10, border:"none", cursor:"pointer",
+              background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff",
+              fontSize:13, fontWeight:700, letterSpacing:0.3,
+              boxShadow:"0 4px 14px rgba(37,99,235,0.4)" }}>
+              Save Promos
+            </button>
+          </div>
+        )}
     </div>
   );
 }
