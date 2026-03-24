@@ -508,7 +508,17 @@ function RiderApp() {
 
   useEffect(() => {
     db.auth.getSession().then(({ data }) => {
-      if (data.session) { setUser(data.session.user); setName(data.session.user.user_metadata?.name||""); go("dash"); }
+      if (data.session) { setUser(data.session.user); setName(data.session.user.user_metadata?.name||"");
+            const dName = data.session.user.user_metadata?.name||"";
+            // Load real trips from Supabase
+            db.from("trips").select("*").eq("driver", dName).order("requested_at",{ascending:false}).limit(50)
+              .then(({data:tData})=>{
+                if(tData&&tData.length){
+                  setTrips(tData.map(t=>({id:t.id,dest:t.dest||"",fare:t.fare||"CA$0",type:t.rideType||"Family",date:new Date(t.requested_at||Date.now()).toLocaleDateString("en-CA"),status:t.status})));
+                  setEarned(tData.filter(t=>t.status==="completed").reduce((s,t)=>s+parseFloat((t.fare||"0").replace("CA$","")),0));
+                }
+              }).catch(()=>{});
+            go("dash"); }
       else setTimeout(() => go("login"), 1800);
     }).catch(() => setTimeout(() => go("login"), 1800));
   }, []);
