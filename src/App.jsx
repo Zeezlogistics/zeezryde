@@ -2661,12 +2661,41 @@ function DriverApp() {
           <div style={{ color:SLATE, fontSize:12 }}>Unlocks driving access for 7 days</div>
           {promoApplied && <PillBadge label="Promo Applied - Free!" color="green" />}
         </Card>
-        <div style={{ marginBottom:16 }}>
-          <Input label="Promo Code (optional)" value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. NEWDRIVER" />
-          {promoCode==="NEWDRIVER"&&!promoApplied && (
-            <BigBtn onClick={()=>setPromoApplied(true)} ghost>Apply Code - 100% off</BigBtn>
-          )}
-        </div>
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Promo Code (optional)</div>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <input
+                    value={promoCode}
+                    onChange={e=>setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. NEWDRIVER"
+                    style={{ flex:1, padding:"10px 14px", borderRadius:10,
+                      border:"1.5px solid "+(promoApplied?GREEN:promoCode?BLUE:BORDER),
+                      fontSize:13, color:NAVY, outline:"none", background:WHITE,
+                      fontFamily:"'Plus Jakarta Sans',sans-serif" }}
+                  />
+                  <button
+                    onClick={()=>{
+                      if (!promoCode.trim()) return;
+                      if (promoCode === "NEWDRIVER") { setPromoApplied(true); setErr(""); }
+                      else { setErr("Invalid promo code"); }
+                    }}
+                    disabled={promoApplied}
+                    style={{ padding:"10px 18px", borderRadius:10, border:"none",
+                      background:promoApplied?GREEN:BLUE, color:WHITE,
+                      fontSize:13, fontWeight:700, cursor:promoApplied?"default":"pointer",
+                      whiteSpace:"nowrap", opacity:promoApplied?0.7:1 }}>
+                    {promoApplied ? "✓ Applied" : "Apply"}
+                  </button>
+                </div>
+                {promoApplied && (
+                  <div style={{ marginTop:6, fontSize:11, color:GREEN, fontWeight:600 }}>
+                    {"✓ Promo applied — subscription is free!"}
+                  </div>
+                )}
+                {err && !promoApplied && (
+                  <div style={{ marginTop:6, fontSize:11, color:RED, fontWeight:600 }}>{err}</div>
+                )}
+              </div>
         <BigBtn onClick={()=>{ setSubPaid(true); go("dash"); }} green>{"Pay CA$"+subFee+" and Activate"}</BigBtn>
         <p style={{ textAlign:"center", marginTop:10, fontSize:11, color:SLATE }}>
           <span onClick={()=>go("dash")} style={{ color:BLUE, cursor:"pointer" }}>Skip for now</span>
