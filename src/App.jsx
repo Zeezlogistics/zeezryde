@@ -2388,7 +2388,7 @@ function DriverApp() {
 
   const go = (s) => { setErr(""); setScr(s); };
   const displayName = user?.user_metadata?.name||name||"Driver";
-  const subFee = promoApplied ? 0 : 25;
+  const subFee = promoApplied ? 0 : (parseFloat(getLive("subFee", 25)) || 25);
   const approvedDocs = docs.filter(d=>d.status==="approved").length;
   const pendingDocs  = docs.filter(d=>d.status==="pending").length;
   const missingDocs  = docs.filter(d=>d.status==="missing"||d.status==="rejected").length;
@@ -2800,7 +2800,7 @@ function DriverApp() {
                   <span style={{ fontSize:20 }}>💳</span>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#92400e" }}>Subscription Required</div>
-                    <div style={{ fontSize:11, color:"#a16207" }}>Pay CA$25/week to go online</div>
+                    <div style={{ fontSize:11, color:"#a16207" }}>{"Pay CA$"+subFee+"/week to go online"}</div>
                   </div>
                   <button onClick={()=>go("subscription")} style={{ background:YELLOW, border:"none", borderRadius:8, padding:"6px 12px", color:"#fff", fontWeight:700, fontSize:11, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>Pay</button>
                 </div>
