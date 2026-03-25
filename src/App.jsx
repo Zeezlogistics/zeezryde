@@ -2335,57 +2335,67 @@ function SlideToggle({ online, onToggle, subPaid }) {
             boxShadow: committed ? "0 0 7px #22c55e" : "none", transition:"all 0.3s" }} />
         </div>
 
-        {/* Road */}
+        {/* Road — styled like app home page */}
         <div
           style={{ position:"relative", width:trackW, height:carW+6, borderRadius:12,
-            background:roadBg,
-            border:roadBorder,
-            boxShadow: committed ? "0 0 18px rgba(34,197,94,0.18)" : "0 2px 10px rgba(0,0,0,0.28)",
+            background: committed
+              ? "rgba(55,65,81,0.25)"
+              : "linear-gradient(180deg,#1e3a8a 0%,#1e3a8a 18%,#374151 18%,#374151 82%,#1e3a8a 82%)",
+            border: committed ? "1.5px solid rgba(34,197,94,0.35)" : "1.5px solid rgba(99,179,237,0.2)",
+            boxShadow: committed ? "0 0 18px rgba(34,197,94,0.15)" : "0 2px 12px rgba(0,0,0,0.35)",
             overflow:"hidden",
             cursor: subPaid ? "grab" : "not-allowed",
             userSelect:"none", touchAction:"none",
-            transition:"background 0.5s, border 0.35s, box-shadow 0.35s",
-            backdropFilter: committed ? "blur(6px)" : "none" }}
+            backdropFilter: committed ? "blur(8px)" : "none",
+            transition:"background 0.5s, border 0.4s, box-shadow 0.4s" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          {/* Road lane markings — hidden when online */}
-          {!committed && [0.22,0.5,0.78].map(p=>(
-            <div key={p} style={{ position:"absolute", top:"50%", left:`${p*100}%`,
-              transform:"translate(-50%,-50%)",
-              width:18, height:3, borderRadius:2,
-              background:"rgba(255,255,255,0.15)" }} />
-          ))}
+          {/* Top white edge line */}
+          {!committed && <div style={{ position:"absolute", top:"17%", left:0, right:0, height:2, background:"rgba(255,255,255,0.22)", pointerEvents:"none" }} />}
+          {/* Bottom white edge line */}
+          {!committed && <div style={{ position:"absolute", bottom:"17%", left:0, right:0, height:2, background:"rgba(255,255,255,0.22)", pointerEvents:"none" }} />}
+          {/* Yellow dashed center line */}
+          {!committed && (
+            <div style={{ position:"absolute", top:"50%", left:0, right:0, height:4,
+              transform:"translateY(-50%)", display:"flex", overflow:"hidden", pointerEvents:"none" }}>
+              {Array.from({length:10}).map((_,i)=>(
+                <div key={i} style={{ width:22, height:4, background:"#fbbf24", opacity:0.85,
+                  flexShrink:0, marginRight:12, borderRadius:2 }} />
+              ))}
+            </div>
+          )}
 
           {/* Label inside road */}
           <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
             justifyContent: committed ? "flex-start" : "center",
-            paddingLeft: committed ? carW+14 : 0,
+            paddingLeft: committed ? carW+12 : 0,
             pointerEvents:"none" }}>
             <span style={{ fontSize:9, fontWeight:700, letterSpacing:0.8,
-              color: !subPaid ? "rgba(148,163,184,0.9)"
+              color: !subPaid ? "rgba(251,191,36,0.9)"
                 : committed ? "rgba(34,197,94,0.9)"
-                : "rgba(148,163,184,0.85)",
+                : "rgba(251,191,36,0.85)",
               textTransform:"uppercase",
-              fontFamily:"'Syne',sans-serif" }}>
+              fontFamily:"'Syne',sans-serif",
+              textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>
               {roadLabel}
             </span>
           </div>
 
           {/* Car thumb */}
           <div style={{
-            position:"absolute", top:4, left: 3 + carPos,
+            position:"absolute", top:"50%", left: 3 + carPos,
             width:carW, height:carW,
+            transform: committed ? "translateY(-50%) scaleX(1)" : "translateY(-50%) scaleX(-1)",
             transition: dragging ? "none" : "left 0.3s cubic-bezier(.4,0,.2,1)",
             display:"flex", alignItems:"center", justifyContent:"center",
             filter: committed
               ? "drop-shadow(0 0 8px rgba(34,197,94,0.8))"
-              : "drop-shadow(0 2px 5px rgba(0,0,0,0.5))",
-            fontSize:34,
+              : "drop-shadow(0 2px 5px rgba(0,0,0,0.6))",
+            fontSize:32,
             pointerEvents:"none",
-            transform: committed ? "scaleX(1)" : "scaleX(-1)",
           }}>
             🚗
           </div>
@@ -2824,19 +2834,18 @@ function DriverApp() {
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
             <MapView height="100%" riderMode={false} />
           </div>
-          {/* Top header — logo left, earnings center */}
+          {/* Top header — logo left, earnings absolute center */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-
-              {/* Logo */}
+            {/* Logo */}
+            <div style={{ position:"absolute", top:14, left:16,
+              background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
+              borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.3)" }}>
+              <LogoAnim size={42} />
+            </div>
+            {/* Earnings — truly centered */}
+            <div style={{ display:"flex", justifyContent:"center" }}>
               <div style={{ background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
-                borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.3)", flexShrink:0 }}>
-                <LogoAnim size={42} />
-              </div>
-
-              {/* Earnings — center, grows to fill */}
-              <div style={{ flex:1, background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
-                borderRadius:14, padding:"8px 16px", textAlign:"center",
+                borderRadius:14, padding:"8px 20px", textAlign:"center",
                 boxShadow:"0 2px 12px rgba(37,99,235,0.15)" }}>
                 <div style={{ fontSize:8, fontWeight:700, color:BLUE, letterSpacing:1.4,
                   textTransform:"uppercase", marginBottom:1 }}>{"This Week"}</div>
@@ -2851,7 +2860,6 @@ function DriverApp() {
                   </span>
                 </div>
               </div>
-
             </div>
           </div>
 
