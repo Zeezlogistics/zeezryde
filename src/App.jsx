@@ -2414,14 +2414,6 @@ function DriverApp() {
     }).catch(() => setTimeout(() => go("login"), 1800));
   }, []);
 
-  useEffect(() => {
-    if (!online||!subPaid) return;
-    const t = setTimeout(() => {
-      setInReq({ id:"TRP-"+String(Date.now()).slice(-5), rider:"Alex M.", dest:"Hamilton GO Station", fare:"CA$10.62", distance:"3.2 km", type:"Family" });
-      go("request");
-    }, 4000);
-    return () => clearTimeout(t);
-  }, [online, subPaid]);
 
   useEffect(() => {
     if (scr!=="request") return;
