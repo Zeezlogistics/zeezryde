@@ -2384,11 +2384,21 @@ function DriverApp() {
   const [dOtpError, setDOtpError]   = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
-  const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing" })));
+  const [appliedPromo, setAppliedPromo] = useState(null); // full promo object from DB
 
   const go = (s) => { setErr(""); setScr(s); };
   const displayName = user?.user_metadata?.name||name||"Driver";
-  const subFee = promoApplied ? 0 : (parseFloat(getLive("subFee", 25)) || 25);
+  const baseSubFee = parseFloat(getLive("subFee", 25)) || 25;
+  const subFee = (() => {
+    if (!promoApplied || !appliedPromo) return baseSubFee;
+    if (appliedPromo.discount_type === "pct" || appliedPromo.discountType === "pct") {
+      const pct = parseFloat(appliedPromo.discount) || 0;
+      return +(baseSubFee * (1 - pct / 100)).toFixed(2);
+    }
+    // flat discount
+    const flat = parseFloat(appliedPromo.discount) || 0;
+    return Math.max(0, +(baseSubFee - flat).toFixed(2));
+  })();
   const approvedDocs = docs.filter(d=>d.status==="approved").length;
   const pendingDocs  = docs.filter(d=>d.status==="pending").length;
   const missingDocs  = docs.filter(d=>d.status==="missing"||d.status==="rejected").length;
@@ -2659,7 +2669,7 @@ function DriverApp() {
           <div style={{ color:SLATE, fontSize:12 }}>Weekly Fee</div>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:48, color:promoApplied?"#2563eb":NAVY, margin:"6px 0" }}>{"CA$"+subFee}</div>
           <div style={{ color:SLATE, fontSize:12 }}>Unlocks driving access for 7 days</div>
-          {promoApplied && <PillBadge label="Promo Applied - Free!" color="green" />}
+          {promoApplied && appliedPromo && <PillBadge label={"Promo Applied — "+(appliedPromo.discount_type==="pct"||appliedPromo.discountType==="pct" ? appliedPromo.discount+"% off" : "CA$"+appliedPromo.discount+" off")} color="green" />}
         </Card>
               <div style={{ marginBottom:16 }}>
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Promo Code (optional)</div>
@@ -2690,6 +2700,7 @@ function DriverApp() {
                     if (promo.maxUses && promo.used >= promo.maxUses) { setErr("This promo code has reached its limit"); setBusy(false); return; }
                     // Apply
                     setPromoApplied(true);
+                    setAppliedPromo(promo);
                     setErr("");
                     // Increment used count in Supabase
                     db.from("promos").update({ used:(promo.used||0)+1 }).eq("id", promo.id).then(()=>{}).catch(()=>{});
@@ -2706,7 +2717,7 @@ function DriverApp() {
                 </div>
                 {promoApplied && (
                   <div style={{ marginTop:6, fontSize:11, color:GREEN, fontWeight:600 }}>
-                    {"✓ Promo applied — subscription is free!"}
+                    {appliedPromo ? "✓ Promo applied — CA$"+subFee+"/week (was CA$"+baseSubFee+")" : "✓ Promo applied!"}
                   </div>
                 )}
                 {err && !promoApplied && (
