@@ -2382,7 +2382,7 @@ function DriverApp() {
   const [dOtpSent, setDOtpSent]     = useState(false);
   const [dOtpValue, setDOtpValue]   = useState("");
   const [dOtpError, setDOtpError]   = useState("");
-  const [promoCode, setPromoCode] = useState("");
+  const [driverPromoCode, setDriverPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null); // full promo object from DB
 
@@ -2675,21 +2675,21 @@ function DriverApp() {
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Promo Code (optional)</div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                   <input
-                    value={promoCode}
-                    onChange={e=>setPromoCode(e.target.value.toUpperCase())}
+                    value={driverPromoCode}
+                    onChange={e=>setDriverPromoCode(e.target.value.toUpperCase())}
                     placeholder="e.g. NEWDRIVER"
                     style={{ flex:1, padding:"10px 14px", borderRadius:10,
-                      border:"1.5px solid "+(promoApplied?GREEN:promoCode?BLUE:BORDER),
+                      border:"1.5px solid "+(promoApplied?GREEN:driverPromoCode?BLUE:BORDER),
                       fontSize:13, color:NAVY, outline:"none", background:WHITE,
                       fontFamily:"'Plus Jakarta Sans',sans-serif" }}
                   />
               <button
                 onClick={async ()=>{
-                  if (!promoCode.trim()) return;
+                  if (!driverPromoCode.trim()) return;
                   setBusy(true);
                   try {
                     const { data:promo } = await db.from("promos")
-                      .select("*").eq("code", promoCode.trim().toUpperCase())
+                      .select("*").eq("code", driverPromoCode.trim().toUpperCase())
                       .eq("status","active").maybeSingle();
                     if (!promo) { setErr("Invalid or expired promo code"); setBusy(false); return; }
                     // Check target — new_drivers or all_drivers
