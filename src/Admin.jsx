@@ -341,7 +341,11 @@ export default function AdminApp() {
         // ── Load promos from Supabase ──────────────────────────────
         try {
           const { data: promoData } = await sb.from("promos").select("*").order("created_at",{ascending:false});
-          if (promoData && promoData.length > 0) setPromos(promoData);
+          if (promoData && promoData.length > 0) setPromos(promoData.map(p=>({
+            ...p,
+            discountType: p.discount_type || p.discountType || "pct",
+            maxUses:      p.max_uses      ?? p.maxUses      ?? null,
+          })));
         } catch(e) { console.log("Promos load:", e.message); }
 
         // ── Load shuttle vehicles, trips, drivers and settings ──
@@ -4531,7 +4535,13 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
       created: new Date().toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}),
     };
     setPromos(p => [...p, newPromo]);
-    getSupabase().then(sb=>sb.from("promos").insert({...newPromo,created_at:new Date().toISOString()}).catch(e=>console.error(e)));
+    getSupabase().then(sb=>sb.from("promos").insert({
+      id:newPromo.id, code:newPromo.code, name:newPromo.name, description:newPromo.description||"",
+      discount_type:newPromo.discountType||"pct", discount:newPromo.discount, duration:newPromo.duration,
+      max_uses:newPromo.maxUses||null, used:0, target:newPromo.target||"new_drivers",
+      expiry:newPromo.expiry||"", status:newPromo.status||"active", created:newPromo.created||"",
+      created_at:new Date().toISOString()
+    }).catch(e=>console.error("Promo insert error:",e)));
     setForm({ code:"", name:"", description:"", discountType:"pct", discount:"", duration:"4", maxUses:"", target:"new_drivers", expiry:"", status:"active" });
     setShowCreate(false);
     setFlash("Promo created successfully");
@@ -4541,7 +4551,13 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
   const saveEdit = (editId, form, rawDuration) => {
     const updatedFields = {...form, discount:parseFloat(form.discount), duration:rawDuration, maxUses:form.maxUses?parseInt(form.maxUses):null};
     setPromos(p => p.map(pr => pr.id === editId ? { ...pr, ...updatedFields } : pr));
-    getSupabase().then(sb=>sb.from("promos").update(updatedFields).eq("id",editId).catch(e=>console.error(e)));
+    getSupabase().then(sb=>sb.from("promos").update({
+      code:updatedFields.code, name:updatedFields.name, description:updatedFields.description||"",
+      discount_type:updatedFields.discountType||updatedFields.discount_type||"pct",
+      discount:updatedFields.discount, duration:updatedFields.duration,
+      max_uses:updatedFields.maxUses||null, target:updatedFields.target||"new_drivers",
+      expiry:updatedFields.expiry||"", status:updatedFields.status||"active"
+    }).eq("id",editId).catch(e=>console.error("Promo update error:",e)));
   };
 
   const toggleStatus = id => setPromos(p => p.map(pr => pr.id===id ? {...pr, status: pr.status==="active"?"paused":"active"} : pr));
@@ -4748,7 +4764,13 @@ function PagePromos({ viewOnly, promos, setPromos, drivers }) {
             <button onClick={()=>{
               getSupabase().then(sb=>{
                 Promise.all(promos.map(p=>
-                  sb.from("promos").upsert({...p, created_at:p.created_at||new Date().toISOString()},{onConflict:"id"})
+                  sb.from("promos").upsert({
+                  id:p.id, code:p.code, name:p.name, description:p.description||"",
+                  discount_type:p.discountType||"pct", discount:p.discount, duration:p.duration,
+                  max_uses:p.maxUses||null, used:p.used||0, target:p.target||"new_drivers",
+                  expiry:p.expiry||"", status:p.status||"active", created:p.created||"",
+                  created_at:p.created_at||new Date().toISOString()
+                },{onConflict:"id"})
                 )).then(()=>{ setFlash("All promos saved ✓"); setTimeout(()=>setFlash(null),3000); })
                   .catch(e=>{ setFlash("Save failed: "+e.message); setTimeout(()=>setFlash(null),3000); });
               });
