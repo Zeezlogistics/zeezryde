@@ -2832,73 +2832,74 @@ function DriverApp() {
             </div>
           </div>
 
-          {/* Bottom panel overlay — sits above slide toggle */}
-          <div style={{ position:"absolute", bottom:230, left:0, right:0, zIndex:51, padding:"0 16px 0" }}>
-            {err && <div style={{ marginBottom:8 }}><Err msg={err} /></div>}
-            <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
-              {/* Earnings row */}
-              <div style={{ marginBottom:14, paddingBottom:12, borderBottom:"1px solid "+BORDER }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div>
-                    <div style={{ fontSize:10, color:SLATE, fontWeight:600, letterSpacing:1, textTransform:"uppercase" }}>This Week</div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:28, color:NAVY }}>
-                      {hideBalance ? "CA$ ****" : "CA$"+earned.toFixed(2)}
-                    </div>
-                    <div style={{ fontSize:11, color:SLATE }}>{trips.length} trip{trips.length!==1?"s":""} completed</div>
-                  </div>
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
-                    <button onClick={()=>setHideBalance(h=>!h)} style={{ background:"#f1f5f9", border:"1px solid "+BORDER, borderRadius:20, padding:"4px 10px", cursor:"pointer", fontSize:11, fontWeight:600, color:SLATE, fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-                      {hideBalance ? "👁 Show" : "🙈 Hide"}
-                    </button>
-                    <div style={{ display:"flex", gap:6 }}>
-                      {[["⭐","5.0"],["📄",approvedDocs+"/"+DOC_TYPES.length]].map(([ic,val])=>(
-                        <div key={ic} style={{ background:"#f8fafc", borderRadius:10, padding:"6px 10px", textAlign:"center", border:"1px solid "+BORDER }}>
-                          <div style={{ fontSize:14 }}>{ic}</div>
-                          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>{String(val)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+          {/* Earnings — top center, transparent */}
+          <div style={{ position:"absolute", top:80, left:0, right:0, zIndex:10,
+            display:"flex", justifyContent:"center" }}>
+            <div style={{ background:"rgba(10,22,40,0.72)", backdropFilter:"blur(10px)",
+              borderRadius:18, padding:"12px 28px", textAlign:"center",
+              boxShadow:"0 4px 20px rgba(0,0,0,0.3)" }}>
+              <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.5,
+                textTransform:"uppercase", marginBottom:2 }}>{"This Week"}</div>
+              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:30, color:WHITE }}>
+                {hideBalance ? "CA$ ****" : "CA$"+earned.toFixed(2)}
               </div>
-              {/* Status */}
+              <div style={{ fontSize:11, color:"rgba(147,197,253,0.85)", marginTop:2 }}>
+                {trips.length+" trip"+(trips.length!==1?"s":"")+" completed"}
+              </div>
+              <button onClick={()=>setHideBalance(h=>!h)}
+                style={{ marginTop:6, background:"rgba(255,255,255,0.1)", border:"none",
+                  borderRadius:20, padding:"3px 12px", cursor:"pointer",
+                  fontSize:10, fontWeight:600, color:"rgba(147,197,253,0.9)" }}>
+                {hideBalance ? "👁 Show" : "🙈 Hide"}
+              </button>
+            </div>
+          </div>
+
+          {/* Status card — sits flush on tab bar */}
+          <div style={{ position:"absolute", bottom:56, left:0, right:0, zIndex:51, padding:"0 16px" }}>
+            {err && <div style={{ marginBottom:8 }}><Err msg={err} /></div>}
+            <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)",
+              borderRadius:"20px 20px 0 0", padding:"14px 16px 12px",
+              boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
               {!subPaid ? (
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#fefce8", borderRadius:12, padding:"10px 14px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, background:"#fefce8",
+                  borderRadius:12, padding:"10px 14px" }}>
                   <span style={{ fontSize:20 }}>💳</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#92400e" }}>Subscription Required</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#92400e" }}>{"Subscription Required"}</div>
                     <div style={{ fontSize:11, color:"#a16207" }}>{"Pay CA$"+subFee+"/week to go online"}</div>
                   </div>
-                  <button onClick={()=>go("subscription")} style={{ background:YELLOW, border:"none", borderRadius:8, padding:"6px 12px", color:"#fff", fontWeight:700, fontSize:11, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>Pay</button>
+                  <button onClick={()=>go("subscription")} style={{ background:YELLOW, border:"none",
+                    borderRadius:8, padding:"6px 12px", color:"#fff", fontWeight:700,
+                    fontSize:11, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>Pay</button>
                 </div>
               ) : online ? (
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#eff6ff", borderRadius:12, padding:"10px 14px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, background:"#eff6ff",
+                  borderRadius:12, padding:"10px 14px" }}>
                   <span style={{ fontSize:20, animation:"pulse 1.5s ease infinite" }}>📡</span>
                   <div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#1e40af" }}>Waiting for ride requests</div>
-                    <div style={{ fontSize:11, color:"#2563eb" }}>Demo request in a few seconds</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#1e40af" }}>{"Waiting for ride requests"}</div>
+                    <div style={{ fontSize:11, color:"#2563eb" }}>{"You are online"}</div>
                   </div>
                 </div>
               ) : (
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, background:"#f8fafc", borderRadius:12, padding:"10px 14px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, background:"#f8fafc",
+                  borderRadius:12, padding:"10px 14px" }}>
                   <span style={{ fontSize:20 }}>😴</span>
                   <div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>You are offline</div>
-                    <div style={{ fontSize:11, color:SLATE }}>Slide to go online →</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"You are offline"}</div>
+                    <div style={{ fontSize:11, color:SLATE }}>{"Slide to go online ↑"}</div>
                   </div>
                 </div>
               )}
             </div>
-
           </div>
-        </div>
-      )}
 
-      {/* Car toggle — fixed between card and tab bar, home tab only */}
-      {tab==="home" && (
-        <div style={{ position:"absolute", bottom:110, left:0, right:0, zIndex:51,
-          display:"flex", justifyContent:"center", alignItems:"center" }}>
-          <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
+          {/* Toggle — sits on top of status card */}
+          <div style={{ position:"absolute", bottom:130, left:0, right:0, zIndex:52,
+            display:"flex", justifyContent:"center" }}>
+            <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
+          </div>
         </div>
       )}
 
