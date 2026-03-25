@@ -2385,6 +2385,7 @@ function DriverApp() {
   const [driverPromoCode, setDriverPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null); // full promo object from DB
+  const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing" })));
 
   const go = (s) => { setErr(""); setScr(s); };
   const displayName = user?.user_metadata?.name||name||"Driver";
