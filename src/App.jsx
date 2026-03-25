@@ -2346,7 +2346,7 @@ function SlideToggle({ online, onToggle, subPaid }) {
             overflow:"hidden",
             cursor: subPaid ? "grab" : "not-allowed",
             userSelect:"none", touchAction:"none",
-            backdropFilter: committed ? "blur(8px)" : "none",
+            backdropFilter: "none",
             transition:"background 0.5s, border 0.4s, box-shadow 0.4s" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -2864,7 +2864,7 @@ function DriverApp() {
           </div>
 
           {/* Status card — flush on tab bar, light blue */}
-          <div style={{ position:"absolute", bottom:56, left:0, right:0, zIndex:51 }}>
+          <div style={{ position:"absolute", bottom:64, left:0, right:0, zIndex:51 }}>
             {err && <div style={{ padding:"0 16px 6px" }}><Err msg={err} /></div>}
             <div style={{ background:"#dbeafe", borderTop:"1.5px solid #bfdbfe",
               borderRadius:"20px 20px 0 0", padding:"14px 20px 14px",
@@ -2894,7 +2894,7 @@ function DriverApp() {
           </div>
 
           {/* Toggle — sits on top of status card */}
-          <div style={{ position:"absolute", bottom:128, left:0, right:0, zIndex:52,
+          <div style={{ position:"absolute", bottom:136, left:0, right:0, zIndex:52,
             display:"flex", justifyContent:"center" }}>
             <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
           </div>
