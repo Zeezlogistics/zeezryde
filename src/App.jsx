@@ -123,7 +123,7 @@ const BORDER = "#bfdbfe";
 // Phone shell style
 const sc = {
   width: "100%", minHeight: "100vh",
-  background: "linear-gradient(160deg,#e0f0ff 0%,#f0f8ff 100%)",
+  background: "linear-gradient(160deg,#dbeafe 0%,#eff6ff 100%)",
   fontFamily: "'Plus Jakarta Sans',sans-serif",
   position: "relative", overflowX: "hidden",
 };
@@ -231,7 +231,7 @@ function PillBadge({ label, color }) {
 }
 
 function Card({ children, style }) {
-  return <div style={{ background:WHITE, borderRadius:14, border:"1px solid "+BORDER, padding:16, ...style }}>{children}</div>;
+  return <div style={{ background:"#eff6ff", borderRadius:14, border:"1px solid "+BORDER, padding:16, ...style }}>{children}</div>;
 }
 
 function SectionHeader({ title, sub }) {
@@ -2672,7 +2672,7 @@ function DriverApp() {
 
   // SUBSCRIPTION
   if (scr==="subscription") return (
-    <div style={{ ...sc }}>
+    <div style={{ ...sc, background:"linear-gradient(160deg,#dbeafe,#eff6ff)" }}>
       <style>{STYLES}</style>
       <div className="fade" style={{ padding:"44px 22px 30px" }}>
         <RolePill color="#2563eb">SUBSCRIPTION</RolePill>
@@ -2805,90 +2805,61 @@ function DriverApp() {
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
             <MapView height="100%" riderMode={false} />
           </div>
-          {/* Top header overlay — Logo left, name beside it, map zoom right */}
+          {/* Top header — logo left, earnings right, no name */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
 
-              {/* LEFT: logo + driver name */}
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ background:"rgba(10,22,40,0.85)", backdropFilter:"blur(8px)", borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.4)" }}>
-                  <LogoAnim size={42} />
-                </div>
-                <div style={{ background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", borderRadius:12, padding:"6px 14px" }}>
-                  <div style={{ color:LBLUE, fontSize:9, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase" }}>Driver</div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:WHITE }}>{displayName}</div>
-                </div>
+              {/* Logo only */}
+              <div style={{ background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
+                borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.3)" }}>
+                <LogoAnim size={42} />
               </div>
 
-              {/* RIGHT: map zoom +/- buttons */}
-              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                {["+","−"].map(sym => (
-                  <button key={sym} style={{ width:36, height:36, borderRadius:10, border:"1px solid rgba(255,255,255,0.15)", background:"rgba(10,22,40,0.80)", backdropFilter:"blur(8px)", color:WHITE, fontSize:18, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 2px 8px rgba(0,0,0,0.3)" }}>
-                    {sym}
-                  </button>
-                ))}
+              {/* Earnings — aligned with logo, right side */}
+              <div style={{ background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
+                borderRadius:14, padding:"8px 18px", textAlign:"right",
+                boxShadow:"0 2px 12px rgba(37,99,235,0.15)" }}>
+                <div style={{ fontSize:8, fontWeight:700, color:BLUE, letterSpacing:1.4,
+                  textTransform:"uppercase", marginBottom:1 }}>{"This Week"}</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, lineHeight:1 }}>
+                  {hideBalance ? "CA$ ****" : "CA$"+earned.toFixed(2)}
+                </div>
+                <div style={{ fontSize:10, color:SLATE, marginTop:2 }}>
+                  {trips.length+" trip"+(trips.length!==1?"s":"")+" · "}
+                  <span onClick={()=>setHideBalance(h=>!h)}
+                    style={{ color:BLUE, cursor:"pointer", fontWeight:700 }}>
+                    {hideBalance ? "show" : "hide"}
+                  </span>
+                </div>
               </div>
 
             </div>
           </div>
 
-          {/* Earnings — top center, transparent */}
-          <div style={{ position:"absolute", top:80, left:0, right:0, zIndex:10,
-            display:"flex", justifyContent:"center" }}>
-            <div style={{ background:"rgba(10,22,40,0.72)", backdropFilter:"blur(10px)",
-              borderRadius:18, padding:"12px 28px", textAlign:"center",
-              boxShadow:"0 4px 20px rgba(0,0,0,0.3)" }}>
-              <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.5,
-                textTransform:"uppercase", marginBottom:2 }}>{"This Week"}</div>
-              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:30, color:WHITE }}>
-                {hideBalance ? "CA$ ****" : "CA$"+earned.toFixed(2)}
-              </div>
-              <div style={{ fontSize:11, color:"rgba(147,197,253,0.85)", marginTop:2 }}>
-                {trips.length+" trip"+(trips.length!==1?"s":"")+" completed"}
-              </div>
-              <button onClick={()=>setHideBalance(h=>!h)}
-                style={{ marginTop:6, background:"rgba(255,255,255,0.1)", border:"none",
-                  borderRadius:20, padding:"3px 12px", cursor:"pointer",
-                  fontSize:10, fontWeight:600, color:"rgba(147,197,253,0.9)" }}>
-                {hideBalance ? "👁 Show" : "🙈 Hide"}
-              </button>
-            </div>
-          </div>
-
-          {/* Status card — sits flush on tab bar */}
-          <div style={{ position:"absolute", bottom:56, left:0, right:0, zIndex:51, padding:"0 16px" }}>
-            {err && <div style={{ marginBottom:8 }}><Err msg={err} /></div>}
-            <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)",
-              borderRadius:"20px 20px 0 0", padding:"14px 16px 12px",
-              boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
-              {!subPaid ? (
-                <div style={{ display:"flex", alignItems:"center", gap:10, background:"#fefce8",
-                  borderRadius:12, padding:"10px 14px" }}>
-                  <span style={{ fontSize:20 }}>💳</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#92400e" }}>{"Subscription Required"}</div>
-                    <div style={{ fontSize:11, color:"#a16207" }}>{"Pay CA$"+subFee+"/week to go online"}</div>
-                  </div>
-                  <button onClick={()=>go("subscription")} style={{ background:YELLOW, border:"none",
-                    borderRadius:8, padding:"6px 12px", color:"#fff", fontWeight:700,
-                    fontSize:11, cursor:"pointer", fontFamily:"'Syne',sans-serif" }}>Pay</button>
-                </div>
-              ) : online ? (
-                <div style={{ display:"flex", alignItems:"center", gap:10, background:"#eff6ff",
-                  borderRadius:12, padding:"10px 14px" }}>
+          {/* Status card — flush on tab bar, light blue */}
+          <div style={{ position:"absolute", bottom:56, left:0, right:0, zIndex:51 }}>
+            {err && <div style={{ padding:"0 16px 6px" }}><Err msg={err} /></div>}
+            <div style={{ background:"#dbeafe", borderTop:"1.5px solid #bfdbfe",
+              borderRadius:"20px 20px 0 0", padding:"14px 20px 14px",
+              boxShadow:"0 -4px 20px rgba(37,99,235,0.12)" }}>
+              {online ? (
+                <div style={{ display:"flex", alignItems:"center", gap:10,
+                  background:"#eff6ff", borderRadius:12, padding:"10px 14px",
+                  border:"1px solid #bfdbfe" }}>
                   <span style={{ fontSize:20, animation:"pulse 1.5s ease infinite" }}>📡</span>
                   <div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:"#1e40af" }}>{"Waiting for ride requests"}</div>
-                    <div style={{ fontSize:11, color:"#2563eb" }}>{"You are online"}</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"Waiting for ride requests"}</div>
+                    <div style={{ fontSize:11, color:BLUE }}>{"You are online"}</div>
                   </div>
                 </div>
               ) : (
-                <div style={{ display:"flex", alignItems:"center", gap:10, background:"#f8fafc",
-                  borderRadius:12, padding:"10px 14px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10,
+                  background:"#eff6ff", borderRadius:12, padding:"10px 14px",
+                  border:"1px solid #bfdbfe" }}>
                   <span style={{ fontSize:20 }}>😴</span>
                   <div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"You are offline"}</div>
-                    <div style={{ fontSize:11, color:SLATE }}>{"Slide to go online ↑"}</div>
+                    <div style={{ fontSize:11, color:SLATE }}>{"Slide the car to go online"}</div>
                   </div>
                 </div>
               )}
@@ -2896,11 +2867,10 @@ function DriverApp() {
           </div>
 
           {/* Toggle — sits on top of status card */}
-          <div style={{ position:"absolute", bottom:130, left:0, right:0, zIndex:52,
+          <div style={{ position:"absolute", bottom:128, left:0, right:0, zIndex:52,
             display:"flex", justifyContent:"center" }}>
             <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
           </div>
-        </div>
       )}
 
       {tab==="earnings" && (
