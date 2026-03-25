@@ -681,13 +681,13 @@ function RiderApp() {
         <RolePill>RIDER</RolePill>
         <h2 style={{ color:NAVY, fontSize:18, fontWeight:800, marginTop:12, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Create account</h2>
         <p style={{ color:LBLUE, fontSize:11, marginBottom:16 }}>Fill in your details to get started</p>
-        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+        <div style={{ background:"#eff6ff", borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
           <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Personal Information</div>
           <Input label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Alex Smith" />
           <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="your@email.com" />
           <Input label="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
         </div>
-        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+        <div style={{ background:"#eff6ff", borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
           <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Security</div>
           <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Min 8 characters" />
           <Input label="Confirm Password" value={pc} onChange={e=>setPc(e.target.value)} type="password" placeholder="Re-enter password" />
@@ -779,7 +779,7 @@ function RiderApp() {
   // SHUTTLE BOOKED
   // SHUTTLE PAYMENT
   if (scr==="shuttle-payment"&&selectedTrip) return (
-    <div style={{ ...sc, overflowY:"auto" }}>
+    <div style={{ ...sc, background:"linear-gradient(160deg,#dbeafe,#eff6ff)", overflowY:"auto" }}>
       <style>{STYLES}</style>
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
         <BackBtn onClick={()=>go("shuttle-detail")} />
@@ -887,7 +887,7 @@ function RiderApp() {
   const shuttleBooked = (scr==="shuttle-detail"&&selectedTrip) ? (selectedTrip.booked_seats||[]) : [];
   const shuttleRows = ["front","middle","back"];
   if (scr==="shuttle-detail"&&selectedTrip) return (
-    <div style={{ ...sc, overflowY:"auto" }}>
+    <div style={{ ...sc, background:"linear-gradient(160deg,#dbeafe,#eff6ff)", overflowY:"auto" }}>
       <style>{STYLES}</style>
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
         <BackBtn onClick={()=>{ setSelectedSeats([]); go("dash"); }} />
@@ -966,7 +966,7 @@ function RiderApp() {
           </div>
 
           {/* Vehicle diagram */}
-          <div style={{ background:"#f8fafc", border:"1.5px solid "+BORDER, borderRadius:16, padding:"16px 12px", marginBottom:14 }}>
+          <div style={{ background:"#dbeafe", border:"1.5px solid "+BORDER, borderRadius:16, padding:"16px 12px", marginBottom:14 }}>
             <div style={{ textAlign:"center", fontSize:22, marginBottom:4 }}>🚐</div>
             <div style={{ fontSize:9, color:SLATE, textAlign:"center", marginBottom:10, letterSpacing:1, fontWeight:700 }}>FRONT</div>
             {shuttleRows.filter(row => shuttleLayout.seats.some(s=>s.row===row)).map(row => (
@@ -1025,7 +1025,7 @@ function RiderApp() {
 
   // AIRPORT SCREEN
   if (scr==="airport") return (
-    <div style={{ ...sc }}>
+    <div style={{ ...sc, background:"linear-gradient(160deg,#dbeafe,#eff6ff)" }}>
       <style>{STYLES}</style>
       <div style={{ position:"relative", padding:"44px 22px 40px" }}>
         <BackBtn onClick={()=>go("dash")} />
@@ -1259,7 +1259,7 @@ function RiderApp() {
           </div>
           {/* Bottom panel overlay */}
           <div style={{ position:"absolute", bottom:72, left:0, right:0, zIndex:10, padding:"0 16px 16px" }}>
-            <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
+            <div style={{ background:"rgba(219,234,254,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 20px rgba(37,99,235,0.12)" }}>
               <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Choose ride</div>
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {RIDES.map(r=>{
@@ -1342,7 +1342,7 @@ function RiderApp() {
             ) : liveTrips.length === 0 ? (
               <div style={{ textAlign:"center", padding:"30px 0", color:SLATE, fontSize:13 }}>No trips scheduled yet.</div>
 ) : liveTrips.map(t=>{ const isPast=t.depart_date&&t.depart_date<new Date().toISOString().slice(0,10); return (
-            <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSelectedDate(""); setSelectedDates([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:isPast?"#f8fafc":WHITE, borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+(isPast?"#e2e8f0":BORDER), cursor:"pointer", opacity:isPast?0.7:1 }}>
+            <button key={t.id} onClick={()=>{ setSelectedTrip(t); setSelectedSeats([]); setSelectedDate(""); setSelectedDates([]); setSeats(1); go("shuttle-detail"); }} style={{ width:"100%", textAlign:"left", background:isPast?"#dbeafe":"#eff6ff", borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid "+(isPast?"#e2e8f0":BORDER), cursor:"pointer", opacity:isPast?0.7:1 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:13, color:NAVY, marginBottom:3 }}>{t.route}</div>
@@ -1417,7 +1417,7 @@ function RiderApp() {
             </div>
           </Card>
           {/* All items in one grouped card */}
-          <div style={{ background:WHITE, border:"1px solid "+BORDER, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
+          <div style={{ background:"#eff6ff", border:"1px solid "+BORDER, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
 
           {/* Personal Info row */}
           <div style={{ borderBottom:"1px solid "+BORDER }}>
@@ -1427,7 +1427,7 @@ function RiderApp() {
               <span style={{ color:SLATE, fontSize:14, display:"inline-block", transform:profileOpen?"rotate(90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>{">"}</span>
             </button>
             {profileOpen && (
-              <div style={{ background:"#f8fafc", border:"1px solid "+BORDER, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
+              <div style={{ background:"#dbeafe", border:"1px solid "+BORDER, borderTop:"none", borderRadius:"0 0 14px 14px", padding:"14px" }}>
                 <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Personal Details</div>
                 <Input label="Full Name" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Your name" />
                 <Input label="Email Address" value={editEmail} onChange={e=>setEditEmail(e.target.value)} type="email" placeholder="your@email.com" />
@@ -1551,7 +1551,7 @@ function RiderApp() {
 
           {/* Add options — only if no method saved */}
           {(savedCards.length===0 && savedBanks.length===0) && (
-          <div style={{ background:WHITE, border:"1px solid "+BORDER, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
+          <div style={{ background:"#eff6ff", border:"1px solid "+BORDER, borderRadius:14, overflow:"hidden", marginBottom:14 }}>
 
             {/* Add Card */}
             <div style={{ borderBottom:"1px solid "+BORDER }}>
@@ -1771,7 +1771,7 @@ function WeeklyEarningsTab({ trips, earned }) {
 
       <div style={{ padding:"16px 16px 0" }}>
         {/* Bar chart */}
-        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+        <div style={{ background:"#eff6ff", borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:13, color:NAVY, marginBottom:14 }}>Daily Income</div>
           <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", gap:6, height:140 }}>
             {days.map((d,i)=>{
@@ -1824,7 +1824,7 @@ function WeeklyEarningsTab({ trips, earned }) {
           </div>
         ) : (
           trips.map((t,i)=>(
-            <div key={i} style={{ background:WHITE, borderRadius:12, padding:"12px 14px", marginBottom:8, border:"1px solid "+BORDER, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div key={i} style={{ background:"#eff6ff", borderRadius:12, padding:"12px 14px", marginBottom:8, border:"1px solid "+BORDER, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <div style={{ fontWeight:700, fontSize:13, color:NAVY }}>{t.dest}</div>
                 <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>{t.type} · {t.date}</div>
@@ -2273,7 +2273,7 @@ function SlideToggle({ online, onToggle, subPaid }) {
   const [startX,   setStartX]   = useState(0);
   const [offsetX,  setOffsetX]  = useState(0);
   const trackW = 280;
-  const carW   = 64;
+  const carW   = 56;
   const maxX   = trackW - carW - 6;
 
   const committed = online;
@@ -2300,77 +2300,96 @@ function SlideToggle({ online, onToggle, subPaid }) {
     setOffsetX(0);
   }
 
-  // Traffic light colors
-  const lightRed    = committed ? "#1a1a1a" : "#ef4444";
-  const lightYellow = "#1a1a1a";
-  const lightGreen  = committed ? "#22c55e" : "#1a1a1a";
+  // Traffic light
+  const lightRed   = committed ? "#2d2d2d" : "#ef4444";
+  const lightGreen = committed ? "#22c55e" : "#2d2d2d";
+
+  // Road transparency when online
+  const roadBg = committed
+    ? "rgba(30,41,59,0.18)"
+    : "#1e293b";
+  const roadBorder = committed
+    ? "1.5px solid rgba(34,197,94,0.4)"
+    : "1.5px solid rgba(99,179,237,0.15)";
+
+  // Subscription text — shown inside road when not subscribed
+  const roadLabel = !subPaid
+    ? "Pay subscription to go online"
+    : committed ? "● Online" : "● Offline";
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, padding:"8px 0 4px" }}>
-      {/* Road track */}
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5, padding:"6px 0 4px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
 
         {/* Traffic light */}
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3,
           background:"#1e293b", borderRadius:8, padding:"6px 5px",
           border:"1.5px solid rgba(99,179,237,0.15)",
-          boxShadow:"0 2px 8px rgba(0,0,0,0.4)" }}>
-          {/* Red */}
-          <div style={{ width:14, height:14, borderRadius:"50%", background:lightRed,
-            boxShadow: !committed ? "0 0 8px #ef4444" : "none",
-            transition:"all 0.3s" }} />
-          {/* Yellow */}
-          <div style={{ width:14, height:14, borderRadius:"50%", background:lightYellow }} />
-          {/* Green */}
-          <div style={{ width:14, height:14, borderRadius:"50%", background:lightGreen,
-            boxShadow: committed ? "0 0 8px #22c55e" : "none",
-            transition:"all 0.3s" }} />
+          boxShadow:"0 2px 8px rgba(0,0,0,0.35)",
+          opacity: committed ? 0.5 : 1,
+          transition:"opacity 0.4s" }}>
+          <div style={{ width:13, height:13, borderRadius:"50%", background:lightRed,
+            boxShadow: !committed ? "0 0 7px #ef4444" : "none", transition:"all 0.3s" }} />
+          <div style={{ width:13, height:13, borderRadius:"50%", background:"#2d2d2d" }} />
+          <div style={{ width:13, height:13, borderRadius:"50%", background:lightGreen,
+            boxShadow: committed ? "0 0 7px #22c55e" : "none", transition:"all 0.3s" }} />
         </div>
 
         {/* Road */}
         <div
-          style={{ position:"relative", width:trackW, height:carW+4, borderRadius:12,
-            background:"#1e293b",
-            border:"1.5px solid "+(committed?"rgba(34,197,94,0.3)":"rgba(99,179,237,0.12)"),
-            boxShadow: committed?"0 0 16px rgba(34,197,94,0.2)":"0 2px 10px rgba(0,0,0,0.3)",
+          style={{ position:"relative", width:trackW, height:carW+6, borderRadius:12,
+            background:roadBg,
+            border:roadBorder,
+            boxShadow: committed ? "0 0 18px rgba(34,197,94,0.18)" : "0 2px 10px rgba(0,0,0,0.28)",
             overflow:"hidden",
             cursor: subPaid ? "grab" : "not-allowed",
             userSelect:"none", touchAction:"none",
-            transition:"border 0.35s, box-shadow 0.35s" }}
+            transition:"background 0.5s, border 0.35s, box-shadow 0.35s",
+            backdropFilter: committed ? "blur(6px)" : "none" }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          {/* Road markings */}
-          {[0.25,0.5,0.75].map(p=>(
+          {/* Road lane markings — hidden when online */}
+          {!committed && [0.22,0.5,0.78].map(p=>(
             <div key={p} style={{ position:"absolute", top:"50%", left:`${p*100}%`,
               transform:"translate(-50%,-50%)",
-              width:16, height:3, borderRadius:2,
-              background:"rgba(255,255,255,0.12)" }} />
+              width:18, height:3, borderRadius:2,
+              background:"rgba(255,255,255,0.15)" }} />
           ))}
+
+          {/* Label inside road */}
+          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
+            justifyContent: committed ? "flex-start" : "center",
+            paddingLeft: committed ? carW+14 : 0,
+            pointerEvents:"none" }}>
+            <span style={{ fontSize:9, fontWeight:700, letterSpacing:0.8,
+              color: !subPaid ? "rgba(148,163,184,0.9)"
+                : committed ? "rgba(34,197,94,0.9)"
+                : "rgba(148,163,184,0.85)",
+              textTransform:"uppercase",
+              fontFamily:"'Syne',sans-serif" }}>
+              {roadLabel}
+            </span>
+          </div>
 
           {/* Car thumb */}
           <div style={{
-            position:"absolute", top:3, left: 3 + carPos,
-            width:carW, height:carW-2,
+            position:"absolute", top:4, left: 3 + carPos,
+            width:carW, height:carW,
             transition: dragging ? "none" : "left 0.3s cubic-bezier(.4,0,.2,1)",
             display:"flex", alignItems:"center", justifyContent:"center",
-            filter: committed ? "drop-shadow(0 0 6px #22c55e)" : "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
-            fontSize:36,
+            filter: committed
+              ? "drop-shadow(0 0 8px rgba(34,197,94,0.8))"
+              : "drop-shadow(0 2px 5px rgba(0,0,0,0.5))",
+            fontSize:34,
             pointerEvents:"none",
             transform: committed ? "scaleX(1)" : "scaleX(-1)",
           }}>
             🚗
           </div>
         </div>
-      </div>
-
-      {/* Label */}
-      <div style={{ fontSize:10, fontWeight:700, letterSpacing:0.8,
-        color: !subPaid ? "#475569" : committed ? "#22c55e" : "#ef4444",
-        fontFamily:"'Syne',sans-serif", textTransform:"uppercase" }}>
-        {!subPaid ? "Pay subscription to go online" : committed ? "● Online — slide to go offline" : "● Offline — slide to go online"}
       </div>
     </div>
   );
@@ -2589,14 +2608,14 @@ function DriverApp() {
         <h2 style={{ color:NAVY, fontSize:18, fontWeight:800, marginTop:12, marginBottom:3, fontFamily:"'Syne',sans-serif" }}>Driver Registration</h2>
         <p style={{ color:LBLUE, fontSize:11, marginBottom:16 }}>Fill in your details to get started</p>
         {/* Personal Info */}
-        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+        <div style={{ background:"#eff6ff", borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
           <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Personal Information</div>
           <Input label="Full Name" value={name} onChange={e=>setName(e.target.value)} placeholder="Marcus Thompson" />
           <Input label="Email Address" value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="driver@email.com" />
           <Input label="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="+1 905 000 0000" />
         </div>
         {/* Vehicle Details */}
-        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+        <div style={{ background:"#eff6ff", borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
           <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Vehicle Details <span style={{ color:SLATE, fontWeight:400, textTransform:"none", fontSize:10 }}>(Optional)</span></div>
           {/* Year */}
           <div style={{ marginBottom:12 }}>
@@ -2635,7 +2654,7 @@ function DriverApp() {
           <Input label="License Plate" value={plate} onChange={e=>setPlate(e.target.value)} placeholder="ABCD 123" />
         </div>
         {/* Security */}
-        <div style={{ background:WHITE, borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
+        <div style={{ background:"#eff6ff", borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
           <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:12 }}>Security</div>
           <Input label="Password" value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="Min 8 characters" />
           <Input label="Confirm Password" value={pc} onChange={e=>setPc(e.target.value)} type="password" placeholder="Re-enter password" />
@@ -2805,19 +2824,19 @@ function DriverApp() {
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
             <MapView height="100%" riderMode={false} />
           </div>
-          {/* Top header — logo left, earnings right, no name */}
+          {/* Top header — logo left, earnings center */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
 
-              {/* Logo only */}
+              {/* Logo */}
               <div style={{ background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
-                borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.3)" }}>
+                borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.3)", flexShrink:0 }}>
                 <LogoAnim size={42} />
               </div>
 
-              {/* Earnings — aligned with logo, right side */}
-              <div style={{ background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
-                borderRadius:14, padding:"8px 18px", textAlign:"right",
+              {/* Earnings — center, grows to fill */}
+              <div style={{ flex:1, background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
+                borderRadius:14, padding:"8px 16px", textAlign:"center",
                 boxShadow:"0 2px 12px rgba(37,99,235,0.15)" }}>
                 <div style={{ fontSize:8, fontWeight:700, color:BLUE, letterSpacing:1.4,
                   textTransform:"uppercase", marginBottom:1 }}>{"This Week"}</div>
