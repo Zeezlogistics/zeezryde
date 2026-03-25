@@ -2368,18 +2368,17 @@ function SlideToggle({ online, onToggle, subPaid }) {
             </div>
           )}
 
-          {/* Label inside road */}
-          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-            justifyContent: committed ? "flex-start" : "center",
-            paddingLeft: committed ? carW+12 : 0,
+          {/* Label — sits in top blue sky band */}
+          <div style={{ position:"absolute", top:0, left:0, right:0, height:"18%",
+            display:"flex", alignItems:"center", justifyContent:"center",
             pointerEvents:"none" }}>
             <span style={{ fontSize:9, fontWeight:700, letterSpacing:0.8,
-              color: !subPaid ? "rgba(251,191,36,0.9)"
-                : committed ? "rgba(34,197,94,0.9)"
-                : "rgba(251,191,36,0.85)",
+              color: !subPaid ? "#fbbf24"
+                : committed ? "#86efac"
+                : "#93c5fd",
               textTransform:"uppercase",
               fontFamily:"'Syne',sans-serif",
-              textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>
+              textShadow:"0 1px 4px rgba(0,0,0,0.8)" }}>
               {roadLabel}
             </span>
           </div>
@@ -2837,13 +2836,13 @@ function DriverApp() {
           {/* Top header — logo left, earnings absolute center */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
             {/* Logo */}
-            <div style={{ position:"absolute", top:14, left:16,
+            <div style={{ position:"absolute", top:22, left:16,
               background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
               borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.3)" }}>
               <LogoAnim size={42} />
             </div>
             {/* Earnings — truly centered */}
-            <div style={{ display:"flex", justifyContent:"center" }}>
+            <div style={{ display:"flex", justifyContent:"center", paddingTop:8 }}>
               <div style={{ background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
                 borderRadius:14, padding:"8px 20px", textAlign:"center",
                 boxShadow:"0 2px 12px rgba(37,99,235,0.15)" }}>
