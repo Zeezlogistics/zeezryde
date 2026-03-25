@@ -2871,6 +2871,7 @@ function DriverApp() {
             display:"flex", justifyContent:"center" }}>
             <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
           </div>
+          </div>
       )}
 
       {tab==="earnings" && (
