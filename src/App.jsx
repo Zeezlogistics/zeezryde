@@ -2272,12 +2272,12 @@ function SlideToggle({ online, onToggle, subPaid }) {
   const [dragging, setDragging] = useState(false);
   const [startX,   setStartX]   = useState(0);
   const [offsetX,  setOffsetX]  = useState(0);
-  const trackW = 260; // total track width px
-  const thumbW = 52;  // thumb width px
-  const maxX   = trackW - thumbW - 8; // max drag distance
+  const trackW = 280;
+  const carW   = 64;
+  const maxX   = trackW - carW - 6;
 
   const committed = online;
-  const thumbPos  = dragging
+  const carPos = dragging
     ? Math.max(0, Math.min(maxX, offsetX))
     : committed ? maxX : 0;
 
@@ -2295,62 +2295,82 @@ function SlideToggle({ online, onToggle, subPaid }) {
     if (!dragging) return;
     setDragging(false);
     const pos = Math.max(0, Math.min(maxX, offsetX));
-    // Toggle if dragged past halfway
     if (!committed && pos > maxX * 0.5) onToggle();
     else if (committed && pos < maxX * 0.5) onToggle();
     setOffsetX(0);
   }
 
-  const trackColor = committed
-    ? "linear-gradient(90deg,#16a34a,#22c55e)"
-    : "rgba(30,41,59,0.92)";
-  const label = !subPaid
-    ? "Pay subscription to go online"
-    : committed ? "● ONLINE — slide to go offline" : "Slide to go online →";
+  // Traffic light colors
+  const lightRed    = committed ? "#1a1a1a" : "#ef4444";
+  const lightYellow = "#1a1a1a";
+  const lightGreen  = committed ? "#22c55e" : "#1a1a1a";
 
   return (
-    <div style={{ padding:"12px 16px 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
-      <div
-        style={{ position:"relative", width:trackW, height:thumbW+8, borderRadius:32,
-          background:trackColor, border:"1.5px solid " + (committed ? "rgba(34,197,94,0.6)" : "rgba(99,179,237,0.18)"),
-          boxShadow: committed ? "0 0 18px rgba(34,197,94,0.35)" : "0 2px 12px rgba(0,0,0,0.25)",
-          transition: dragging ? "none" : "background 0.35s, box-shadow 0.35s",
-          cursor: subPaid ? "grab" : "not-allowed",
-          userSelect:"none", touchAction:"none",
-        }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        {/* Track label */}
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center",
-          justifyContent: committed ? "flex-start" : "flex-end",
-          paddingLeft: committed ? thumbW+16 : 0,
-          paddingRight: committed ? 0 : 16,
-          pointerEvents:"none" }}>
-          <span style={{ fontSize:10, fontWeight:700, color: committed ? "rgba(255,255,255,0.85)" : "rgba(148,163,184,0.9)",
-            letterSpacing:0.5, fontFamily:"'Syne',sans-serif" }}>
-            {committed ? "ONLINE" : "OFFLINE"}
-          </span>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, padding:"8px 0 4px" }}>
+      {/* Road track */}
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+
+        {/* Traffic light */}
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+          background:"#1e293b", borderRadius:8, padding:"6px 5px",
+          border:"1.5px solid rgba(99,179,237,0.15)",
+          boxShadow:"0 2px 8px rgba(0,0,0,0.4)" }}>
+          {/* Red */}
+          <div style={{ width:14, height:14, borderRadius:"50%", background:lightRed,
+            boxShadow: !committed ? "0 0 8px #ef4444" : "none",
+            transition:"all 0.3s" }} />
+          {/* Yellow */}
+          <div style={{ width:14, height:14, borderRadius:"50%", background:lightYellow }} />
+          {/* Green */}
+          <div style={{ width:14, height:14, borderRadius:"50%", background:lightGreen,
+            boxShadow: committed ? "0 0 8px #22c55e" : "none",
+            transition:"all 0.3s" }} />
         </div>
-        {/* Thumb */}
+
+        {/* Road */}
         <div
-          style={{ position:"absolute", top:4, left:4 + thumbPos,
-            width:thumbW, height:thumbW,
-            borderRadius:28,
-            background: committed ? "#ffffff" : "linear-gradient(135deg,#3b82f6,#2563eb)",
-            boxShadow: committed ? "0 2px 10px rgba(0,0,0,0.25)" : "0 2px 12px rgba(59,130,246,0.5)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            transition: dragging ? "none" : "left 0.25s cubic-bezier(.4,0,.2,1)",
-            pointerEvents:"none",
-          }}
+          style={{ position:"relative", width:trackW, height:carW+4, borderRadius:12,
+            background:"#1e293b",
+            border:"1.5px solid "+(committed?"rgba(34,197,94,0.3)":"rgba(99,179,237,0.12)"),
+            boxShadow: committed?"0 0 16px rgba(34,197,94,0.2)":"0 2px 10px rgba(0,0,0,0.3)",
+            overflow:"hidden",
+            cursor: subPaid ? "grab" : "not-allowed",
+            userSelect:"none", touchAction:"none",
+            transition:"border 0.35s, box-shadow 0.35s" }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
         >
-          <span style={{ fontSize:18 }}>{committed ? "🟢" : "⚪"}</span>
+          {/* Road markings */}
+          {[0.25,0.5,0.75].map(p=>(
+            <div key={p} style={{ position:"absolute", top:"50%", left:`${p*100}%`,
+              transform:"translate(-50%,-50%)",
+              width:16, height:3, borderRadius:2,
+              background:"rgba(255,255,255,0.12)" }} />
+          ))}
+
+          {/* Car thumb */}
+          <div style={{
+            position:"absolute", top:3, left: 3 + carPos,
+            width:carW, height:carW-2,
+            transition: dragging ? "none" : "left 0.3s cubic-bezier(.4,0,.2,1)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            filter: committed ? "drop-shadow(0 0 6px #22c55e)" : "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
+            fontSize:36,
+            pointerEvents:"none",
+            transform: committed ? "scaleX(1)" : "scaleX(-1)",
+          }}>
+            🚗
+          </div>
         </div>
       </div>
-      <div style={{ fontSize:11, color: committed ? "#22c55e" : "#64748b", fontWeight:600, letterSpacing:0.3 }}>
-        {label}
+
+      {/* Label */}
+      <div style={{ fontSize:10, fontWeight:700, letterSpacing:0.8,
+        color: !subPaid ? "#475569" : committed ? "#22c55e" : "#ef4444",
+        fontFamily:"'Syne',sans-serif", textTransform:"uppercase" }}>
+        {!subPaid ? "Pay subscription to go online" : committed ? "● Online — slide to go offline" : "● Offline — slide to go online"}
       </div>
     </div>
   );
@@ -2868,13 +2888,21 @@ function DriverApp() {
                   <span style={{ fontSize:20 }}>😴</span>
                   <div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>You are offline</div>
-                    <div style={{ fontSize:11, color:SLATE }}>Slide to go online below</div>
+                    <div style={{ fontSize:11, color:SLATE }}>Slide to go online →</div>
                   </div>
                 </div>
               )}
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* Car toggle — fixed between card and tab bar, home tab only */}
+      {tab==="home" && (
+        <div style={{ position:"absolute", bottom:58, left:0, right:0, zIndex:12,
+          display:"flex", justifyContent:"center", alignItems:"center" }}>
+          <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
         </div>
       )}
 
