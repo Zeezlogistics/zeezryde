@@ -2391,7 +2391,7 @@ function DriverApp() {
   const baseSubFee = parseFloat(getLive("subFee", 25)) || 25;
   const subFee = (() => {
     if (!promoApplied || !appliedPromo) return baseSubFee;
-    if (appliedPromo.discount_type === "pct" || appliedPromo.discountType === "pct") {
+    if (appliedPromo.discount_type === "pct") {
       const pct = parseFloat(appliedPromo.discount) || 0;
       return +(baseSubFee * (1 - pct / 100)).toFixed(2);
     }
@@ -2669,7 +2669,7 @@ function DriverApp() {
           <div style={{ color:SLATE, fontSize:12 }}>Weekly Fee</div>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:48, color:promoApplied?"#2563eb":NAVY, margin:"6px 0" }}>{"CA$"+subFee}</div>
           <div style={{ color:SLATE, fontSize:12 }}>Unlocks driving access for 7 days</div>
-          {promoApplied && appliedPromo && <PillBadge label={"Promo Applied — "+(appliedPromo.discount_type==="pct"||appliedPromo.discountType==="pct" ? appliedPromo.discount+"% off" : "CA$"+appliedPromo.discount+" off")} color="green" />}
+          {promoApplied && appliedPromo && <PillBadge label={"Promo Applied — "+(appliedPromo.discount_type==="pct" ? appliedPromo.discount+"% off" : "CA$"+appliedPromo.discount+" off")} color="green" />}
         </Card>
               <div style={{ marginBottom:16 }}>
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:6 }}>Promo Code (optional)</div>
@@ -2697,13 +2697,14 @@ function DriverApp() {
                       // Only apply for new (unsubscribed) drivers
                     }
                     // Check max uses
-                    if (promo.maxUses && promo.used >= promo.maxUses) { setErr("This promo code has reached its limit"); setBusy(false); return; }
+                    const promoMax = promo.max_uses ?? promo.maxUses ?? null;
+        if (promoMax && (promo.used||0) >= promoMax) { setErr("This promo code has reached its limit"); setBusy(false); return; }
                     // Apply
                     setPromoApplied(true);
                     setAppliedPromo(promo);
                     setErr("");
                     // Increment used count in Supabase
-                    db.from("promos").update({ used:(promo.used||0)+1 }).eq("id", promo.id).then(()=>{}).catch(()=>{});
+                    db.from("promos").update({ used:(promo.used||0)+1 }).eq("id", promo.id).catch(()=>{});
                   } catch(e) { setErr("Could not verify promo code"); }
                   setBusy(false);
                 }}
