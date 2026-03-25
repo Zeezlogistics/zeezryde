@@ -2831,13 +2831,9 @@ function DriverApp() {
 
             </div>
           </div>
-          {/* Slide toggle strip — sits just above tab bar */}
-          <div style={{ position:"absolute", bottom:72, left:0, right:0, zIndex:11, padding:"0 16px 8px" }}>
-            <SlideToggle online={online} onToggle={toggleOnline} subPaid={subPaid} />
-          </div>
 
           {/* Bottom panel overlay — sits above slide toggle */}
-          <div style={{ position:"absolute", bottom:148, left:0, right:0, zIndex:10, padding:"0 16px 0" }}>
+          <div style={{ position:"absolute", bottom:160, left:0, right:0, zIndex:10, padding:"0 16px 0" }}>
             {err && <div style={{ marginBottom:8 }}><Err msg={err} /></div>}
             <div style={{ background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderRadius:20, padding:"16px", boxShadow:"0 -4px 30px rgba(0,0,0,0.15)" }}>
               {/* Earnings row */}
