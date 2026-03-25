@@ -338,6 +338,12 @@ export default function AdminApp() {
           rideType: t.rideType||"Family", seats: t.seats||null,
         })));
 
+        // ── Load promos from Supabase ──────────────────────────────
+        try {
+          const { data: promoData } = await sb.from("promos").select("*").order("created_at",{ascending:false});
+          if (promoData && promoData.length > 0) setPromos(promoData);
+        } catch(e) { console.log("Promos load:", e.message); }
+
         // ── Load shuttle vehicles, trips, drivers and settings ──
         try {
           const [{ data: sv }, { data: st }, { data: sd }, { data: cfg }] = await Promise.all([
