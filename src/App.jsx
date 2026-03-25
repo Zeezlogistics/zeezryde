@@ -2835,30 +2835,30 @@ function DriverApp() {
           </div>
           {/* Top header — logo left, earnings absolute center */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
-            {/* Logo */}
-            <div style={{ position:"absolute", top:22, left:16,
-              background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
-              borderRadius:"50%", padding:4, boxShadow:"0 0 14px rgba(59,130,246,0.3)" }}>
-              <LogoAnim size={42} />
+            {/* Logo — no background, larger */}
+            <div style={{ position:"absolute", top:14, left:14 }}>
+              <LogoAnim size={56} />
             </div>
-            {/* Earnings — truly centered */}
-            <div style={{ display:"flex", justifyContent:"center", paddingTop:8 }}>
+            {/* Earnings — daily, truly centered */}
+            <div style={{ display:"flex", justifyContent:"center", paddingTop:6 }}>
+              {(()=>{ const today=new Date().toLocaleDateString("en-CA"); const todayTrips=trips.filter(t=>t.date===today); const todayEarned=todayTrips.reduce((s,t)=>s+parseFloat((t.fare||"0").replace("CA$","")),0); return (
               <div style={{ background:"rgba(219,234,254,0.92)", backdropFilter:"blur(8px)",
                 borderRadius:14, padding:"8px 20px", textAlign:"center",
                 boxShadow:"0 2px 12px rgba(37,99,235,0.15)" }}>
                 <div style={{ fontSize:8, fontWeight:700, color:BLUE, letterSpacing:1.4,
-                  textTransform:"uppercase", marginBottom:1 }}>{"This Week"}</div>
+                  textTransform:"uppercase", marginBottom:1 }}>{"Today"}</div>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, lineHeight:1 }}>
-                  {hideBalance ? "CA$ ****" : "CA$"+earned.toFixed(2)}
+                  {hideBalance ? "CA$ ****" : "CA$"+todayEarned.toFixed(2)}
                 </div>
                 <div style={{ fontSize:10, color:SLATE, marginTop:2 }}>
-                  {trips.length+" trip"+(trips.length!==1?"s":"")+" · "}
+                  {todayTrips.length+" trip"+(todayTrips.length!==1?"s":"")+" · "}
                   <span onClick={()=>setHideBalance(h=>!h)}
                     style={{ color:BLUE, cursor:"pointer", fontWeight:700 }}>
                     {hideBalance ? "show" : "hide"}
                   </span>
                 </div>
               </div>
+              ); })()}
             </div>
           </div>
 
