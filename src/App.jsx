@@ -291,7 +291,7 @@ function RiderBottomNav({ tab, onTab }) {
 function DriverBottomNav({ tab, onTab }) {
   return (
     <div style={{ position:"fixed", bottom:0, left:0, right:0, background:WHITE, borderTop:"1px solid "+BORDER, display:"flex", paddingBottom:8, zIndex:50, boxShadow:"0 -2px 12px rgba(37,99,235,0.06)" }}>
-      {[["home","🏠","Home"],["earnings","💰","Earnings"],["account","👤","Me"]].map(([id,icon,label]) => (
+      {[["home","🏠","Home"],["earnings","💰","Earnings"],["docs","📄","Docs"],["account","👤","Me"]].map(([id,icon,label]) => (
         <button key={id} onClick={() => onTab(id)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", padding:"8px 0 2px", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
           <span style={{ fontSize:20 }}>{icon}</span>
           <span style={{ fontSize:10, fontWeight:tab===id?700:400, color:tab===id?GREEN:SLATE }}>{label}</span>
@@ -2524,8 +2524,13 @@ function DriverApp() {
         if (role && role !== "driver") { db.auth.signOut(); setTimeout(() => go("login"), 1800); return; }
         const u = data.session.user;
         setUser(u); setName(u.user_metadata?.name||"");
-        db.from("drivers").select("vehicle_seats").eq("id", u.id).maybeSingle()
-          .then(({ data:dr }) => { if (dr?.vehicle_seats) setVSeats(String(dr.vehicle_seats)); });
+        db.from("drivers").select("vehicle,plate,vehicle_seats").eq("id", u.id).maybeSingle()
+          .then(({ data:dr }) => {
+            if (!dr) return;
+            if (dr.vehicle_seats) setVSeats(String(dr.vehicle_seats));
+            if (dr.vehicle)       setVeh(dr.vehicle);
+            if (dr.plate)         setPlate(dr.plate);
+          });
         go("dash");
       } else setTimeout(() => go("login"), 1800);
     }).catch(() => setTimeout(() => go("login"), 1800));
@@ -3041,7 +3046,7 @@ function DriverApp() {
       )}
 
       {tab==="docs" && (
-        <div className="fade" style={{ padding:"16px 16px 10px" }}>
+        <div className="fade" style={{ padding:"16px 16px 80px", overflowY:"auto", height:"100vh" }}>
           <SectionHeader title="My Documents" sub="All 10 required for approval" />
           <div style={{ display:"flex", gap:8, marginBottom:16 }}>
             {[["Approved",approvedDocs,"green"],["Pending",pendingDocs,"yellow"],["Missing",missingDocs,"red"]].map(([lb,count,color])=>(
