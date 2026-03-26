@@ -489,7 +489,6 @@ export default function AdminApp() {
 
   const [search,  setSearch]  = useState("");
   const [modal,   setModal]   = useState(null);
-  const [deletingId, setDeletingId] = useState(null); // id being confirmed for delete
   const [toast,   setToast]   = useState(null);
   const [dFilter, setDFilter] = useState("all");
   const [rFilter, setRFilter] = useState("all");
@@ -581,22 +580,24 @@ export default function AdminApp() {
     flash("Rider updated");
   }
 
-  async function deleteDriver(id) {
-    setDeletingId(null);
-    setDrivers(prev => prev.filter(d => d.id !== id));
+  async function deleteDrivers(ids) {
+    setDrivers(prev => prev.filter(d => !ids.includes(d.id)));
     try {
-      await _supabase.from("driver_docs").delete().eq("driver_id", id);
-      await _supabase.from("drivers").delete().eq("id", id);
-      flash("Driver deleted");
+      for (const id of ids) {
+        await _supabase.from("driver_docs").delete().eq("driver_id", id);
+        await _supabase.from("drivers").delete().eq("id", id);
+      }
+      flash(ids.length + " driver" + (ids.length > 1 ? "s" : "") + " deleted");
     } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
   }
 
-  async function deleteRider(id) {
-    setDeletingId(null);
-    setRiders(prev => prev.filter(r => r.id !== id));
+  async function deleteRiders(ids) {
+    setRiders(prev => prev.filter(r => !ids.includes(r.id)));
     try {
-      await _supabase.from("riders").delete().eq("id", id);
-      flash("Rider deleted");
+      for (const id of ids) {
+        await _supabase.from("riders").delete().eq("id", id);
+      }
+      flash(ids.length + " rider" + (ids.length > 1 ? "s" : "") + " deleted");
     } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
   }
 
@@ -938,7 +939,7 @@ function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, su
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: DRIVERS
 // ─────────────────────────────────────────────────────────────────────────────
-function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver, setModal, maxDrivers=50, setDrivers }) {
+function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver, setModal, maxDrivers=50, setDrivers, deleteDrivers }) {
   // Reload drivers from Supabase on mount
   useEffect(() => {
     (async () => {
@@ -976,7 +977,13 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
 
   const visible = activeDrivers
     .filter(d => filter === "all" || d.status === filter)
-    .filter(d => !search || [d.name, d.email, d.id, d.plate].some(f => f.toLowerCase().includes(search.toLowerCase())));
+    .filter(d => !search || [d.name, d.email, d.id, d.plate].some(f => (f||"").toLowerCase().includes((search||"").toLowerCase())));
+
+  const [selected, setSelected] = React.useState([]);
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const allChecked = visible.length > 0 && visible.every(d => selected.includes(d.id));
+  function toggleOne(id) { setSelected(p => p.includes(id) ? p.filter(x => x!==id) : [...p, id]); }
+  function toggleAll() { setSelected(allChecked ? [] : visible.map(d => d.id)); }
 
   return (
     <div>
@@ -1011,12 +1018,34 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
         ))}
       </div>
 
+      {/* Bulk action toolbar */}
+      {selected.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, padding:"10px 14px", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8 }}>
+          <span style={{ color:"#f0f9ff", fontSize:12, fontWeight:600 }}>{selected.length} selected</span>
+          {confirmDel ? (
+            <>
+              <span style={{ color:"#fca5a5", fontSize:12 }}>Delete {selected.length} {selected.length===1?"driver":"drivers"}? This cannot be undone.</span>
+              <ActBtn danger onClick={() => { deleteDrivers(selected); setSelected([]); setConfirmDel(false); }}>Yes, Delete</ActBtn>
+              <ActBtn onClick={() => setConfirmDel(false)}>Cancel</ActBtn>
+            </>
+          ) : (
+            <>
+              <ActBtn danger onClick={() => setConfirmDel(true)}>🗑 Delete Selected</ActBtn>
+              <ActBtn onClick={() => setSelected([])}>Clear</ActBtn>
+            </>
+          )}
+        </div>
+      )}
       <Panel>
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
-          <thead><tr>{["DRIVER","CONTACT","VEHICLE","STATUS","ONLINE","SUB","RATING","TRIPS","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+          <thead><tr>
+            <Th><input type="checkbox" checked={allChecked} onChange={toggleAll} style={{ cursor:"pointer", accentColor:"#3b82f6" }} /></Th>
+            {["DRIVER","CONTACT","VEHICLE","STATUS","ONLINE","SUB","RATING","TRIPS","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}
+          </tr></thead>
           <tbody>
             {visible.map(d => (
-              <tr key={d.id} className="trow">
+              <tr key={d.id} className="trow" style={{ background: selected.includes(d.id) ? "rgba(59,130,246,0.07)" : "" }}>
+                <Td><input type="checkbox" checked={selected.includes(d.id)} onChange={() => toggleOne(d.id)} style={{ cursor:"pointer", accentColor:"#3b82f6" }} /></Td>
                 <Td>
                   <div style={{ display:"flex", alignItems:"center", gap:9 }}>
                     <Avi name={d.name} seed={d.id} />
@@ -1062,14 +1091,6 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
                       ? <ActBtn danger onClick={() => patchDriver(d.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchDriver(d.id, { status:"active" })}>Reinstate</ActBtn>
                     )}
-                    {!viewOnly && (deletingId===d.id ? (
-                      <>
-                        <ActBtn danger onClick={() => deleteDriver(d.id)}>Confirm</ActBtn>
-                        <ActBtn onClick={() => setDeletingId(null)}>Cancel</ActBtn>
-                      </>
-                    ) : (
-                      <ActBtn danger onClick={() => setDeletingId(d.id)}>Delete</ActBtn>
-                    ))}
                   </div>
                 </Td>
               </tr>
@@ -1254,7 +1275,7 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: RIDERS
 // ─────────────────────────────────────────────────────────────────────────────
-function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, setModal }) {
+function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, setModal, deleteRiders }) {
   const counts = {
     all:       riders.length,
     active:    riders.filter(r => r.status === "active").length,
@@ -1264,7 +1285,13 @@ function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, s
 
   const visible = riders
     .filter(r => filter === "all" || r.status === filter)
-    .filter(r => !search || [r.name, r.email, r.id].some(f => f.toLowerCase().includes(search.toLowerCase())));
+    .filter(r => !search || [r.name, r.email, r.id].some(f => (f||"").toLowerCase().includes((search||"").toLowerCase())));
+
+  const [selected, setSelected] = React.useState([]);
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const allChecked = visible.length > 0 && visible.every(r => selected.includes(r.id));
+  function toggleOne(id) { setSelected(p => p.includes(id) ? p.filter(x => x!==id) : [...p, id]); }
+  function toggleAll() { setSelected(allChecked ? [] : visible.map(r => r.id)); }
 
   return (
     <div>
@@ -1276,12 +1303,33 @@ function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, s
         ))}
       </div>
 
+      {selected.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12, padding:"10px 14px", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8 }}>
+          <span style={{ color:"#f0f9ff", fontSize:12, fontWeight:600 }}>{selected.length} selected</span>
+          {confirmDel ? (
+            <>
+              <span style={{ color:"#fca5a5", fontSize:12 }}>Delete {selected.length} {selected.length===1?"rider":"riders"}? This cannot be undone.</span>
+              <ActBtn danger onClick={() => { deleteRiders(selected); setSelected([]); setConfirmDel(false); }}>Yes, Delete</ActBtn>
+              <ActBtn onClick={() => setConfirmDel(false)}>Cancel</ActBtn>
+            </>
+          ) : (
+            <>
+              <ActBtn danger onClick={() => setConfirmDel(true)}>🗑 Delete Selected</ActBtn>
+              <ActBtn onClick={() => setSelected([])}>Clear</ActBtn>
+            </>
+          )}
+        </div>
+      )}
       <Panel>
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
-          <thead><tr>{["RIDER","CONTACT","STATUS","RATING","TRIPS","TOTAL SPENT","PAYMENT","JOINED","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}</tr></thead>
+          <thead><tr>
+            <Th><input type="checkbox" checked={allChecked} onChange={toggleAll} style={{ cursor:"pointer", accentColor:"#a78bfa" }} /></Th>
+            {["RIDER","CONTACT","STATUS","RATING","TRIPS","TOTAL SPENT","PAYMENT","JOINED","ACTIONS"].map(h=><Th key={h}>{h}</Th>)}
+          </tr></thead>
           <tbody>
             {visible.map(r => (
-              <tr key={r.id} className="trow">
+              <tr key={r.id} className="trow" style={{ background: selected.includes(r.id) ? "rgba(167,139,250,0.07)" : "" }}>
+                <Td><input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggleOne(r.id)} style={{ cursor:"pointer", accentColor:"#a78bfa" }} /></Td>
                 <Td>
                   <div style={{ display:"flex", alignItems:"center", gap:9 }}>
                     <Avi name={r.name} seed={r.id} hue={260} />
@@ -1308,14 +1356,6 @@ function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, s
                       ? <ActBtn danger onClick={() => patchRider(r.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchRider(r.id, { status:"active" })}>Reinstate</ActBtn>
                     )}
-                    {!viewOnly && (deletingId===r.id ? (
-                      <>
-                        <ActBtn danger onClick={() => deleteRider(r.id)}>Confirm</ActBtn>
-                        <ActBtn onClick={() => setDeletingId(null)}>Cancel</ActBtn>
-                      </>
-                    ) : (
-                      <ActBtn danger onClick={() => setDeletingId(r.id)}>Delete</ActBtn>
-                    ))}
                   </div>
                 </Td>
               </tr>
