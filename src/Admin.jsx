@@ -3100,6 +3100,14 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
     setRejectTarget(null); setRejectNote("");
   }
 
+  async function deleteDoc(row) {
+    if (viewOnly) return;
+    const { error } = await _supabase.from("driver_docs").delete().eq("id", row.id);
+    if (error) { console.error("deleteDoc error:", error.message); return; }
+    setDbDocs(prev => prev.filter(r => r.id !== row.id));
+    setSelectedDoc(null);
+  }
+
   const counts = { pending:0, approved:0, rejected:0 };
   dbDocs.forEach(r => { if (counts[r.status]!==undefined) counts[r.status]++; });
 
@@ -3241,7 +3249,7 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
 
                 {/* Action buttons */}
                 {rejectTarget!==selDoc.id && (
-                  <div style={{ display:"flex", gap:10 }}>
+                  <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                     <button onClick={()=>approveDoc(selDoc)} disabled={viewOnly||selDoc.status==="approved"}
                       style={{ flex:1, padding:"11px", borderRadius:8, border:"none",
                         background:selDoc.status==="approved"?"#1a2e1a":"#22c55e",
@@ -3263,6 +3271,14 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
                           textDecoration:"none", display:"flex", alignItems:"center" }}>
                         ↗ Open
                       </a>
+                    )}
+                    {!viewOnly && (
+                      <button onClick={()=>deleteDoc(selDoc)}
+                        style={{ padding:"11px 14px", borderRadius:8, border:"1px solid rgba(239,68,68,0.3)",
+                          background:"rgba(239,68,68,0.08)", color:"#ef4444", fontWeight:700, fontSize:13,
+                          cursor:"pointer" }}>
+                        🗑 Delete
+                      </button>
                     )}
                   </div>
                 )}
