@@ -2990,9 +2990,14 @@ function DriverApp() {
                   background:"rgba(10,22,40,0.25)", borderRadius:12, padding:"10px 14px",
                   border:"1px solid rgba(30,58,95,0.2)" }}>
                   <span style={{ fontSize:20, animation:"pulse 1.5s ease infinite" }}>📡</span>
-                  <div>
+                  <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"Waiting for ride requests"}</div>
                     <div style={{ fontSize:11, color:BLUE }}>{"You are online"}</div>
+                  </div>
+                  <div style={{ background:"#22c55e", borderRadius:20, padding:"5px 12px",
+                    display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+                    <div style={{ width:7, height:7, borderRadius:"50%", background:"#fff", opacity:0.9 }} />
+                    <span style={{ fontSize:10, fontWeight:800, color:"#fff", fontFamily:"'Syne',sans-serif", letterSpacing:0.5 }}>Active</span>
                   </div>
                 </div>
               ) : (
@@ -3000,10 +3005,20 @@ function DriverApp() {
                   background:"rgba(10,22,40,0.25)", borderRadius:12, padding:"10px 14px",
                   border:"1px solid rgba(30,58,95,0.2)" }}>
                   <span style={{ fontSize:20 }}>😴</span>
-                  <div>
+                  <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"You are offline"}</div>
                     <div style={{ fontSize:11, color:SLATE }}>{"Slide the car to go online"}</div>
                   </div>
+                  <button onClick={()=>{ if(!subPaid) go("subscription"); }}
+                    style={{ background:subPaid?"#22c55e":"#ef4444", borderRadius:20, padding:"5px 12px",
+                      display:"flex", alignItems:"center", gap:5, flexShrink:0,
+                      border:"none", cursor:subPaid?"default":"pointer",
+                      transition:"background 0.3s" }}>
+                    <div style={{ width:7, height:7, borderRadius:"50%", background:"#fff", opacity:0.9 }} />
+                    <span style={{ fontSize:10, fontWeight:800, color:"#fff", fontFamily:"'Syne',sans-serif", letterSpacing:0.5 }}>
+                      {subPaid ? "Active" : "Inactive"}
+                    </span>
+                  </button>
                 </div>
               )}
             </div>
