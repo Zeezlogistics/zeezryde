@@ -602,23 +602,86 @@ function RiderApp() {
   const displayName = user?.user_metadata?.name||name||"Rider";
   const chosen = RIDES.find(r=>r.id===ride);
 
-  function bookRide() {
+  async function bookRide() {
     if (!dest.trim()) { setErr("Enter a destination"); return; }
     setFinding(true);
-    setTimeout(() => {
-      setFinding(false);
+    go("finding");
+    try {
       const base = parseFloat(getLive("baseFare", 9.40)) || 9.40;
       const liveFare = chosen.id==="family"
         ? base * (parseFloat(getLive("familyMult", 1)) || 1)
         : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
       const totalFare = withTax(liveFare).toFixed(2);
+
+      // Find an online driver matching seat requirement
+      const needsLarge = chosen.id === "friends"; // Friends = 7-seater preferred
+      let driverQuery = db.from("drivers").select("name,vehicle_seats").eq("online", true).eq("status","approved");
+      const { data: onlineDrivers } = await driverQuery;
+      let driver = null;
+      if (onlineDrivers && onlineDrivers.length > 0) {
+        // For friends ride, prefer 7-seater but fall back to any available
+        const matched = needsLarge
+          ? onlineDrivers.find(d => parseInt(d.vehicle_seats||4) >= 7) || onlineDrivers[0]
+          : onlineDrivers[0];
+        driver = matched;
+      }
+
+      if (!driver) {
+        setFinding(false);
+        setErr("No drivers available right now. Please try again shortly.");
+        go("dash");
+        return;
+      }
+
+      // Insert trip into Supabase — driver realtime listener picks this up
+      const tripId = Date.now();
+      const { error } = await db.from("trips").insert({
+        id: String(tripId),
+        rider_id: user?.id,
+        rider: displayName,
+        driver: driver.name,
+        origin: "Current Location",
+        dest: dest.trim(),
+        fare: totalFare,
+        rideType: chosen.label,
+        seats: needsLarge ? 7 : 4,
+        status: "pending",
+        requested_at: new Date().toISOString()
+      });
+
+      if (error) throw error;
+
       setLastFare(totalFare);
-      setTrips(h=>[{ id:Date.now(), dest, type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA") }, ...h]);
-      setPendingRate(true);
-      setDest("");
-      go("complete");
-    }, 3500);
-    go("finding");
+      setTrips(h=>[{ id:tripId, dest:dest.trim(), type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA"), status:"pending" }, ...h]);
+
+      // Listen for driver to accept (status → completed)
+      const ch = db.channel("rider-trip-"+tripId)
+        .on("postgres_changes", { event:"UPDATE", schema:"public", table:"trips",
+          filter:`id=eq.${tripId}` }, (payload) => {
+            if (payload.new.status === "completed" || payload.new.status === "accepted") {
+              db.removeChannel(ch);
+              setFinding(false);
+              setPendingRate(true);
+              setDest("");
+              go("complete");
+            }
+          })
+        .subscribe();
+
+      // Auto-complete after 20s if no driver response (fallback)
+      setTimeout(() => {
+        db.removeChannel(ch);
+        setFinding(false);
+        setPendingRate(true);
+        setDest("");
+        go("complete");
+      }, 20000);
+
+    } catch(e) {
+      setFinding(false);
+      setErr("Could not book ride. Please try again.");
+      go("dash");
+    }
   }
 
   function bookShuttle() {
@@ -2580,12 +2643,20 @@ function DriverApp() {
     try { if(window.__zeezAdmin?.setDriverOnline) window.__zeezAdmin.setDriverOnline(next); } catch(_) {}
   }
 
-  function acceptRide() {
+  async function acceptRide() {
     if (!inReq) return;
     const fareNum = parseFloat((inReq.fare||"0").replace("CA$",""))||0;
     setTrips(t=>[{ id:inReq.id, dest:inReq.dest, fare:inReq.fare, type:inReq.type, date:new Date().toLocaleDateString("en-CA") }, ...t]);
     setEarned(e=>e+fareNum);
-    try { const sb2=createClient(SUPABASE_URL,SUPABASE_ANON); sb2.from("trips").insert({ id:String(inReq.id), rider:inReq.rider, driver_id:user?.id, driver:displayName, origin:inReq.origin||"Pickup", dest:inReq.dest, fare:fareNum.toFixed(2), rideType:inReq.type||"Family", status:"completed", requested_at:new Date().toISOString() }); } catch(_) {}
+    // UPDATE the existing trip row so rider's realtime listener fires
+    try {
+      await db.from("trips").update({
+        driver_id: user?.id,
+        driver: displayName,
+        status: "completed",
+        fare: fareNum.toFixed(2)
+      }).eq("id", String(inReq.id));
+    } catch(_) {}
     try { if(window.__zeezAdmin?.updateTrip) window.__zeezAdmin.updateTrip(inReq.id,{ status:"completed", driver:displayName }); } catch(_) {}
     setInReq(null);
     go("enroute");
