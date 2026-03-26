@@ -2535,6 +2535,7 @@ function DriverApp() {
   const [inReq, setInReq]   = useState(null);
   const [cdown, setCdown]   = useState(15);
   const [subPaid, setSubPaid] = useState(false);
+  const [driverStatus, setDriverStatus] = useState("pending");
   const [hideBalance, setHideBalance] = useState(false);
   const [dOtpSent, setDOtpSent]     = useState(false);
   const [dOtpValue, setDOtpValue]   = useState("");
@@ -2586,6 +2587,7 @@ function DriverApp() {
 
       // Subscription — persisted in drivers.sub_paid column
       if (dr?.sub_paid)      setSubPaid(true);
+      if (dr?.status)        setDriverStatus(dr.status);
 
       // Docs — map every DOC_TYPE key against what's in DB
       if (dbDocs && dbDocs.length > 0) {
@@ -2715,14 +2717,21 @@ function DriverApp() {
 
   async function toggleOnline() {
     if (!subPaid) { setErr("Pay your weekly subscription first"); return; }
-    // Check driver status from DB — must be "active" (all docs approved by admin)
+    // Re-fetch status fresh from DB each time
     try {
-      const { data: dr } = await db.from("drivers").select("status").eq("id", user?.id).maybeSingle();
-      if (!dr || dr.status !== "active") {
-        setErr("Your account is not yet active. Ensure all documents are approved by admin.");
-        return;
+      const { data: dr } = await db.from("drivers").select("status,sub_paid").eq("id", user?.id).maybeSingle();
+      if (dr) {
+        setDriverStatus(dr.status||"pending");
+        if (dr.sub_paid) setSubPaid(true);
+        if (dr.status !== "active") {
+          setErr("Your account status is "" + (dr.status||"pending") + "". Admin must approve all documents first.");
+          return;
+        }
       }
-    } catch(_) {}
+    } catch(e) {
+      console.error("toggleOnline status check:", e);
+      // Don't block on network error
+    }
     const next = !online;
     setOnline(next); setErr("");
     try {
