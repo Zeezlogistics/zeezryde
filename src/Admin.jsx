@@ -584,8 +584,11 @@ export default function AdminApp() {
     setDrivers(prev => prev.filter(d => !ids.includes(d.id)));
     try {
       for (const id of ids) {
-        await _supabase.from("driver_docs").delete().eq("driver_id", id);
-        await _supabase.from("drivers").delete().eq("id", id);
+        // Delete docs first (try both string and text match)
+        const { error: docsErr } = await _supabase.from("driver_docs").delete().eq("driver_id", id);
+        if (docsErr) console.error("driver_docs delete error:", docsErr.message);
+        const { error: drvErr } = await _supabase.from("drivers").delete().eq("id", id);
+        if (drvErr) console.error("drivers delete error:", drvErr.message);
       }
       flash(ids.length + " driver" + (ids.length > 1 ? "s" : "") + " deleted");
     } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
