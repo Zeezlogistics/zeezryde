@@ -489,6 +489,7 @@ export default function AdminApp() {
 
   const [search,  setSearch]  = useState("");
   const [modal,   setModal]   = useState(null);
+  const [deletingId, setDeletingId] = useState(null); // id being confirmed for delete
   const [toast,   setToast]   = useState(null);
   const [dFilter, setDFilter] = useState("all");
   const [rFilter, setRFilter] = useState("all");
@@ -580,8 +581,8 @@ export default function AdminApp() {
     flash("Rider updated");
   }
 
-  async function deleteDriver(id, name) {
-    if (!window.confirm("Permanently delete driver " + name + "? This cannot be undone.")) return;
+  async function deleteDriver(id) {
+    setDeletingId(null);
     setDrivers(prev => prev.filter(d => d.id !== id));
     try {
       await _supabase.from("driver_docs").delete().eq("driver_id", id);
@@ -590,8 +591,8 @@ export default function AdminApp() {
     } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
   }
 
-  async function deleteRider(id, name) {
-    if (!window.confirm("Permanently delete rider " + name + "? This cannot be undone.")) return;
+  async function deleteRider(id) {
+    setDeletingId(null);
     setRiders(prev => prev.filter(r => r.id !== id));
     try {
       await _supabase.from("riders").delete().eq("id", id);
@@ -1061,7 +1062,14 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
                       ? <ActBtn danger onClick={() => patchDriver(d.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchDriver(d.id, { status:"active" })}>Reinstate</ActBtn>
                     )}
-                    {!viewOnly && <ActBtn danger onClick={() => deleteDriver(d.id, d.name||d.email||"this driver")}>Delete</ActBtn>}
+                    {!viewOnly && (deletingId===d.id ? (
+                      <>
+                        <ActBtn danger onClick={() => deleteDriver(d.id)}>Confirm</ActBtn>
+                        <ActBtn onClick={() => setDeletingId(null)}>Cancel</ActBtn>
+                      </>
+                    ) : (
+                      <ActBtn danger onClick={() => setDeletingId(d.id)}>Delete</ActBtn>
+                    ))}
                   </div>
                 </Td>
               </tr>
@@ -1300,7 +1308,14 @@ function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, s
                       ? <ActBtn danger onClick={() => patchRider(r.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchRider(r.id, { status:"active" })}>Reinstate</ActBtn>
                     )}
-                    {!viewOnly && <ActBtn danger onClick={() => deleteRider(r.id, r.name||r.email||"this rider")}>Delete</ActBtn>}
+                    {!viewOnly && (deletingId===r.id ? (
+                      <>
+                        <ActBtn danger onClick={() => deleteRider(r.id)}>Confirm</ActBtn>
+                        <ActBtn onClick={() => setDeletingId(null)}>Cancel</ActBtn>
+                      </>
+                    ) : (
+                      <ActBtn danger onClick={() => setDeletingId(r.id)}>Delete</ActBtn>
+                    ))}
                   </div>
                 </Td>
               </tr>
