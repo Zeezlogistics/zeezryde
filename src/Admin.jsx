@@ -667,7 +667,39 @@ export default function AdminApp() {
   { id:"users",     icon:"👤", label:"Users"            },
   ];
 
+  const DeleteDialog = deleteConfirm ? (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:9999,
+      display:"flex", alignItems:"center", justifyContent:"center" }}
+      onClick={()=>setDeleteConfirm(null)}>
+      <div style={{ background:"#0f172a", border:"1px solid rgba(239,68,68,0.4)", borderRadius:16,
+        padding:32, width:340, boxShadow:"0 25px 50px rgba(0,0,0,0.6)" }}
+        onClick={e=>e.stopPropagation()}>
+        <div style={{ fontSize:28, textAlign:"center", marginBottom:12 }}>🗑️</div>
+        <div style={{ color:"#f0f9ff", fontWeight:700, fontSize:16, textAlign:"center", marginBottom:8 }}>
+          {"Delete "+(deleteConfirm.type==="driver"?"Driver":"Rider")+"?"}
+        </div>
+        <div style={{ color:"#94a3b8", fontSize:13, textAlign:"center", marginBottom:24, lineHeight:1.5 }}>
+          {"This will permanently delete "}<span style={{ color:"#f0f9ff", fontWeight:600 }}>{deleteConfirm.name}</span>{" and all their data from Supabase. This cannot be undone."}
+        </div>
+        <div style={{ display:"flex", gap:10 }}>
+          <button onClick={()=>setDeleteConfirm(null)}
+            style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(99,179,237,0.2)",
+              background:"transparent", color:"#94a3b8", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+            Cancel
+          </button>
+          <button onClick={()=>deleteConfirm.type==="driver"?deleteDriver(deleteConfirm.id):deleteRider(deleteConfirm.id)}
+            style={{ flex:1, padding:"11px", borderRadius:8, border:"none",
+              background:"#ef4444", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+            Delete Permanently
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (<AdminErrorBoundary>
+    <>
+    {DeleteDialog}
     <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:"#080c14", fontFamily:"'Space Grotesk',sans-serif", color:"#e2e8f0" }}>
       <Styles />
 
@@ -805,6 +837,7 @@ export default function AdminApp() {
         </div>
       )}
     </div>
+    </>
   </AdminErrorBoundary>);
 }
 
