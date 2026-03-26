@@ -940,18 +940,14 @@ function PageOverview({ drivers, trips, subs, onlineCount, totalRev, tripRev, su
 // PAGE: DRIVERS
 // ─────────────────────────────────────────────────────────────────────────────
 function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver, setModal, maxDrivers=50, setDrivers, deleteDrivers }) {
-  // Reload drivers from Supabase on mount
+  // Reload drivers from Supabase every time page mounts
   useEffect(() => {
-    (async () => {
-      try {
-        const sb = await getSupabase();
-        const { data } = await sb.from("drivers").select("*").neq("status","archived").order("joined",{ascending:false});
-        if (data && setDrivers) setDrivers(data);
-      } catch (err) { console.error("Drivers load:", err.message); }
-    })();
+    _supabase.from("drivers").select("*").neq("status","archived").order("created_at",{ascending:false})
+      .then(({ data }) => { if (data && setDrivers) setDrivers(data); })
+      .catch(err => console.error("Drivers reload:", err.message));
   }, []);
-  const ARCHIVE_DAYS = 28; // 4 weeks
-  const TODAY = new Date("2026-03-08");
+  const ARCHIVE_DAYS = 28;
+  const TODAY = new Date();
   const [reminderTarget, setReminderTarget] = useState(null);
   const [reminderSent, setReminderSent]     = useState({});
 
@@ -1275,7 +1271,13 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGE: RIDERS
 // ─────────────────────────────────────────────────────────────────────────────
-function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, setModal, deleteRiders }) {
+function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, setModal, deleteRiders, setRiders }) {
+  // Reload riders from Supabase every time page mounts
+  useEffect(() => {
+    _supabase.from("riders").select("*").order("created_at",{ascending:false})
+      .then(({ data }) => { if (data && setRiders) setRiders(data); })
+      .catch(err => console.error("Riders reload:", err.message));
+  }, []);
   const counts = {
     all:       riders.length,
     active:    riders.filter(r => r.status === "active").length,
@@ -1344,7 +1346,7 @@ function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, s
                   <div style={{ color:"#334155", fontSize:10, marginTop:1 }}>{r.phone}</div>
                 </Td>
                 <Td><StatusBadge s={r.status} /></Td>
-                <Td><span style={{ color:"#f59e0b", fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>★ {r.rating.toFixed(2)}</span></Td>
+                <Td><span style={{ color:"#f59e0b", fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>★ {(r.rating||0).toFixed(2)}</span></Td>
                 <Td><span style={{ color:"#e2e8f0", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{r.trips}</span></Td>
                 <Td><span style={{ color:"#22c55e", fontWeight:700, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{r.spent}</span></Td>
                 <Td><span style={{ color:"#64748b", fontSize:11 }}>{r.payment}</span></Td>
