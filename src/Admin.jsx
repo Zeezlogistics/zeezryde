@@ -489,6 +489,7 @@ export default function AdminApp() {
 
   const [search,  setSearch]  = useState("");
   const [modal,   setModal]   = useState(null);
+  const [docRefreshKey, setDocRefreshKey] = useState(0);
   const [toast,   setToast]   = useState(null);
   const [dFilter, setDFilter] = useState("all");
   const [rFilter, setRFilter] = useState("all");
@@ -591,6 +592,7 @@ export default function AdminApp() {
         if (drvErr) console.error("drivers delete error:", drvErr.message);
       }
       flash(ids.length + " driver" + (ids.length > 1 ? "s" : "") + " deleted");
+      setDocRefreshKey(k => k + 1);
     } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
   }
 
@@ -808,7 +810,7 @@ export default function AdminApp() {
           {page === "riders"    && <PageRiders viewOnly={viewOnly}    riders={riders}   search={search} filter={rFilter} setFilter={setRFilter} patchRider={patchRider}   setModal={setModal} />}
           {page === "trips"     && <PageTrips     trips={[...liveTrips.map(t => ({ id:t.id, rider:t.rider, driver:t.driver, from:t.origin, to:t.dest, fare:t.fare, status:t.status, time:t.time, rideType:t.rideType, _live:true })), ...ALL_TRIPS]} search={search} />}
           {page === "subs"      && <PageSubs      subs={ALL_SUBS}   drivers={drivers} />}
-          {page === "docs"      && <PageDocs viewOnly={viewOnly}       drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
+          {page === "docs"      && <PageDocs key={docRefreshKey} viewOnly={viewOnly} drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
           {page === "promos"    && <PagePromos viewOnly={viewOnly} promos={promos} setPromos={setPromos} />}
           {page === "zones"     && <PageZones     drivers={drivers} patchDriver={patchDriver} />}
           {page === "shuttle"   && <PageShuttle viewOnly={viewOnly} flash={flash} shuttleDrivers={shuttleDrivers} setShuttleDrivers={setShuttleDrivers} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} dispatchEmail={dispatchEmail} setDispatchEmail={setDispatchEmail} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
@@ -3061,10 +3063,12 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
   const [dbDocs,         setDbDocs]         = useState([]); // raw rows from driver_docs table
   const [loading,        setLoading]        = useState(true);
 
-  // Load all docs from Supabase
+  // Load all docs fresh on every mount
   useEffect(() => {
+    setLoading(true);
     _supabase.from("driver_docs").select("*").order("uploaded_at", { ascending:false })
-      .then(({ data }) => { setDbDocs(data||[]); setLoading(false); });
+      .then(({ data }) => { setDbDocs(data||[]); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   // Group docs by driver
