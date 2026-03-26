@@ -2564,29 +2564,38 @@ function DriverApp() {
   const missingDocs  = docs.filter(d=>d.status==="missing"||d.status==="rejected").length;
 
   useEffect(() => {
-    db.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        const role = data.session.user.user_metadata?.role;
-        if (role && role !== "driver") { db.auth.signOut(); setTimeout(() => go("login"), 1800); return; }
-        const u = data.session.user;
-        setUser(u); setName(u.user_metadata?.name||"");
-        db.from("drivers").select("vehicle,plate,vehicle_seats").eq("id", u.id).maybeSingle()
-          .then(({ data:dr }) => {
-            if (!dr) return;
-            if (dr.vehicle_seats) setVSeats(String(dr.vehicle_seats));
-            if (dr.vehicle)       setVeh(dr.vehicle);
-            if (dr.plate)         setPlate(dr.plate);
-          });
-        db.from("driver_docs").select("doc_key,status,url,uploaded_at").eq("driver_id", u.id)
-          .then(({ data:dbDocs }) => {
-            if (!dbDocs || !dbDocs.length) return;
-            setDocs(prev => prev.map(d => {
-              const found = dbDocs.find(r => r.doc_key === d.key);
-              return found ? { ...d, status:found.status, url:found.url, uploaded_at:found.uploaded_at } : d;
-            }));
-          });
-        go("dash");
-      } else setTimeout(() => go("login"), 1800);
+    db.auth.getSession().then(async ({ data }) => {
+      if (!data.session) { setTimeout(() => go("login"), 1800); return; }
+      const u = data.session.user;
+      const role = u.user_metadata?.role;
+      if (role && role !== "driver") { db.auth.signOut(); setTimeout(() => go("login"), 1800); return; }
+
+      setUser(u);
+      setName(u.user_metadata?.name || "");
+
+      // Load everything in one go — driver row + docs together
+      const [{ data: dr }, { data: dbDocs }] = await Promise.all([
+        db.from("drivers").select("vehicle,plate,vehicle_seats,status,sub_paid").eq("id", u.id).maybeSingle(),
+        db.from("driver_docs").select("doc_key,status,url,uploaded_at").eq("driver_id", u.id),
+      ]);
+
+      // Vehicle info
+      if (dr?.vehicle_seats) setVSeats(String(dr.vehicle_seats));
+      if (dr?.vehicle)       setVeh(dr.vehicle);
+      if (dr?.plate)         setPlate(dr.plate);
+
+      // Subscription — persisted in drivers.sub_paid column
+      if (dr?.sub_paid)      setSubPaid(true);
+
+      // Docs — map every DOC_TYPE key against what's in DB
+      if (dbDocs && dbDocs.length > 0) {
+        setDocs(prev => prev.map(d => {
+          const found = dbDocs.find(r => r.doc_key === d.key);
+          return found ? { ...d, status: found.status, url: found.url, uploaded_at: found.uploaded_at } : d;
+        }));
+      }
+
+      go("dash");
     }).catch(() => setTimeout(() => go("login"), 1800));
   }, []);
 
@@ -2694,6 +2703,14 @@ function DriverApp() {
 
   async function toggleOnline() {
     if (!subPaid) { setErr("Pay your weekly subscription first"); return; }
+    // Check driver status from DB — must be "active" (all docs approved by admin)
+    try {
+      const { data: dr } = await db.from("drivers").select("status").eq("id", user?.id).maybeSingle();
+      if (!dr || dr.status !== "active") {
+        setErr("Your account is not yet active. Ensure all documents are approved by admin.");
+        return;
+      }
+    } catch(_) {}
     const next = !online;
     setOnline(next); setErr("");
     try {
@@ -2942,7 +2959,11 @@ function DriverApp() {
                   <div style={{ marginTop:6, fontSize:11, color:RED, fontWeight:600 }}>{err}</div>
                 )}
               </div>
-        <BigBtn onClick={()=>{ setSubPaid(true); go("dash"); }} green>{"Pay CA$"+subFee+" and Activate"}</BigBtn>
+        <BigBtn onClick={async ()=>{
+          setSubPaid(true);
+          try { await db.from("drivers").update({ sub_paid:true }).eq("id", user?.id); } catch(_) {}
+          go("dash");
+        }} green>{"Pay CA$"+subFee+" and Activate"}</BigBtn>
         <p style={{ textAlign:"center", marginTop:10, fontSize:11, color:SLATE }}>
           <span onClick={()=>go("dash")} style={{ color:BLUE, cursor:"pointer" }}>Skip for now</span>
         </p>
@@ -3066,7 +3087,12 @@ function DriverApp() {
                   <span style={{ fontSize:20 }}>😴</span>
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"You are offline"}</div>
-                    <div style={{ fontSize:11, color:SLATE }}>{"Slide the car to go online"}</div>
+                    <div style={{ fontSize:11, color:SLATE }}>
+                      { !subPaid && missingDocs > 0 ? "Upload documents to get started"
+                      : !subPaid && pendingDocs > 0 ? "Awaiting document approval"
+                      : !subPaid ? "Pay subscription to go online"
+                      : "Slide the car to go online" }
+                    </div>
                   </div>
                   <button onClick={()=>{ if(!subPaid) go("subscription"); }}
                     style={{ background:subPaid?"#22c55e":"#ef4444", borderRadius:20, padding:"5px 12px",
