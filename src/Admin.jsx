@@ -570,7 +570,7 @@ export default function AdminApp() {
       }
       return updated;
     }));
-    try { (async () => { const sb = await getSupabase(); await sb.from("drivers").update(stampedDelta).eq("id", id); })(); } catch(_) {}
+    _supabase.from("drivers").update(stampedDelta).eq("id", id).then(({error})=>{ if(error) console.error("patchDriver:", error.message); });
     flash("Driver updated");
   }
 
@@ -643,13 +643,13 @@ export default function AdminApp() {
   );
   // Stats
   const completedTrips = ALL_TRIPS.filter(t => t.status === "completed");
-  const tripRev = completedTrips.reduce((s, t) => s + parseFloat(t.platform.replace("CA$", "") || 0), 0);
+  const tripRev = completedTrips.reduce((s, t) => s + parseFloat((t.platform||t.fare||"0").replace("CA$","") || 0), 0);
   const subRev  = ALL_SUBS.filter(s => s.status === "paid").length * 25;
   const totalRev = (tripRev + subRev).toFixed(2);
   const onlineCount = drivers.filter(d => d.online).length + (liveDriverOn ? 1 : 0); // +1 if Marcus (live demo) is online
   const todayTrips  = ALL_TRIPS.filter(t => t.date === "Mar 7 2026");
   const unpaidSubs  = ALL_SUBS.filter(s => s.status !== "paid").length;
-  const pendingDocs = drivers.reduce((n, d) => n + (d.docFiles||[]).filter(f => f.status === "pending").length, 0);
+  const pendingDocs = 0; // loaded dynamically in PageDocs from driver_docs table
 
   const NAV = [
     { id:"overview",  icon:"◈", label:"Overview"       },
@@ -1302,7 +1302,7 @@ function PageTrips({ trips, search }) {
   const done   = visible.filter(t => t.status === "completed");
   const canc   = visible.filter(t => t.status === "cancelled");
   const grossFare = done.reduce((s, t) => s + parseFloat(t.fare.replace("CA$","") || 0), 0);
-  const grossPlat = done.reduce((s, t) => s + parseFloat(t.platform.replace("CA$","") || 0), 0);
+  const grossPlat = done.reduce((s, t) => s + parseFloat((t.platform||t.fare||"0").replace("CA$","") || 0), 0);
 
   return (
     <div>
@@ -1342,7 +1342,7 @@ function PageTrips({ trips, search }) {
                 <Td><span style={{ color:"#64748b", fontSize:11 }}>{t.type}</span></Td>
                 <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.fare}</span></Td>
                 <Td><span style={{ color:"#22c55e", fontWeight:600, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.driverCut}</span></Td>
-                <Td><span style={{ color:"#a78bfa", fontWeight:600, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.platform}</span></Td>
+                <Td><span style={{ color:"#a78bfa", fontWeight:600, fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.platform||t.fare||"—"}</span></Td>
                 <Td><StatusBadge s={t.status} /></Td>
               </tr>
             ))}
@@ -2997,7 +2997,15 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
   async function approveDoc(row) {
     if (viewOnly) return;
     await _supabase.from("driver_docs").update({ status:"approved", note:"", reviewed_at:new Date().toISOString() }).eq("id", row.id);
-    setDbDocs(prev => prev.map(r => r.id===row.id ? {...r, status:"approved", note:""} : r));
+    const updatedDocs = dbDocs.map(r => r.id===row.id ? {...r, status:"approved", note:""} : r);
+    setDbDocs(updatedDocs);
+    // Check if ALL docs for this driver are now approved → auto-reinstate
+    const driverDocs = updatedDocs.filter(r => r.driver_id === row.driver_id);
+    const allApproved = driverDocs.length > 0 && driverDocs.every(r => r.status === "approved");
+    if (allApproved) {
+      await _supabase.from("drivers").update({ status:"active" }).eq("id", row.driver_id);
+      flash("✅ All documents approved — driver reinstated as Active");
+    }
   }
 
   async function rejectDoc(row, note) {
@@ -3743,7 +3751,7 @@ function AIPricingAdvisor({ trips, drivers, subs, currentSettings, pricingState,
 
   function buildContext() {
     const { completed, cancelled, grossFare, onlineN, activeN, cancelRate } = buildSnapshot();
-    const grossPlatform = completed.reduce((s,t) => s + parseFloat(t.platform?.replace("CA$","") || 0), 0);
+    const grossPlatform = completed.reduce((s,t) => s + parseFloat((t.platform||t.fare||"0").replace("CA$","") || 0), 0);
     const paidSubs      = subs.filter(s => s.status === "paid").length;
     const failedSubs    = subs.filter(s => s.status !== "paid").length;
     const avgRating     = (drivers.reduce((s,d) => s + d.rating, 0) / drivers.length).toFixed(2);
@@ -6126,7 +6134,7 @@ function PagePayment({ methods, setMethods, payouts, setPayouts, trips, subs, au
 
   const totalFares = trips.filter(t => t.status === "completed" && t.fare !== "—")
     .reduce((s, t) => s + parseFloat(t.fare.replace("CA$","")||0), 0);
-  const totalPlatform = trips.filter(t => t.status === "completed" && t.platform !== "—")
+  const totalPlatform = trips.filter(t => t.status === "completed")
     .reduce((s, t) => s + parseFloat(t.platform.replace("CA$","")||0), 0);
   const totalSubRev  = subs.filter(s => s.status === "paid").length * 25;
   const pendingPayouts = payouts.filter(p => p.status === "pending");
@@ -6657,7 +6665,7 @@ function PagePayment({ methods, setMethods, payouts, setPayouts, trips, subs, au
                       <Td><span style={{ color:"#cbd5e1", fontSize:12 }}>{t.rider}</span></Td>
                       <Td><span style={{ color:"#94a3b8", fontSize:12 }}>{t.driver}</span></Td>
                       <Td><span style={{ color:"#f0f9ff", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{t.fare}</span></Td>
-                      <Td><span style={{ color:"#a78bfa", fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.platform}</span></Td>
+                      <Td><span style={{ color:"#a78bfa", fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.platform||t.fare||"—"}</span></Td>
                       <Td><span style={{ color:"#60a5fa", fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{t.driverCut}</span></Td>
                       <Td muted>{t.date}</Td>
                       <Td><StatusBadge s={t.status} /></Td>
