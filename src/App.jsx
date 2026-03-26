@@ -613,11 +613,12 @@ function RiderApp() {
         : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
       const totalFare = withTax(liveFare).toFixed(2);
 
-      // Find an online driver matching seat requirement
-      const needsLarge = chosen.id === "friends"; // Friends = 7-seater preferred
-      let driverQuery = db.from("drivers").select("name,vehicle_seats").eq("online", true).eq("status","approved");
-      const { data: onlineDrivers } = await driverQuery;
+      // Find any online driver matching seat requirement
+      const { data: onlineDrivers, error: driverErr } = await db.from("drivers")
+        .select("name,vehicle_seats").eq("online", true);
+
       let driver = null;
+      const needsLarge = chosen.id === "friends";
       if (onlineDrivers && onlineDrivers.length > 0) {
         // For friends ride, prefer 7-seater but fall back to any available
         const matched = needsLarge
@@ -628,7 +629,7 @@ function RiderApp() {
 
       if (!driver) {
         setFinding(false);
-        setErr("No drivers available right now. Please try again shortly.");
+        setErr("No drivers available right now. Please try again.");
         go("dash");
         return;
       }
