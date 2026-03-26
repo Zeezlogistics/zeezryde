@@ -680,29 +680,31 @@ function RiderApp() {
 
       // Insert trip into Supabase — driver realtime listener picks this up
       const tripId = Date.now();
-      const { error } = await db.from("trips").insert({
+      const tripPayload = {
         rider_id: user?.id,
         rider: displayName,
         driver: driver.name,
-        driver_id: driver.id,
         origin: "Current Location",
         dest: dest.trim(),
         fare: totalFare,
-        "rideType": chosen.label,
-        seats: needsLarge ? 7 : 4,
+        rideType: chosen.label,
         status: "pending",
         requested_at: new Date().toISOString()
-      });
+      };
+      const { data: tripData, error } = await db.from("trips").insert(tripPayload).select().single();
+      if (error) {
+        console.error("Trip insert error:", JSON.stringify(error));
+        throw error;
+      }
 
-      if (error) throw error;
-
+      const insertedId = tripData?.id || String(Date.now());
       setLastFare(totalFare);
-      setTrips(h=>[{ id:tripId, dest:dest.trim(), type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA"), status:"pending" }, ...h]);
+      setTrips(h=>[{ id:insertedId, dest:dest.trim(), type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA"), status:"pending" }, ...h]);
 
       // Listen for driver to accept (status → completed)
-      const ch = db.channel("rider-trip-"+tripId)
+      const ch = db.channel("rider-trip-"+insertedId)
         .on("postgres_changes", { event:"UPDATE", schema:"public", table:"trips",
-          filter:`id=eq.${tripId}` }, (payload) => {
+          filter:`id=eq.${insertedId}` }, (payload) => {
             if (payload.new.status === "completed" || payload.new.status === "accepted") {
               db.removeChannel(ch);
               setFinding(false);
@@ -2607,7 +2609,7 @@ function DriverApp() {
     if (!online || !user) return;
     const ch = db.channel("driver-trips-"+user.id)
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"trips",
-        filter:`driver_id=eq.${user.id}` },
+        filter:`driver=eq.${displayName}` },
         (payload) => {
           const t = payload.new;
           if (t.status !== "pending") return;
