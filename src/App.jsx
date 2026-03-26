@@ -702,12 +702,18 @@ function RiderApp() {
       setLastFare(totalFare);
       setTrips(h=>[{ id:insertedId, dest:dest.trim(), type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA"), status:"pending" }, ...h]);
 
-      // Listen for driver to accept (status → completed)
+      // Listen for driver to accept or complete
       const ch = db.channel("rider-trip-"+insertedId)
         .on("postgres_changes", { event:"UPDATE", schema:"public", table:"trips",
           filter:`id=eq.${insertedId}` }, (payload) => {
-            if (payload.new.status === "completed" || payload.new.status === "accepted") {
+            const status = payload.new.status;
+            if (status === "accepted") {
+              // Driver accepted — stop finding spinner, show driver on the way
+              setFinding(false);
+              go("finding"); // stay on finding but update message
+            } else if (status === "completed") {
               db.removeChannel(ch);
+              clearTimeout(timeoutRef);
               setFinding(false);
               setPendingRate(true);
               setDest("");
@@ -716,14 +722,13 @@ function RiderApp() {
           })
         .subscribe();
 
-      // Auto-complete after 20s if no driver response (fallback)
-      setTimeout(() => {
+      // Cancel after 60s if no driver response
+      const timeoutRef = setTimeout(() => {
         db.removeChannel(ch);
         setFinding(false);
-        setPendingRate(true);
-        setDest("");
-        go("complete");
-      }, 20000);
+        setErr("No driver accepted your request. Please try again.");
+        go("dash");
+      }, 60000);
 
     } catch(e) {
       setFinding(false);
@@ -2537,6 +2542,8 @@ function DriverApp() {
   const [trips, setTrips]   = useState([]);
   const [earned, setEarned] = useState(0);
   const [inReq, setInReq]   = useState(null);
+  const [inRouteTrip, setInRouteTrip] = useState(null); // trip id currently in progress
+  const [lastFare, setLastFare] = useState("0.00");
   const [cdown, setCdown]   = useState(15);
   const [subPaid, setSubPaid] = useState(false);
   const [driverStatus, setDriverStatus] = useState("pending");
@@ -2627,7 +2634,7 @@ function DriverApp() {
         })
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [online, user]);
+  }, [online, user, dbName]);
 
   useEffect(() => {
     if (scr!=="request") return;
@@ -2794,19 +2801,19 @@ function DriverApp() {
     const fareNum = parseFloat((inReq.fare||"0").replace("CA$",""))||0;
     setTrips(t=>[{ id:inReq.id, dest:inReq.dest, fare:inReq.fare, type:inReq.type, date:new Date().toLocaleDateString("en-CA") }, ...t]);
     setEarned(e=>e+fareNum);
-    // UPDATE the existing trip row so rider's realtime listener fires
+    setInRouteTrip(inReq.id);
+    setLastFare(fareNum.toFixed(2));
+    // UPDATE trip — triggers rider's realtime listener
     try {
-      await db.from("trips").update({
-        driver_id: user?.id,
-        driver: displayName,
-        status: "completed",
+      const { error: updErr } = await db.from("trips").update({
+        status: "accepted",
         fare: fareNum.toFixed(2)
       }).eq("id", String(inReq.id));
-    } catch(_) {}
-    try { if(window.__zeezAdmin?.updateTrip) window.__zeezAdmin.updateTrip(inReq.id,{ status:"completed", driver:displayName }); } catch(_) {}
+      if (updErr) console.error("acceptRide update error:", updErr.message);
+    } catch(e) { console.error("acceptRide:", e); }
+    try { if(window.__zeezAdmin?.updateTrip) window.__zeezAdmin.updateTrip(inReq.id,{ status:"accepted", driver:displayName }); } catch(_) {}
     setInReq(null);
     go("enroute");
-    setTimeout(()=>go("dash"), 5000);
   }
 
   // SPLASH
@@ -3080,10 +3087,18 @@ function DriverApp() {
       <MapView height={180} riderMode={false} finding={true} />
       <div style={{ background:"rgba(37,99,235,0.12)", border:"1.5px solid "+GREEN, borderRadius:16, padding:"14px 32px", textAlign:"center" }}>
         <div style={{ color:LBLUE, fontSize:11, fontWeight:600 }}>EARNING</div>
-        <div style={{ color:GREEN, fontWeight:900, fontSize:30, fontFamily:"'Syne',sans-serif" }}>CA$9.40</div>
+        <div style={{ color:GREEN, fontWeight:900, fontSize:30, fontFamily:"'Syne',sans-serif" }}>{"CA$"+lastFare}</div>
       </div>
       <div style={{ width:"100%" }}>
-        <BigBtn onClick={()=>go("dash")} green>Complete Trip</BigBtn>
+        <BigBtn onClick={async ()=>{
+          // Mark trip completed in DB — triggers rider complete screen
+          if (inRouteTrip) {
+            try {
+              await db.from("trips").update({ status:"completed" }).eq("id", String(inRouteTrip));
+            } catch(e) { console.error("complete trip:", e); }
+          }
+          go("dash");
+        }} green>Complete Trip</BigBtn>
       </div>
     </div>
   );
