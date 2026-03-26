@@ -2724,7 +2724,7 @@ function DriverApp() {
         setDriverStatus(dr.status||"pending");
         if (dr.sub_paid) setSubPaid(true);
         if (dr.status !== "active") {
-          setErr("Your account status is "" + (dr.status||"pending") + "". Admin must approve all documents first.");
+          setErr("Account status: " + (dr.status||"pending") + ". Admin must approve all documents first.");
           return;
         }
       }
