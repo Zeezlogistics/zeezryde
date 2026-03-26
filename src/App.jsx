@@ -1259,7 +1259,7 @@ function RiderApp() {
           </div>
           {/* Bottom panel overlay */}
           <div style={{ position:"absolute", bottom:64, left:0, right:0, zIndex:10, padding:"0 16px 0" }}>
-            <div style={{ background:"rgba(219,234,254,0.97)", backdropFilter:"blur(12px)", borderRadius:"20px 20px 0 0", padding:"16px 16px 20px", boxShadow:"0 -4px 20px rgba(37,99,235,0.12)" }}>
+            <div style={{ background:"rgba(10,22,40,0.25)", borderRadius:"20px 20px 0 0", padding:"16px 16px 20px", border:"1px solid rgba(30,58,95,0.2)" }}>
               <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Choose ride</div>
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {RIDES.map(r=>{
@@ -2844,16 +2844,16 @@ function DriverApp() {
               {(()=>{ const today=new Date().toLocaleDateString("en-CA"); const todayTrips=trips.filter(t=>t.date===today); const todayEarned=todayTrips.reduce((s,t)=>s+parseFloat((t.fare||"0").replace("CA$","")),0); return (
               <div style={{ background:"rgba(10,22,40,0.25)",
                 borderRadius:14, padding:"8px 20px", textAlign:"center",
-                border:"1px solid rgba(255,255,255,0.15)" }}>
-                <div style={{ fontSize:8, fontWeight:700, color:"rgba(255,255,255,0.7)", letterSpacing:1.4,
+                border:"1px solid rgba(30,58,95,0.3)" }}>
+                <div style={{ fontSize:8, fontWeight:700, color:NAVY, letterSpacing:1.4,
                   textTransform:"uppercase", marginBottom:1 }}>{"Today"}</div>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:WHITE, lineHeight:1 }}>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:NAVY, lineHeight:1 }}>
                   {hideBalance ? "CA$ ****" : "CA$"+todayEarned.toFixed(2)}
                 </div>
-                <div style={{ fontSize:10, color:"rgba(255,255,255,0.7)", marginTop:2 }}>
+                <div style={{ fontSize:10, color:NAVY, marginTop:2 }}>
                   {todayTrips.length+" trip"+(todayTrips.length!==1?"s":"")+" · "}
                   <span onClick={()=>setHideBalance(h=>!h)}
-                    style={{ color:"rgba(255,255,255,0.9)", cursor:"pointer", fontWeight:700 }}>
+                    style={{ color:BLUE, cursor:"pointer", fontWeight:700 }}>
                     {hideBalance ? "show" : "hide"}
                   </span>
                 </div>
