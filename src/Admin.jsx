@@ -2972,51 +2972,51 @@ function DocStatusPill({ status }) {
 }
 
 function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
-  const [expandedDriver, setExpandedDriver] = useState(
-    // Auto-expand first driver with pending docs
-    drivers.find(d => d.docFiles?.some(f => f.status === "pending"))?.id || null
-  );
-  const [selectedDoc,    setSelectedDoc]    = useState(null); // { driverId, docIndex }
+  const [expandedDriver, setExpandedDriver] = useState(null);
+  const [selectedDoc,    setSelectedDoc]    = useState(null);
   const [filterStatus,   setFilterStatus]   = useState("all");
   const [rejectNote,     setRejectNote]     = useState("");
   const [rejectTarget,   setRejectTarget]   = useState(null);
+  const [dbDocs,         setDbDocs]         = useState([]); // raw rows from driver_docs table
+  const [loading,        setLoading]        = useState(true);
 
-  const selDriverObj = selectedDoc ? drivers.find(d => d.id === selectedDoc.driverId) : null;
-  const selDocObj    = selDriverObj ? selDriverObj.docFiles?.[selectedDoc.docIndex] : null;
+  // Load all docs from Supabase
+  useEffect(() => {
+    const sb = getSupabase();
+    sb.from("driver_docs").select("*").order("uploaded_at", { ascending:false })
+      .then(({ data }) => { setDbDocs(data||[]); setLoading(false); });
+  }, []);
 
-  function patchDoc(driverId, docIndex, patch) {
-    const d = drivers.find(d => d.id === driverId);
-    if (!d) return;
-    const newFiles = d.docFiles.map((f, i) => i === docIndex ? { ...f, ...patch } : f);
-    const statuses = newFiles.map(f => f.status);
-    const topDocs  = statuses.every(s => s === "approved") ? "approved" : "pending";
-    patchDriver(driverId, { docFiles: newFiles, docs: topDocs });
-    // Keep selection in sync
-    if (selectedDoc?.driverId === driverId && selectedDoc?.docIndex === docIndex) {
-      setSelectedDoc({ driverId, docIndex }); // force re-render
-    }
+  // Group docs by driver
+  const driverMap = {};
+  dbDocs.forEach(row => {
+    if (!driverMap[row.driver_id]) driverMap[row.driver_id] = { id:row.driver_id, name:row.driver_name||row.driver_id, docs:[] };
+    driverMap[row.driver_id].docs.push(row);
+  });
+  const driverList = Object.values(driverMap);
+
+  async function approveDoc(row) {
+    if (viewOnly) return;
+    const sb = getSupabase();
+    await sb.from("driver_docs").update({ status:"approved", note:"", reviewed_at:new Date().toISOString() }).eq("id", row.id);
+    setDbDocs(prev => prev.map(r => r.id===row.id ? {...r, status:"approved", note:""} : r));
   }
 
-  function approveDoc(driverId, docIndex) {
-    patchDoc(driverId, docIndex, { status:"approved", note:"" });
-  }
-  function approveAll(driverId) {
-    const d = drivers.find(d => d.id === driverId);
-    if (!d) return;
-    const newFiles = d.docFiles.map(f => f.status === "pending" ? { ...f, status:"approved", note:"" } : f);
-    patchDriver(driverId, { docFiles: newFiles, docs: newFiles.every(f => f.status==="approved") ? "approved" : "pending" });
+  async function rejectDoc(row, note) {
+    if (viewOnly) return;
+    const sb = getSupabase();
+    await sb.from("driver_docs").update({ status:"rejected", note, reviewed_at:new Date().toISOString() }).eq("id", row.id);
+    setDbDocs(prev => prev.map(r => r.id===row.id ? {...r, status:"rejected", note} : r));
+    setRejectTarget(null); setRejectNote("");
   }
 
-  const counts = drivers.reduce((acc, d) => {
-    (d.docFiles||[]).forEach(f => { acc[f.status] = (acc[f.status]||0) + 1; });
-    return acc;
-  }, {});
-  const totalPending = counts.pending || 0;
+  const counts = { pending:0, approved:0, rejected:0 };
+  dbDocs.forEach(r => { if (counts[r.status]!==undefined) counts[r.status]++; });
 
-  // Filter drivers to show
-  const visibleDrivers = filterStatus === "all"
-    ? drivers
-    : drivers.filter(d => (d.docFiles||[]).some(f => f.status === filterStatus));
+  const visibleDrivers = filterStatus==="all" ? driverList
+    : driverList.filter(d => d.docs.some(r => r.status===filterStatus));
+
+  const selDoc = selectedDoc ? dbDocs.find(r=>r.id===selectedDoc) : null;
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:0, height:"100%" }}>
@@ -3047,268 +3047,144 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
         ))}
       </div>
 
-      {/* ── Main layout: accordion list + doc viewer ── */}
-      <div style={{ display:"flex", gap:16, alignItems:"flex-start", flex:1, minHeight:0 }}>
+      {/* ── Main layout ── */}
+      {loading ? (
+        <div style={{ color:"#475569", textAlign:"center", padding:40 }}>Loading documents...</div>
+      ) : driverList.length === 0 ? (
+        <div style={{ color:"#475569", textAlign:"center", padding:40 }}>No documents uploaded yet.</div>
+      ) : (
+        <div style={{ display:"flex", gap:16, flex:1, minHeight:0 }}>
 
-        {/* ── LEFT: driver accordion ── */}
-        <div style={{ flex:"0 0 320px", display:"flex", flexDirection:"column", gap:0, background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, overflow:"hidden" }}>
-
-          {/* List header */}
-          <div style={{ padding:"11px 16px", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-            <span style={{ color:"rgba(148,163,184,0.4)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, fontWeight:700 }}>DRIVERS ({visibleDrivers.length})</span>
-            <div style={{ display:"flex", gap:4 }}>
-              {["all","pending","rejected"].map(s => (
-                <button key={s} onClick={() => setFilterStatus(f => f===s?"all":s)} style={{ padding:"2px 7px", borderRadius:3, border:`1px solid ${filterStatus===s?"rgba(59,130,246,0.4)":"rgba(99,179,237,0.08)"}`, background:filterStatus===s?"rgba(59,130,246,0.1)":"transparent", color:filterStatus===s?"#60a5fa":"#334155", fontSize:7, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", textTransform:"uppercase" }}>{s}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Driver rows */}
-          <div style={{ overflowY:"auto", maxHeight:680 }}>
-            {visibleDrivers.map(d => {
-              const isExpanded = expandedDriver === d.id;
-              const dPending   = (d.docFiles||[]).filter(f => f.status==="pending").length;
-              const dApproved  = (d.docFiles||[]).filter(f => f.status==="approved").length;
-              const dRejected  = (d.docFiles||[]).filter(f => f.status==="rejected").length;
-              const dTotal     = (d.docFiles||[]).length;
-              const allOk      = dApproved === dTotal && dTotal > 0;
-
-              return (
-                <div key={d.id} style={{ borderBottom:"1px solid rgba(99,179,237,0.06)" }}>
-
-                  {/* Driver row header */}
-                  <div
-                    onClick={() => {
-                      setExpandedDriver(v => v === d.id ? null : d.id);
-                      // Auto-select first pending doc when expanding
-                      if (expandedDriver !== d.id) {
-                        const firstPending = (d.docFiles||[]).findIndex(f => f.status === "pending");
-                        const firstIdx     = firstPending >= 0 ? firstPending : 0;
-                        if ((d.docFiles||[]).length > 0) setSelectedDoc({ driverId:d.id, docIndex:firstIdx });
-                      }
-                    }}
-                    style={{ padding:"11px 14px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:isExpanded?"rgba(59,130,246,0.05)":"transparent", transition:"background 0.12s" }}
-                  >
-                    <Avi name={d.name} seed={d.id} size={28} hue={220} />
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ color:"#cbd5e1", fontSize:12, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.name}</div>
-                      <div style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace", marginTop:1 }}>{d.vehicle}</div>
-                    </div>
-                    {/* Mini status dots */}
-                    <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
-                      {dPending  > 0 && <span style={{ background:"rgba(245,158,11,0.15)", color:"#f59e0b", borderRadius:10, padding:"1px 6px", fontSize:8, fontWeight:700 }}>{dPending}⏳</span>}
-                      {dRejected > 0 && <span style={{ background:"rgba(239,68,68,0.1)",  color:"#ef4444", borderRadius:10, padding:"1px 6px", fontSize:8, fontWeight:700 }}>{dRejected}✗</span>}
-                      {allOk         && <span style={{ color:"#22c55e", fontSize:11 }}>✓</span>}
-                    </div>
-                    <span style={{ color:"#334155", fontSize:10, transition:"transform 0.2s", display:"inline-block", transform:isExpanded?"rotate(90deg)":"rotate(0deg)" }}>›</span>
+          {/* LEFT: driver list */}
+          <div style={{ flex:"0 0 280px", display:"flex", flexDirection:"column", gap:8, overflowY:"auto" }}>
+            {visibleDrivers.map(d => (
+              <div key={d.id} style={{ background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:10, overflow:"hidden" }}>
+                <button onClick={()=>setExpandedDriver(p=>p===d.id?null:d.id)}
+                  style={{ width:"100%", background:"none", border:"none", padding:"12px 16px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", textAlign:"left" }}>
+                  <div style={{ width:32, height:32, borderRadius:"50%", background:"#1e293b", display:"flex", alignItems:"center", justifyContent:"center", color:"#60a5fa", fontWeight:700, fontSize:13 }}>
+                    {(d.name||"?")[0].toUpperCase()}
                   </div>
-
-                  {/* Expanded doc list */}
-                  {isExpanded && (
-                    <div style={{ background:"rgba(0,0,0,0.2)", borderTop:"1px solid rgba(99,179,237,0.05)" }}>
-                      {(d.docFiles||[]).map((f, i) => {
-                        const m       = DOC_META[f.status] || DOC_META.missing;
-                        const isSel   = selectedDoc?.driverId === d.id && selectedDoc?.docIndex === i;
-                        const expiring = f.expiresOn && new Date(f.expiresOn) < new Date(Date.now() + 30*24*60*60*1000);
-                        return (
-                          <div
-                            key={i}
-                            onClick={() => setSelectedDoc({ driverId:d.id, docIndex:i })}
-                            style={{ padding:"9px 14px 9px 22px", display:"flex", alignItems:"center", gap:9, cursor:"pointer", background:isSel?"rgba(59,130,246,0.1)":"transparent", borderLeft:isSel?"3px solid #3b82f6":"3px solid transparent", transition:"all 0.12s" }}
-                          >
-                            <span style={{ fontSize:15, flexShrink:0 }}>{DOC_ICONS[f.type]||"📄"}</span>
-                            <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ color:isSel?"#93c5fd":"#94a3b8", fontSize:11, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.type}</div>
-                              {f.expiresOn
-                                ? <div style={{ color:expiring?"#f59e0b":"#334155", fontSize:8, fontFamily:"'JetBrains Mono',monospace", marginTop:1 }}>
-                                    {expiring?"⚠ ":""}exp. {f.expiresOn}
-                                  </div>
-                                : <div style={{ color:"#1e293b", fontSize:8, marginTop:1 }}>no expiry set</div>
-                              }
-                            </div>
-                            <DocStatusPill status={f.status} />
-                          </div>
-                        );
-                      })}
-
-                      {/* Approve all pending shortcut */}
-                      {dPending > 0 && !viewOnly && (
-                        <div style={{ padding:"7px 14px 10px" }}>
-                          <button onClick={e => { e.stopPropagation(); approveAll(d.id); }} style={{ width:"100%", padding:"6px", borderRadius:6, background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.2)", color:"#22c55e", fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
-                            ✓ APPROVE ALL PENDING
-                          </button>
-                        </div>
-                      )}
+                  <div style={{ flex:1 }}>
+                    <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:600 }}>{d.name}</div>
+                    <div style={{ color:"#475569", fontSize:11, marginTop:1 }}>
+                      {d.docs.filter(r=>r.status==="pending").length} pending · {d.docs.filter(r=>r.status==="approved").length} approved
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  </div>
+                  <span style={{ color:"#475569", fontSize:10 }}>{expandedDriver===d.id?"▲":"▼"}</span>
+                </button>
+                {expandedDriver===d.id && (
+                  <div style={{ borderTop:"1px solid rgba(99,179,237,0.08)" }}>
+                    {d.docs.map(row => (
+                      <button key={row.id} onClick={()=>setSelectedDoc(row.id)}
+                        style={{ width:"100%", background:selectedDoc===row.id?"rgba(37,99,235,0.12)":"none",
+                          border:"none", borderBottom:"1px solid rgba(99,179,237,0.05)",
+                          padding:"10px 16px", display:"flex", alignItems:"center", gap:10,
+                          cursor:"pointer", textAlign:"left" }}>
+                        <span style={{ fontSize:11, color:row.status==="approved"?"#22c55e":row.status==="rejected"?"#ef4444":"#f59e0b", fontWeight:700 }}>
+                          {row.status==="approved"?"✓":row.status==="rejected"?"✗":"⏳"}
+                        </span>
+                        <span style={{ color:"#94a3b8", fontSize:12, flex:1 }}>{row.doc_label||row.doc_key}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
 
-        {/* ── RIGHT: doc viewer + actions ── */}
-        <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:12 }}>
-
-          {selDocObj && selDriverObj ? (() => {
-            const m          = DOC_META[selDocObj.status] || DOC_META.missing;
-            const isRejectOpen = rejectTarget !== null;
-            const expiring   = selDocObj.expiresOn && new Date(selDocObj.expiresOn) < new Date(Date.now() + 30*24*60*60*1000);
-            const expired    = selDocObj.expiresOn && new Date(selDocObj.expiresOn) < new Date();
-
-            return (
+          {/* RIGHT: doc viewer */}
+          <div style={{ flex:1, background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:10, padding:20, display:"flex", flexDirection:"column", gap:16 }}>
+            {!selDoc ? (
+              <div style={{ color:"#475569", textAlign:"center", paddingTop:60 }}>Select a document to review</div>
+            ) : (
               <>
-                {/* Doc viewer panel */}
-                <div style={{ background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, overflow:"hidden" }}>
-                  {/* Viewer header */}
-                  <div style={{ padding:"12px 16px", borderBottom:"1px solid rgba(99,179,237,0.08)", background:"rgba(59,130,246,0.04)", display:"flex", alignItems:"center", gap:10 }}>
-                    <span style={{ fontSize:18 }}>{DOC_ICONS[selDocObj.type]||"📄"}</span>
-                    <div style={{ flex:1 }}>
-                      <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:600 }}>{selDocObj.type}</div>
-                      <div style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace", marginTop:1 }}>{selDriverObj.name} · {selDriverObj.id}</div>
-                    </div>
-                    <DocStatusPill status={selDocObj.status} />
-                  </div>
-
-                  {/* Document preview */}
-                  <div style={{ padding:"16px", minHeight:360, display:"flex", flexDirection:"column" }}>
-                    <DocViewer doc={selDocObj} driverName={selDriverObj.name} driverVehicle={selDriverObj.vehicle} />
-                  </div>
-                </div>
-
-                {/* Actions + expiry panel */}
-                <div style={{ background:"#080c14", border:"1px solid rgba(99,179,237,0.1)", borderRadius:12, padding:"16px 18px", display:"flex", flexDirection:"column", gap:14 }}>
-
-                  {/* Approve / Reject */}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                   <div>
-                    <div style={{ color:"rgba(148,163,184,0.35)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, marginBottom:8 }}>VERIFICATION DECISION</div>
-                    {!viewOnly && <div style={{ display:"flex", gap:8 }}>
-                      <button
-                        onClick={() => approveDoc(selDriverObj.id, selectedDoc.docIndex)}
-                        disabled={selDocObj.status === "approved"}
-                        style={{ flex:1, padding:"10px", borderRadius:8, background:selDocObj.status==="approved"?"rgba(34,197,94,0.15)":"rgba(34,197,94,0.08)", border:`1px solid rgba(34,197,94,${selDocObj.status==="approved"?"0.4":"0.2"})`, color:"#22c55e", fontSize:11, fontWeight:700, cursor:selDocObj.status==="approved"?"default":"pointer", fontFamily:"'JetBrains Mono',monospace", opacity:selDocObj.status==="approved"?0.6:1 }}
-                      >
-                        {selDocObj.status === "approved" ? "✓ APPROVED" : "✓ APPROVE"}
-                      </button>
-                      <button
-                        onClick={() => setRejectTarget(v => v === null ? selectedDoc.docIndex : null)}
-                        disabled={selDocObj.status === "missing"}
-                        style={{ flex:1, padding:"10px", borderRadius:8, background:selDocObj.status==="rejected"?"rgba(239,68,68,0.15)":"rgba(239,68,68,0.07)", border:`1px solid rgba(239,68,68,${selDocObj.status==="rejected"?"0.35":"0.2"})`, color:"#ef4444", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}
-                      >
-                        {selDocObj.status === "rejected" ? "✗ REJECTED" : "✗ REJECT"}
-                      </button>
-                      {(selDocObj.status === "approved" || selDocObj.status === "rejected") && (
-                        <button onClick={() => patchDoc(selDriverObj.id, selectedDoc.docIndex, { status:"pending", note:"" })} style={{ padding:"10px 14px", borderRadius:8, background:"transparent", border:"1px solid rgba(99,179,237,0.12)", color:"#475569", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
-                          ↺ RESET
-                        </button>
-                      )}
-                    </div>}
-
-                    {/* Reject reason */}
-                    {isRejectOpen && (
-                      <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:7 }}>
-                        <textarea
-                          placeholder="Rejection reason — will be shown to the driver…"
-                          value={rejectNote} onChange={e => setRejectNote(e.target.value)}
-                          rows={2} autoFocus
-                          style={{ width:"100%", padding:"9px 11px", background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.25)", borderRadius:8, color:"#f87171", fontSize:11, fontFamily:"inherit", outline:"none", resize:"vertical", boxSizing:"border-box" }}
-                        />
-                        <div style={{ display:"flex", gap:7 }}>
-                          <button onClick={() => { patchDoc(selDriverObj.id, selectedDoc.docIndex, { status:"rejected", note: rejectNote || "Document rejected." }); setRejectTarget(null); setRejectNote(""); }} style={{ flex:1, padding:"8px", borderRadius:7, background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)", color:"#ef4444", fontSize:10, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
-                            CONFIRM REJECTION
-                          </button>
-                          <button onClick={() => { setRejectTarget(null); setRejectNote(""); }} style={{ padding:"8px 14px", borderRadius:7, background:"transparent", border:"1px solid rgba(99,179,237,0.1)", color:"#475569", fontSize:10, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
-                            CANCEL
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {selDocObj.note && (
-                      <div style={{ marginTop:8, padding:"8px 11px", background:"rgba(239,68,68,0.05)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:7 }}>
-                        <span style={{ color:"#475569", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>NOTE TO DRIVER: </span>
-                        <span style={{ color:"#f87171", fontSize:10 }}>{selDocObj.note}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Expiry date */}
-                  <div style={{ borderTop:"1px solid rgba(99,179,237,0.08)", paddingTop:14 }}>
-                    <div style={{ color:"rgba(148,163,246,0.35)", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, marginBottom:8 }}>DOCUMENT EXPIRY &amp; RENEWAL</div>
-                    <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
-                      <div style={{ flex:1 }}>
-                        <div style={{ color:"#475569", fontSize:10, marginBottom:5 }}>Expiration date — driver will be notified before this date</div>
-                        <input
-                          type="date"
-                          value={selDocObj.expiresOn || ""}
-                          onChange={e => patchDoc(selDriverObj.id, selectedDoc.docIndex, { expiresOn: e.target.value })}
-                          style={{ width:"100%", padding:"9px 12px", background:"#0d1220", border:`1px solid ${expired?"rgba(239,68,68,0.4)":expiring?"rgba(245,158,11,0.35)":"rgba(99,179,237,0.18)"}`, borderRadius:8, color:expired?"#ef4444":expiring?"#f59e0b":"#94a3b8", fontSize:13, fontFamily:"'JetBrains Mono',monospace", outline:"none", boxSizing:"border-box", cursor:"pointer" }}
-                        />
-                      </div>
-                      {selDocObj.expiresOn && (
-                        <button onClick={() => patchDoc(selDriverObj.id, selectedDoc.docIndex, { expiresOn:"" })} style={{ padding:"9px 12px", borderRadius:8, background:"transparent", border:"1px solid rgba(99,179,237,0.1)", color:"#334155", fontSize:10, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", flexShrink:0 }}>
-                          CLEAR
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Expiry status */}
-                    {selDocObj.expiresOn && (
-                      <div style={{ marginTop:8, padding:"8px 11px", background:expired?"rgba(239,68,68,0.07)":expiring?"rgba(245,158,11,0.07)":"rgba(34,197,94,0.06)", border:`1px solid ${expired?"rgba(239,68,68,0.2)":expiring?"rgba(245,158,11,0.2)":"rgba(34,197,94,0.15)"}`, borderRadius:7, display:"flex", alignItems:"center", gap:7 }}>
-                        <span style={{ fontSize:13 }}>{expired?"🔴":expiring?"🟡":"🟢"}</span>
-                        <div>
-                          <div style={{ color:expired?"#ef4444":expiring?"#f59e0b":"#22c55e", fontSize:11, fontWeight:600 }}>
-                            {expired ? "Document expired" : expiring ? "Expiring within 30 days" : "Valid"}
-                          </div>
-                          <div style={{ color:"#475569", fontSize:9, marginTop:1 }}>
-                            {expired ? "Driver must resubmit before going online" : expiring ? "Send renewal reminder to driver" : `Renews ${selDocObj.expiresOn}`}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Quick expiry presets */}
-                    <div style={{ marginTop:8 }}>
-                      <div style={{ color:"#1e293b", fontSize:8, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginBottom:5 }}>QUICK SET</div>
-                      <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-                        {[
-                          ["1 yr",  365],
-                          ["2 yr",  730],
-                          ["5 yr",  1825],
-                          ["6 mo",  180],
-                          ["3 mo",  90],
-                        ].map(([label, days]) => {
-                          const d = new Date();
-                          d.setDate(d.getDate() + days);
-                          const val = d.toISOString().split("T")[0];
-                          return (
-                            <button key={label} onClick={() => patchDoc(selDriverObj.id, selectedDoc.docIndex, { expiresOn: val })} style={{ padding:"4px 10px", borderRadius:5, border:"1px solid rgba(99,179,237,0.12)", background:"rgba(99,179,237,0.04)", color:"#475569", fontSize:9, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace", transition:"all 0.12s" }}
-                              onMouseEnter={e => { e.target.style.borderColor="rgba(99,179,237,0.3)"; e.target.style.color="#94a3b8"; }}
-                              onMouseLeave={e => { e.target.style.borderColor="rgba(99,179,237,0.12)"; e.target.style.color="#475569"; }}
-                            >
-                              +{label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    <div style={{ color:"#f0f9ff", fontWeight:700, fontSize:15 }}>{selDoc.doc_label||selDoc.doc_key}</div>
+                    <div style={{ color:"#475569", fontSize:12, marginTop:2 }}>
+                      {selDoc.driver_name} · Uploaded {selDoc.uploaded_at ? new Date(selDoc.uploaded_at).toLocaleDateString("en-CA") : "—"}
                     </div>
                   </div>
-
+                  <span style={{ fontSize:12, fontWeight:700, padding:"4px 12px", borderRadius:20,
+                    background:selDoc.status==="approved"?"rgba(34,197,94,0.15)":selDoc.status==="rejected"?"rgba(239,68,68,0.15)":"rgba(245,158,11,0.15)",
+                    color:selDoc.status==="approved"?"#22c55e":selDoc.status==="rejected"?"#ef4444":"#f59e0b" }}>
+                    {selDoc.status.toUpperCase()}
+                  </span>
                 </div>
+
+                {/* Doc image */}
+                {selDoc.url ? (
+                  <div style={{ flex:1, background:"#0d1117", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", minHeight:200, overflow:"hidden" }}>
+                    <img src={selDoc.url} alt={selDoc.doc_label} style={{ maxWidth:"100%", maxHeight:400, objectFit:"contain", borderRadius:6 }} />
+                  </div>
+                ) : (
+                  <div style={{ flex:1, background:"#0d1117", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", color:"#475569", minHeight:200 }}>
+                    No image available
+                  </div>
+                )}
+
+                {/* Reject note if rejected */}
+                {selDoc.status==="rejected" && selDoc.note && (
+                  <div style={{ background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8, padding:"10px 14px", color:"#fca5a5", fontSize:12 }}>
+                    Rejection note: {selDoc.note}
+                  </div>
+                )}
+
+                {/* Reject note input */}
+                {rejectTarget===selDoc.id && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    <textarea value={rejectNote} onChange={e=>setRejectNote(e.target.value)}
+                      placeholder="Reason for rejection..."
+                      style={{ background:"#0d1117", border:"1px solid rgba(239,68,68,0.3)", borderRadius:8, padding:"10px 12px", color:"#e2e8f0", fontSize:12, resize:"vertical", minHeight:70, outline:"none" }} />
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={()=>rejectDoc(selDoc, rejectNote)} disabled={viewOnly}
+                        style={{ flex:1, padding:"9px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                        Confirm Reject
+                      </button>
+                      <button onClick={()=>{setRejectTarget(null);setRejectNote("");}}
+                        style={{ padding:"9px 16px", borderRadius:8, border:"1px solid rgba(99,179,237,0.15)", background:"transparent", color:"#475569", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                {rejectTarget!==selDoc.id && (
+                  <div style={{ display:"flex", gap:10 }}>
+                    <button onClick={()=>approveDoc(selDoc)} disabled={viewOnly||selDoc.status==="approved"}
+                      style={{ flex:1, padding:"11px", borderRadius:8, border:"none",
+                        background:selDoc.status==="approved"?"#1a2e1a":"#22c55e",
+                        color:selDoc.status==="approved"?"#22c55e":"#fff",
+                        fontWeight:700, fontSize:13, cursor:selDoc.status==="approved"||viewOnly?"default":"pointer",
+                        opacity:viewOnly?0.5:1 }}>
+                      {selDoc.status==="approved" ? "✓ Approved" : "Approve"}
+                    </button>
+                    <button onClick={()=>setRejectTarget(selDoc.id)} disabled={viewOnly}
+                      style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(239,68,68,0.3)",
+                        background:"transparent", color:"#ef4444", fontWeight:700, fontSize:13,
+                        cursor:viewOnly?"default":"pointer", opacity:viewOnly?0.5:1 }}>
+                      Reject
+                    </button>
+                    {selDoc.url && (
+                      <a href={selDoc.url} target="_blank" rel="noopener noreferrer"
+                        style={{ padding:"11px 16px", borderRadius:8, border:"1px solid rgba(99,179,237,0.15)",
+                          background:"transparent", color:"#60a5fa", fontWeight:700, fontSize:13,
+                          textDecoration:"none", display:"flex", alignItems:"center" }}>
+                        ↗ Open
+                      </a>
+                    )}
+                  </div>
+                )}
               </>
-            );
-          })() : (
-            <div style={{ flex:1, background:"#080c14", border:"1px solid rgba(99,179,237,0.08)", borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, padding:40, minHeight:400 }}>
-              <div style={{ fontSize:36, opacity:0.3 }}>⊟</div>
-              <div style={{ color:"#334155", fontSize:13 }}>Select a driver and document to begin review</div>
-              <div style={{ color:"#1e293b", fontSize:10 }}>Expand a driver row on the left to see their uploaded files</div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
+
 
 function PageZones({ viewOnly, drivers, patchDriver }) {
   const [zones,          setZones]          = useState(INIT_ZONES);
