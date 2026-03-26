@@ -2689,6 +2689,10 @@ function DriverApp() {
       } else {
         resolvedUser = signUpData.user;
       }
+      // Clear any old docs from previous registration — fresh start
+      await db.from("driver_docs").delete().eq("driver_id", resolvedUser.id);
+      // Reset local docs state to all missing
+      setDocs(DOC_TYPES.map(d => ({ ...d, status:"missing", url:null })));
       // Upsert driver row — handles both fresh registration and re-registration after deletion
       const { error: insErr } = await db.from("drivers").upsert({
         id: resolvedUser.id,
