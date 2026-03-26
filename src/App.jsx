@@ -2670,7 +2670,7 @@ function DriverApp() {
       }
     }
     if (pass!==pc) { setErr("Passwords do not match"); return; }
-    if (pass.length<8) { setErr("Password needs 8+ characters\"); return; }
+    if (pass.length<8) { setErr("Password needs 8+ characters"); return; }
     setBusy(true); setErr("");
     try {
       let resolvedUser;
