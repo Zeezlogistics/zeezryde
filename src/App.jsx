@@ -557,6 +557,36 @@ function RiderApp() {
     }
   }
 
+  async function uploadDoc(docKey, file) {
+    if (!user || !file) return;
+    setDocUploading(docKey);
+    try {
+      // Upload file to Supabase Storage bucket "driver-docs"
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${docKey}_${Date.now()}.${ext}`;
+      const { error: upErr } = await db.storage.from("driver-docs").upload(path, file, { upsert:true });
+      if (upErr) throw upErr;
+      const { data: urlData } = db.storage.from("driver-docs").getPublicUrl(path);
+      const publicUrl = urlData?.publicUrl || null;
+      // Upsert into driver_docs table
+      await db.from("driver_docs").upsert({
+        driver_id: user.id,
+        driver_name: displayName,
+        doc_key: docKey,
+        doc_label: DOC_TYPES.find(d=>d.key===docKey)?.label || docKey,
+        status: "pending",
+        url: publicUrl,
+        uploaded_at: new Date().toISOString()
+      }, { onConflict: "driver_id,doc_key" });
+      // Update local state
+      setDocs(prev => prev.map(d => d.key===docKey ? {...d, status:"pending", url:publicUrl} : d));
+    } catch(e) {
+      console.error("Upload failed:", e);
+    } finally {
+      setDocUploading(null);
+    }
+  }
+
   async function doRegister() {
     if (!name||!email||!phone||!pass) { setErr("Please fill in all fields"); return; }
     if (pass!==pc) { setErr("Passwords do not match"); return; }
@@ -2498,7 +2528,8 @@ function DriverApp() {
   const [driverPromoCode, setDriverPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null); // full promo object from DB
-  const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing" })));
+  const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing", url:null })));
+  const [docUploading, setDocUploading] = useState(null); // key of doc being uploaded
 
   const go = (s) => { setErr(""); setScr(s); };
   const displayName = user?.user_metadata?.name||name||"Driver";
@@ -2530,6 +2561,14 @@ function DriverApp() {
             if (dr.vehicle_seats) setVSeats(String(dr.vehicle_seats));
             if (dr.vehicle)       setVeh(dr.vehicle);
             if (dr.plate)         setPlate(dr.plate);
+          });
+        db.from("driver_docs").select("doc_key,status,url").eq("driver_id", u.id)
+          .then(({ data:dbDocs }) => {
+            if (!dbDocs || !dbDocs.length) return;
+            setDocs(prev => prev.map(d => {
+              const found = dbDocs.find(r => r.doc_key === d.key);
+              return found ? { ...d, status:found.status, url:found.url } : d;
+            }));
           });
         go("dash");
       } else setTimeout(() => go("login"), 1800);
@@ -3064,10 +3103,22 @@ function DriverApp() {
                   <PillBadge label={d.status.charAt(0).toUpperCase()+d.status.slice(1)} color={d.status==="approved"?"green":d.status==="pending"?"yellow":"red"} />
                 </div>
               </div>
-              {d.status==="missing" && (
-                <button onClick={()=>setDocs(prev=>prev.map(doc=>doc.key===d.key?{...doc,status:"pending"}:doc))} style={{ background:VLIGHT, border:"1px solid "+BORDER, borderRadius:8, padding:"6px 12px", color:BLUE, fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                  Upload
-                </button>
+              {(d.status==="missing" || d.status==="rejected") && (
+                <label style={{ background:BLUE, border:"none", borderRadius:8, padding:"7px 13px",
+                  color:WHITE, fontSize:11, fontWeight:700, cursor:"pointer",
+                  opacity:docUploading===d.key?0.6:1, display:"flex", alignItems:"center", gap:5 }}>
+                  {docUploading===d.key ? "⏳" : "📷"}
+                  <span>{docUploading===d.key ? "Uploading..." : "Upload"}</span>
+                  <input type="file" accept="image/*" capture="environment"
+                    style={{ display:"none" }}
+                    disabled={!!docUploading}
+                    onChange={e=>{ const f=e.target.files?.[0]; if(f) uploadDoc(d.key,f); e.target.value=""; }} />
+                </label>
+              )}
+              {d.status==="pending" && d.url && (
+                <a href={d.url} target="_blank" rel="noopener noreferrer"
+                  style={{ background:"#eff6ff", border:"1px solid "+BORDER, borderRadius:8, padding:"6px 10px",
+                    color:BLUE, fontSize:11, fontWeight:700, textDecoration:"none" }}>👁 View</a>
               )}
             </Card>
           ))}
