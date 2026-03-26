@@ -237,6 +237,8 @@ export default function AdminApp() {
         getMinimumFare:    () => minimumFare,
         getSubFee:         () => subFee,
         getCommPct:        () => commPct,
+        getFamilyMult:     () => familyMult,
+        getFriendsMult:    () => friendsMult,
         // ── Enforcement & dispatch getters ───────────────────────────────────
         getCountdown:      () => countdown,
         getReqSub:         () => reqSub,
