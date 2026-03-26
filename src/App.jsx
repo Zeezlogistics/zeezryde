@@ -2862,16 +2862,16 @@ function DriverApp() {
             </div>
           </div>
 
-          {/* Status card — flush on tab bar, light blue */}
+          {/* Status card — flush on tab bar, transparent overlay */}
           <div style={{ position:"absolute", bottom:64, left:0, right:0, zIndex:51 }}>
             {err && <div style={{ padding:"0 16px 6px" }}><Err msg={err} /></div>}
-            <div style={{ background:"#dbeafe", borderTop:"1.5px solid #bfdbfe",
+            <div style={{ background:"rgba(10,22,40,0.25)",
               borderRadius:"20px 20px 0 0", padding:"14px 20px 14px",
-              boxShadow:"0 -4px 20px rgba(37,99,235,0.12)" }}>
+              border:"1px solid rgba(30,58,95,0.2)" }}>
               {online ? (
                 <div style={{ display:"flex", alignItems:"center", gap:10,
-                  background:"#eff6ff", borderRadius:12, padding:"10px 14px",
-                  border:"1px solid #bfdbfe" }}>
+                  background:"rgba(10,22,40,0.25)", borderRadius:12, padding:"10px 14px",
+                  border:"1px solid rgba(30,58,95,0.2)" }}>
                   <span style={{ fontSize:20, animation:"pulse 1.5s ease infinite" }}>📡</span>
                   <div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"Waiting for ride requests"}</div>
@@ -2880,8 +2880,8 @@ function DriverApp() {
                 </div>
               ) : (
                 <div style={{ display:"flex", alignItems:"center", gap:10,
-                  background:"#eff6ff", borderRadius:12, padding:"10px 14px",
-                  border:"1px solid #bfdbfe" }}>
+                  background:"rgba(10,22,40,0.25)", borderRadius:12, padding:"10px 14px",
+                  border:"1px solid rgba(30,58,95,0.2)" }}>
                   <span style={{ fontSize:20 }}>😴</span>
                   <div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:12, color:NAVY }}>{"You are offline"}</div>
