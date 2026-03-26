@@ -2610,10 +2610,25 @@ function DriverApp() {
         }));
       }
 
+      // Register service worker and request push permission
+      registerServiceWorker().then(() => requestNotificationPermission());
       go("dash");
     }).catch(() => setTimeout(() => go("login"), 1800));
   }, []);
 
+
+  // Listen for notification tap from service worker
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const handler = (e) => {
+      if (e.data?.type === "TRIP_REQUEST" && e.data.trip) {
+        setInReq(e.data.trip);
+        go("request");
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+  }, []);
 
   useEffect(() => {
     if (!online || !user) return;
@@ -2627,9 +2642,15 @@ function DriverApp() {
           if (t.status !== "pending") return;
           const isFriends = (t.rideType||"").toLowerCase().includes("friend");
           if (parseInt(vSeats) === 4 && isFriends) return;
-          setInReq({ id:t.id, rider:t.rider||"Rider", dest:t.dest||"Unknown",
+          const tripReq = { id:t.id, rider:t.rider||"Rider", dest:t.dest||"Unknown",
             fare:"CA$"+(t.fare||"0"), type:t.rideType||"Family",
-            origin:t.origin||"", distance:"" });
+            origin:t.origin||"", distance:"" };
+          setInReq(tripReq);
+          showLocalNotification(
+            "🚗 New Trip Request",
+            "Rider: " + (t.rider||"Rider") + " — " + (t.dest||"Unknown") + " | " + "CA$"+(t.fare||"0"),
+            tripReq
+          );
           go("request");
         })
       .subscribe();
