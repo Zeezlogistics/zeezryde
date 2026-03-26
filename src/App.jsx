@@ -659,7 +659,7 @@ function RiderApp() {
 
       // Find any online driver matching seat requirement
       const { data: onlineDrivers, error: driverErr } = await db.from("drivers")
-        .select("name,vehicle_seats").eq("online", true);
+        .select("id,name,vehicle_seats").eq("online", true);
 
       let driver = null;
       const needsLarge = chosen.id === "friends";
@@ -685,6 +685,7 @@ function RiderApp() {
         rider_id: user?.id,
         rider: displayName,
         driver: driver.name,
+        driver_id: driver.id,
         origin: "Current Location",
         dest: dest.trim(),
         fare: totalFare,
@@ -2576,7 +2577,7 @@ function DriverApp() {
 
       // Load everything in one go — driver row + docs together
       const [{ data: dr }, { data: dbDocs }] = await Promise.all([
-        db.from("drivers").select("vehicle,plate,vehicle_seats,status,sub_paid").eq("id", u.id).maybeSingle(),
+        db.from("drivers").select("vehicle,plate,vehicle_seats,status,sub_paid,online").eq("id", u.id).maybeSingle(),
         db.from("driver_docs").select("doc_key,status,url,uploaded_at").eq("driver_id", u.id),
       ]);
 
@@ -2588,6 +2589,7 @@ function DriverApp() {
       // Subscription — persisted in drivers.sub_paid column
       if (dr?.sub_paid)      setSubPaid(true);
       if (dr?.status)        setDriverStatus(dr.status);
+      if (dr?.online)        setOnline(true);
 
       // Docs — map every DOC_TYPE key against what's in DB
       if (dbDocs && dbDocs.length > 0) {
@@ -2603,14 +2605,13 @@ function DriverApp() {
 
 
   useEffect(() => {
-    if (!online || !subPaid || !user) return;
+    if (!online || !user) return;
     const ch = db.channel("driver-trips-"+user.id)
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"trips",
-        filter:`driver=eq.${displayName}` },
+        filter:`driver_id=eq.${user.id}` },
         (payload) => {
           const t = payload.new;
           if (t.status !== "pending") return;
-          // Seat filtering: 4-seater skips 7-seat (Friends) requests
           const isFriends = (t.rideType||"").toLowerCase().includes("friend");
           if (parseInt(vSeats) === 4 && isFriends) return;
           setInReq({ id:t.id, rider:t.rider||"Rider", dest:t.dest||"Unknown",
@@ -2620,7 +2621,7 @@ function DriverApp() {
         })
       .subscribe();
     return () => db.removeChannel(ch);
-  }, [online, subPaid, user]);
+  }, [online, user]);
 
   useEffect(() => {
     if (scr!=="request") return;
