@@ -806,8 +806,8 @@ export default function AdminApp() {
         <main style={{ flex:1, overflowY:"auto", padding:"24px 28px 40px" }}>
           {page === "overview"  && <PageOverview  drivers={drivers} trips={ALL_TRIPS} subs={ALL_SUBS} onlineCount={onlineCount} totalRev={totalRev} tripRev={tripRev} subRev={subRev} todayTrips={todayTrips} maxDrivers={MAX_DRIVERS}
               setDrivers={setDrivers} setRiders={setRiders} setTrips={setLiveTrips} setAllSubs={() => {}} />}
-          {page === "drivers"   && <PageDrivers viewOnly={viewOnly}   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS}  setDrivers={setDrivers} />}
-          {page === "riders"    && <PageRiders viewOnly={viewOnly}    riders={riders}   search={search} filter={rFilter} setFilter={setRFilter} patchRider={patchRider}   setModal={setModal} />}
+          {page === "drivers"   && <PageDrivers viewOnly={viewOnly}   drivers={drivers} search={search} filter={dFilter} setFilter={setDFilter} patchDriver={patchDriver} setModal={setModal} maxDrivers={MAX_DRIVERS} setDrivers={setDrivers} deleteDrivers={deleteDrivers} />}
+          {page === "riders"    && <PageRiders viewOnly={viewOnly}    riders={riders}   search={search} filter={rFilter} setFilter={setRFilter} patchRider={patchRider}   setModal={setModal} deleteRiders={deleteRiders} setRiders={setRiders} />}
           {page === "trips"     && <PageTrips     trips={[...liveTrips.map(t => ({ id:t.id, rider:t.rider, driver:t.driver, from:t.origin, to:t.dest, fare:t.fare, status:t.status, time:t.time, rideType:t.rideType, _live:true })), ...ALL_TRIPS]} search={search} />}
           {page === "subs"      && <PageSubs      subs={ALL_SUBS}   drivers={drivers} />}
           {page === "docs"      && <PageDocs key={docRefreshKey} viewOnly={viewOnly} drivers={drivers} patchDriver={patchDriver} setModal={setModal} />}
