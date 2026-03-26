@@ -580,6 +580,25 @@ export default function AdminApp() {
     flash("Rider updated");
   }
 
+  async function deleteDriver(id, name) {
+    if (!window.confirm("Permanently delete driver " + name + "? This cannot be undone.")) return;
+    setDrivers(prev => prev.filter(d => d.id !== id));
+    try {
+      await _supabase.from("driver_docs").delete().eq("driver_id", id);
+      await _supabase.from("drivers").delete().eq("id", id);
+      flash("Driver deleted");
+    } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
+  }
+
+  async function deleteRider(id, name) {
+    if (!window.confirm("Permanently delete rider " + name + "? This cannot be undone.")) return;
+    setRiders(prev => prev.filter(r => r.id !== id));
+    try {
+      await _supabase.from("riders").delete().eq("id", id);
+      flash("Rider deleted");
+    } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
+  }
+
 
   if (!authed) return (
     <div style={{ minHeight:"100vh", background:"#080e1a", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -667,27 +686,7 @@ export default function AdminApp() {
   { id:"users",     icon:"👤", label:"Users"            },
   ];
 
-  const DeleteDialog = deleteConfirm ? React.createElement("div",
-    { style:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center" }, onClick:()=>setDeleteConfirm(null) },
-    React.createElement("div",
-      { style:{ background:"#0f172a", border:"1px solid rgba(239,68,68,0.4)", borderRadius:16, padding:32, width:340, boxShadow:"0 25px 50px rgba(0,0,0,0.6)" }, onClick:e=>e.stopPropagation() },
-      React.createElement("div", { style:{ fontSize:28, textAlign:"center", marginBottom:12 } }, "🗑️"),
-      React.createElement("div", { style:{ color:"#f0f9ff", fontWeight:700, fontSize:16, textAlign:"center", marginBottom:8 } },
-        "Delete " + (deleteConfirm.type==="driver"?"Driver":"Rider") + "?"
-      ),
-      React.createElement("div", { style:{ color:"#94a3b8", fontSize:13, textAlign:"center", marginBottom:24, lineHeight:1.5 } },
-        "Permanently delete ", React.createElement("strong",{style:{color:"#f0f9ff"}}, deleteConfirm.name), " and all their data? This cannot be undone."
-      ),
-      React.createElement("div", { style:{ display:"flex", gap:10 } },
-        React.createElement("button", { onClick:()=>setDeleteConfirm(null), style:{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(99,179,237,0.2)", background:"transparent", color:"#94a3b8", fontWeight:700, fontSize:13, cursor:"pointer" } }, "Cancel"),
-        React.createElement("button", { onClick:()=>{ deleteConfirm.type==="driver"?deleteDriver(deleteConfirm.id):deleteRider(deleteConfirm.id); }, style:{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" } }, "Delete Permanently")
-      )
-    )
-  ) : null;
-
   return (<AdminErrorBoundary>
-    <>
-    {DeleteDialog}
     <div style={{ display:"flex", height:"100vh", overflow:"hidden", background:"#080c14", fontFamily:"'Space Grotesk',sans-serif", color:"#e2e8f0" }}>
       <Styles />
 
@@ -825,7 +824,6 @@ export default function AdminApp() {
         </div>
       )}
     </div>
-    </>
   </AdminErrorBoundary>);
 }
 
@@ -1057,12 +1055,13 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
                 <Td><span style={{ color:"#f59e0b", fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>★ {d.rating.toFixed(2)}</span></Td>
                 <Td><span style={{ color:"#e2e8f0", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{d.trips.toLocaleString()}</span></Td>
                 <Td>
-                  <div style={{ display:"flex", gap:5 }}>
+                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     <ActBtn onClick={() => setModal({ type:"driver", data:d })}>View</ActBtn>
                     {!viewOnly && (d.status === "active"
                       ? <ActBtn danger onClick={() => patchDriver(d.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchDriver(d.id, { status:"active" })}>Reinstate</ActBtn>
                     )}
+                    {!viewOnly && <ActBtn danger onClick={() => deleteDriver(d.id, d.name||d.email||"this driver")}>Delete</ActBtn>}
                   </div>
                 </Td>
               </tr>
@@ -1295,12 +1294,13 @@ function PageRiders({ viewOnly, riders, search, filter, setFilter, patchRider, s
                 <Td><span style={{ color:"#64748b", fontSize:11 }}>{r.payment}</span></Td>
                 <Td><span style={{ color:"#334155", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>{r.joined}</span></Td>
                 <Td>
-                  <div style={{ display:"flex", gap:5 }}>
+                  <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     <ActBtn onClick={() => setModal({ type:"rider", data:r })}>View</ActBtn>
                     {!viewOnly && (r.status === "active"
                       ? <ActBtn danger onClick={() => patchRider(r.id, { status:"suspended" })}>Suspend</ActBtn>
                       : <ActBtn success onClick={() => patchRider(r.id, { status:"active" })}>Reinstate</ActBtn>
                     )}
+                    {!viewOnly && <ActBtn danger onClick={() => deleteRider(r.id, r.name||r.email||"this rider")}>Delete</ActBtn>}
                   </div>
                 </Td>
               </tr>
