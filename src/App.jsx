@@ -567,28 +567,35 @@ function RiderApp() {
   async function uploadDoc(docKey, file) {
     if (!user || !file) return;
     setDocUploading(docKey);
+    // Immediately show pending in UI
+    setDocs(prev => prev.map(d => d.key===docKey ? {...d, status:"pending"} : d));
     try {
-      // Upload file to Supabase Storage bucket "driver-docs"
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `${user.id}/${docKey}_${Date.now()}.${ext}`;
-      const { error: upErr } = await db.storage.from("driver-docs").upload(path, file, { upsert:true });
-      if (upErr) throw upErr;
-      const { data: urlData } = db.storage.from("driver-docs").getPublicUrl(path);
-      const publicUrl = urlData?.publicUrl || null;
-      // Upsert into driver_docs table
-      await db.from("driver_docs").upsert({
-        driver_id: user.id,
+      // Convert file to base64 data URL — no storage bucket needed
+      const dataUrl = await new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload  = () => res(reader.result);
+        reader.onerror = () => rej(new Error("Read failed"));
+        reader.readAsDataURL(file);
+      });
+      // Upsert into driver_docs table with base64 url
+      const { error } = await db.from("driver_docs").upsert({
+        driver_id:   user.id,
         driver_name: displayName,
-        doc_key: docKey,
-        doc_label: DOC_TYPES.find(d=>d.key===docKey)?.label || docKey,
-        status: "pending",
-        url: publicUrl,
+        doc_key:     docKey,
+        doc_label:   DOC_TYPES.find(d=>d.key===docKey)?.label || docKey,
+        status:      "pending",
+        url:         dataUrl,
         uploaded_at: new Date().toISOString()
       }, { onConflict: "driver_id,doc_key" });
-      // Update local state
-      setDocs(prev => prev.map(d => d.key===docKey ? {...d, status:"pending", url:publicUrl, uploaded_at:new Date().toISOString()} : d));
+      if (error) throw error;
+      setDocs(prev => prev.map(d => d.key===docKey
+        ? {...d, status:"pending", url:dataUrl, uploaded_at:new Date().toISOString()}
+        : d));
     } catch(e) {
       console.error("Upload failed:", e);
+      // Revert pending if failed
+      setDocs(prev => prev.map(d => d.key===docKey && d.status==="pending" && !d.url
+        ? {...d, status:"missing"} : d));
     } finally {
       setDocUploading(null);
     }
