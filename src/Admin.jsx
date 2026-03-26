@@ -2982,8 +2982,7 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
 
   // Load all docs from Supabase
   useEffect(() => {
-    const sb = getSupabase();
-    sb.from("driver_docs").select("*").order("uploaded_at", { ascending:false })
+    _supabase.from("driver_docs").select("*").order("uploaded_at", { ascending:false })
       .then(({ data }) => { setDbDocs(data||[]); setLoading(false); });
   }, []);
 
@@ -2997,15 +2996,13 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
 
   async function approveDoc(row) {
     if (viewOnly) return;
-    const sb = getSupabase();
-    await sb.from("driver_docs").update({ status:"approved", note:"", reviewed_at:new Date().toISOString() }).eq("id", row.id);
+    await _supabase.from("driver_docs").update({ status:"approved", note:"", reviewed_at:new Date().toISOString() }).eq("id", row.id);
     setDbDocs(prev => prev.map(r => r.id===row.id ? {...r, status:"approved", note:""} : r));
   }
 
   async function rejectDoc(row, note) {
     if (viewOnly) return;
-    const sb = getSupabase();
-    await sb.from("driver_docs").update({ status:"rejected", note, reviewed_at:new Date().toISOString() }).eq("id", row.id);
+    await _supabase.from("driver_docs").update({ status:"rejected", note, reviewed_at:new Date().toISOString() }).eq("id", row.id);
     setDbDocs(prev => prev.map(r => r.id===row.id ? {...r, status:"rejected", note} : r));
     setRejectTarget(null); setRejectNote("");
   }
