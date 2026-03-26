@@ -92,17 +92,24 @@ const DEMO_TRIPS = [
   { id:"ST-003", route:"McMaster to Downtown Hamilton",      depart_date:"2026-03-22", depart_time:"07:30", vehicle_type:"3-seater", seats_total:3, seats_booked:1, booked_seats:["B3"], fare_per_seat:12, status:"scheduled" },
 ];
 const DOC_TYPES = [
-  { key: "licence",     label: "Driver Licence (Ontario Class G)" },
-  { key: "abstract",    label: "Abstract (3-Year Driver Record)" },
-  { key: "criminal",    label: "Criminal Background Check" },
-  { key: "reg",         label: "Vehicle Registration" },
-  { key: "insurance",   label: "Automobile Insurance (rideshare)" },
-  { key: "safety",      label: "Vehicle Safety Inspection" },
-  { key: "tnc_driver",  label: "Niagara Region TNC Driver Licence" },
-  { key: "tnc_vehicle", label: "Niagara Region TNC Vehicle Permit" },
-  { key: "work",        label: "Proof of Work Eligibility" },
-  { key: "photo",       label: "Profile Photo" },
+  { key: "licence",     label: "Driver Licence (Ontario Class G)",      expires: false },
+  { key: "abstract",    label: "Abstract (3-Year Driver Record)",        expires: true  },
+  { key: "criminal",    label: "Criminal Background Check",             expires: true  },
+  { key: "reg",         label: "Vehicle Registration",                  expires: true  },
+  { key: "insurance",   label: "Automobile Insurance (rideshare)",       expires: true  },
+  { key: "safety",      label: "Vehicle Safety Inspection",             expires: true  },
+  { key: "tnc_driver",  label: "Niagara Region TNC Driver Licence",     expires: true  },
+  { key: "tnc_vehicle", label: "Niagara Region TNC Vehicle Permit",     expires: true  },
+  { key: "work",        label: "Proof of Work Eligibility",             expires: false },
+  { key: "photo",       label: "Profile Photo",                         expires: false },
 ];
+function docIsExpired(doc) {
+  if (!doc.expires || !doc.uploaded_at) return false;
+  const uploaded = new Date(doc.uploaded_at);
+  const now = new Date();
+  const diffDays = (now - uploaded) / (1000 * 60 * 60 * 24);
+  return diffDays > 365;
+}
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const NAVY   = "#1e3a5f";
@@ -579,7 +586,7 @@ function RiderApp() {
         uploaded_at: new Date().toISOString()
       }, { onConflict: "driver_id,doc_key" });
       // Update local state
-      setDocs(prev => prev.map(d => d.key===docKey ? {...d, status:"pending", url:publicUrl} : d));
+      setDocs(prev => prev.map(d => d.key===docKey ? {...d, status:"pending", url:publicUrl, uploaded_at:new Date().toISOString()} : d));
     } catch(e) {
       console.error("Upload failed:", e);
     } finally {
@@ -2530,6 +2537,7 @@ function DriverApp() {
   const [appliedPromo, setAppliedPromo] = useState(null); // full promo object from DB
   const [docs, setDocs]     = useState(DOC_TYPES.map(d=>({ ...d, status:"missing", url:null })));
   const [docUploading, setDocUploading] = useState(null); // key of doc being uploaded
+  const [docPicker,    setDocPicker]    = useState(null); // key of doc showing camera/gallery picker
 
   const go = (s) => { setErr(""); setScr(s); };
   const displayName = user?.user_metadata?.name||name||"Driver";
@@ -2562,12 +2570,12 @@ function DriverApp() {
             if (dr.vehicle)       setVeh(dr.vehicle);
             if (dr.plate)         setPlate(dr.plate);
           });
-        db.from("driver_docs").select("doc_key,status,url").eq("driver_id", u.id)
+        db.from("driver_docs").select("doc_key,status,url,uploaded_at").eq("driver_id", u.id)
           .then(({ data:dbDocs }) => {
             if (!dbDocs || !dbDocs.length) return;
             setDocs(prev => prev.map(d => {
               const found = dbDocs.find(r => r.doc_key === d.key);
-              return found ? { ...d, status:found.status, url:found.url } : d;
+              return found ? { ...d, status:found.status, url:found.url, uploaded_at:found.uploaded_at } : d;
             }));
           });
         go("dash");
@@ -3095,33 +3103,77 @@ function DriverApp() {
               </Card>
             ))}
           </div>
-          {docs.map(d=>(
-            <Card key={d.key} style={{ marginBottom:8, display:"flex", alignItems:"center", gap:12, padding:"11px 14px" }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:12, fontWeight:600, color:NAVY }}>{d.label}</div>
-                <div style={{ marginTop:4 }}>
-                  <PillBadge label={d.status.charAt(0).toUpperCase()+d.status.slice(1)} color={d.status==="approved"?"green":d.status==="pending"?"yellow":"red"} />
+          {/* Hidden file inputs — one camera, one gallery */}
+          <input id="doc-camera" type="file" accept="image/*" capture="environment" style={{ display:"none" }}
+            onChange={e=>{ const f=e.target.files?.[0]; if(f&&docPicker) uploadDoc(docPicker,f); e.target.value=""; setDocPicker(null); }} />
+          <input id="doc-gallery" type="file" accept="image/*" style={{ display:"none" }}
+            onChange={e=>{ const f=e.target.files?.[0]; if(f&&docPicker) uploadDoc(docPicker,f); e.target.value=""; setDocPicker(null); }} />
+
+          {docs.map(d=>{
+            const expired = docIsExpired(d) && d.status==="approved";
+            const needsUpload = d.status==="missing" || d.status==="rejected" || expired;
+            const displayStatus = expired ? "expired" : d.status;
+            const badgeColor = displayStatus==="approved"?"green":displayStatus==="pending"?"yellow":displayStatus==="expired"?"red":"red";
+            const badgeLabel = displayStatus.charAt(0).toUpperCase()+displayStatus.slice(1);
+            const expType = DOC_TYPES.find(t=>t.key===d.key);
+            return (
+              <Card key={d.key} style={{ marginBottom:8, padding:"11px 14px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:NAVY }}>{d.label}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4, flexWrap:"wrap" }}>
+                      <PillBadge label={badgeLabel} color={badgeColor} />
+                      {expType?.expires && d.status==="approved" && !expired && (
+                        <span style={{ fontSize:9, color:SLATE, letterSpacing:0.5 }}>Renews annually</span>
+                      )}
+                      {expired && (
+                        <span style={{ fontSize:9, color:"#ef4444", fontWeight:700 }}>⚠️ Renewal required</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    {docUploading===d.key ? (
+                      <div style={{ background:VLIGHT, borderRadius:8, padding:"7px 12px", fontSize:11, color:BLUE, fontWeight:700 }}>⏳ Uploading...</div>
+                    ) : needsUpload ? (
+                      <button onClick={()=>setDocPicker(d.key)}
+                        style={{ background:BLUE, border:"none", borderRadius:8, padding:"7px 13px",
+                          color:WHITE, fontSize:11, fontWeight:700, cursor:"pointer",
+                          display:"flex", alignItems:"center", gap:5 }}>
+                        📎 Upload
+                      </button>
+                    ) : null}
+                    {d.url && (
+                      <a href={d.url} target="_blank" rel="noopener noreferrer"
+                        style={{ background:VLIGHT, border:"1px solid "+BORDER, borderRadius:8, padding:"6px 10px",
+                          color:BLUE, fontSize:11, fontWeight:700, textDecoration:"none" }}>👁</a>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {(d.status==="missing" || d.status==="rejected") && (
-                <label style={{ background:BLUE, border:"none", borderRadius:8, padding:"7px 13px",
-                  color:WHITE, fontSize:11, fontWeight:700, cursor:"pointer",
-                  opacity:docUploading===d.key?0.6:1, display:"flex", alignItems:"center", gap:5 }}>
-                  {docUploading===d.key ? "⏳" : "📷"}
-                  <span>{docUploading===d.key ? "Uploading..." : "Upload"}</span>
-                  <input type="file" accept="image/*" capture="environment"
-                    style={{ display:"none" }}
-                    disabled={!!docUploading}
-                    onChange={e=>{ const f=e.target.files?.[0]; if(f) uploadDoc(d.key,f); e.target.value=""; }} />
-                </label>
-              )}
-              {d.status==="pending" && d.url && (
-                <a href={d.url} target="_blank" rel="noopener noreferrer"
-                  style={{ background:"#eff6ff", border:"1px solid "+BORDER, borderRadius:8, padding:"6px 10px",
-                    color:BLUE, fontSize:11, fontWeight:700, textDecoration:"none" }}>👁 View</a>
-              )}
-            </Card>
-          ))}
+                {/* Picker bottom sheet */}
+                {docPicker===d.key && (
+                  <div style={{ marginTop:12, background:VLIGHT, borderRadius:10, padding:"12px", display:"flex", gap:10 }}>
+                    <button onClick={()=>{ document.getElementById("doc-camera").click(); }}
+                      style={{ flex:1, padding:"10px", borderRadius:8, border:"1.5px solid "+BORDER,
+                        background:WHITE, cursor:"pointer", fontSize:12, fontWeight:700, color:NAVY,
+                        display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                      <span style={{ fontSize:22 }}>📷</span>
+                      <span>Take Photo</span>
+                    </button>
+                    <button onClick={()=>{ document.getElementById("doc-gallery").click(); }}
+                      style={{ flex:1, padding:"10px", borderRadius:8, border:"1.5px solid "+BORDER,
+                        background:WHITE, cursor:"pointer", fontSize:12, fontWeight:700, color:NAVY,
+                        display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                      <span style={{ fontSize:22 }}>🖼️</span>
+                      <span>Choose from Gallery</span>
+                    </button>
+                    <button onClick={()=>setDocPicker(null)}
+                      style={{ padding:"10px 12px", borderRadius:8, border:"none",
+                        background:"none", cursor:"pointer", fontSize:18, color:SLATE }}>✕</button>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 
