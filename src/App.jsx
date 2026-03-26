@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+åimport React, { useState, useEffect, useRef } from "react";
 import AdminApp from "./Admin";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
@@ -2667,6 +2667,43 @@ function DriverApp() {
     if (dOtpValue.length < 4) { setDOtpError("Enter the 4-digit code"); return; }
     if (dOtpValue === "1234" || dOtpValue.length === 4) { go("dash"); }
     else { setDOtpError("Invalid code. Try again."); }
+  }
+
+  async function uploadDoc(docKey, file) {
+    if (!user || !file) return;
+    setDocUploading(docKey);
+    // Immediately show pending in UI
+    setDocs(prev => prev.map(d => d.key===docKey ? {...d, status:"pending"} : d));
+    try {
+      // Convert file to base64 data URL — no storage bucket needed
+      const dataUrl = await new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload  = () => res(reader.result);
+        reader.onerror = () => rej(new Error("Read failed"));
+        reader.readAsDataURL(file);
+      });
+      // Upsert into driver_docs table with base64 url
+      const { error } = await db.from("driver_docs").upsert({
+        driver_id:   user.id,
+        driver_name: displayName,
+        doc_key:     docKey,
+        doc_label:   DOC_TYPES.find(d=>d.key===docKey)?.label || docKey,
+        status:      "pending",
+        url:         dataUrl,
+        uploaded_at: new Date().toISOString()
+      }, { onConflict: "driver_id,doc_key" });
+      if (error) throw error;
+      setDocs(prev => prev.map(d => d.key===docKey
+        ? {...d, status:"pending", url:dataUrl, uploaded_at:new Date().toISOString()}
+        : d));
+    } catch(e) {
+      console.error("Upload failed:", e);
+      // Revert pending if failed
+      setDocs(prev => prev.map(d => d.key===docKey && d.status==="pending" && !d.url
+        ? {...d, status:"missing"} : d));
+    } finally {
+      setDocUploading(null);
+    }
   }
 
   async function doRegister() {
