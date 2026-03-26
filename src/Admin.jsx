@@ -1048,12 +1048,12 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
                   </div>
                 </Td>
                 <Td>
-                  <span style={{ background:d.subPaid?"rgba(34,197,94,0.08)":"rgba(239,68,68,0.08)", border:`1px solid ${d.subPaid?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"}`, color:d.subPaid?"#22c55e":"#ef4444", fontSize:9, fontWeight:700, padding:"2px 8px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
-                    {d.subPaid ? "PAID" : "UNPAID"}
+                  <span style={{ background:(d.subPaid||d.sub_paid)?"rgba(34,197,94,0.08)":"rgba(239,68,68,0.08)", border:`1px solid ${(d.subPaid||d.sub_paid)?"rgba(34,197,94,0.2)":"rgba(239,68,68,0.2)"}`, color:(d.subPaid||d.sub_paid)?"#22c55e":"#ef4444", fontSize:9, fontWeight:700, padding:"2px 8px", borderRadius:4, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
+                    {(d.subPaid||d.sub_paid) ? "PAID" : "UNPAID"}
                   </span>
                 </Td>
                 <Td><span style={{ color:"#f59e0b", fontWeight:700, fontSize:12, fontFamily:"'JetBrains Mono',monospace" }}>★ {d.rating.toFixed(2)}</span></Td>
-                <Td><span style={{ color:"#e2e8f0", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{d.trips.toLocaleString()}</span></Td>
+                <Td><span style={{ color:"#e2e8f0", fontWeight:600, fontFamily:"'JetBrains Mono',monospace" }}>{(d.trips||0).toLocaleString()}</span></Td>
                 <Td>
                   <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                     <ActBtn onClick={() => setModal({ type:"driver", data:d })}>View</ActBtn>
@@ -4194,24 +4194,25 @@ function Modal({ viewOnly, modal, setModal, patchDriver, patchRider }) {
   }
 
   function patchDoc(docIndex, patch) {
-    const newFiles = d.docFiles.map((f, i) => i === docIndex ? { ...f, ...patch } : f);
+    const newFiles = (d.docFiles||[]).map((f, i) => i === docIndex ? { ...f, ...patch } : f);
     const statuses = newFiles.map(f => f.status);
     let topDocs = statuses.every(s => s === "approved") ? "approved" : "pending";
     patchDriver(d.id, { docFiles: newFiles, docs: topDocs });
   }
 
-  const driverVehWarning = isDriver ? vehicleYearWarning(d.vehicleYear) : null;
+  const driverVehWarning = isDriver ? vehicleYearWarning(d.vehicleYear||"") : null;
   const fields = isDriver ? [
-    ["EMAIL", d.email], ["PHONE", d.phone], ["CITY", d.city],
-    ["VEHICLE", d.vehicle + (d.vehicleYear ? "" : "")], ["PLATE", d.plate], ["JOINED", d.joined],
-    ["DOCUMENTS", d.docs.toUpperCase()], ["SUB STATUS", d.subPaid ? "PAID ✓" : "UNPAID ✗"],
-    ["SUB RENEWS", d.subDue], ["THIS WEEK", d.weekEarned],
+    ["EMAIL", d.email||"—"], ["PHONE", d.phone||"—"], ["STATUS", d.status||"pending"],
+    ["VEHICLE", (d.vehicle||"Not set") + (d.plate ? " · "+d.plate : "")],
+    ["SEATS", (d.vehicle_seats||4)+"-seater"], ["JOINED", d.joined||d.created_at?.slice(0,10)||"—"],
+    ["DOCUMENTS", (d.docs||"pending").toUpperCase()],
+    ["SUB STATUS", d.sub_paid ? "PAID ✓" : "UNPAID ✗"],
   ] : [
-    ["EMAIL", d.email], ["PHONE", d.phone], ["JOINED", d.joined],
-    ["PAYMENT", d.payment], ["TOTAL TRIPS", d.trips], ["TOTAL SPENT", d.spent],
+    ["EMAIL", d.email||"—"], ["PHONE", d.phone||"—"], ["JOINED", d.joined||d.created_at?.slice(0,10)||"—"],
+    ["PAYMENT", d.payment||"—"], ["TOTAL TRIPS", d.trips||0], ["STATUS", d.status||"active"],
   ];
 
-  const pendingDocCount = isDriver ? (d.docFiles||[]).filter(f => f.status === "pending").length : 0;
+  const pendingDocCount = 0; // docs now in driver_docs table
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:500, padding:20 }} onClick={() => setModal(null)}>
@@ -4235,7 +4236,7 @@ function Modal({ viewOnly, modal, setModal, patchDriver, patchRider }) {
         {/* Stats bar for drivers */}
         {isDriver && (
           <div style={{ padding:"14px 22px", borderBottom:"1px solid rgba(99,179,237,0.08)", display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
-            {[["RATING",`★ ${d.rating.toFixed(2)}`,"#f59e0b"],["TOTAL TRIPS",d.trips.toLocaleString(),"#3b82f6"],["THIS WEEK",d.weekEarned,"#22c55e"]].map(([l,v,c])=>(
+            {[["RATING",`★ ${(d.rating||0).toFixed(2)}`,"#f59e0b"],["TOTAL TRIPS",d.trips.toLocaleString(),"#3b82f6"],["THIS WEEK",d.weekEarned||"CA$0.00","#22c55e"]].map(([l,v,c])=>(
               <div key={l} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(99,179,237,0.07)", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
                 <div style={{ color:c, fontSize:18, fontWeight:700, fontFamily:"'JetBrains Mono',monospace" }}>{v}</div>
                 <div style={{ color:"#1e293b", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginTop:3 }}>{l}</div>
@@ -4272,11 +4273,11 @@ function Modal({ viewOnly, modal, setModal, patchDriver, patchRider }) {
             </div>
           {/* Vehicle age warning in profile tab */}
           {driverVehWarning && (
-            <div style={{ marginTop:12, background: d.vehicleYear < MIN_VEHICLE_YEAR ? "rgba(239,68,68,0.07)" : "rgba(245,158,11,0.07)", border: d.vehicleYear < MIN_VEHICLE_YEAR ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(245,158,11,0.25)", borderRadius:9, padding:"10px 13px", display:"flex", alignItems:"flex-start", gap:9 }}>
-              <span style={{ fontSize:15 }}>{d.vehicleYear < MIN_VEHICLE_YEAR ? "🚫" : "⚠️"}</span>
+            <div style={{ marginTop:12, background: (d.vehicleYear||9999) < MIN_VEHICLE_YEAR ? "rgba(239,68,68,0.07)" : "rgba(245,158,11,0.07)", border: (d.vehicleYear||9999) < MIN_VEHICLE_YEAR ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(245,158,11,0.25)", borderRadius:9, padding:"10px 13px", display:"flex", alignItems:"flex-start", gap:9 }}>
+              <span style={{ fontSize:15 }}>{(d.vehicleYear||9999) < MIN_VEHICLE_YEAR ? "🚫" : "⚠️"}</span>
               <div>
-                <div style={{ color: d.vehicleYear < MIN_VEHICLE_YEAR ? "#ef4444" : "#f59e0b", fontSize:11, fontWeight:700, marginBottom:2 }}>
-                  {d.vehicleYear < MIN_VEHICLE_YEAR ? `Vehicle Over ${MAX_VEHICLE_AGE} Years Old` : "Vehicle Approaching Age Limit"}
+                <div style={{ color: (d.vehicleYear||9999) < MIN_VEHICLE_YEAR ? "#ef4444" : "#f59e0b", fontSize:11, fontWeight:700, marginBottom:2 }}>
+                  {(d.vehicleYear||9999) < MIN_VEHICLE_YEAR ? `Vehicle Over ${MAX_VEHICLE_AGE} Years Old` : "Vehicle Approaching Age Limit"}
                 </div>
                 <div style={{ color:"#64748b", fontSize:10 }}>{driverVehWarning}</div>
               </div>
