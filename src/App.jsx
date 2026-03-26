@@ -2417,6 +2417,7 @@ function DriverApp() {
   const [vModel, setVModel] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
   const [plate, setPlate]   = useState("");
+  const [vSeats, setVSeats] = useState("4");
   const [pc, setPc]         = useState("");
   const [err, setErr]       = useState("");
   const [busy, setBusy]     = useState(false);
@@ -2457,11 +2458,35 @@ function DriverApp() {
       if (data.session) {
         const role = data.session.user.user_metadata?.role;
         if (role && role !== "driver") { db.auth.signOut(); setTimeout(() => go("login"), 1800); return; }
-        setUser(data.session.user); setName(data.session.user.user_metadata?.name||""); go("dash");
+        const u = data.session.user;
+        setUser(u); setName(u.user_metadata?.name||"");
+        db.from("drivers").select("vehicle_seats").eq("id", u.id).maybeSingle()
+          .then(({ data:dr }) => { if (dr?.vehicle_seats) setVSeats(String(dr.vehicle_seats)); });
+        go("dash");
       } else setTimeout(() => go("login"), 1800);
     }).catch(() => setTimeout(() => go("login"), 1800));
   }, []);
 
+
+  useEffect(() => {
+    if (!online || !subPaid || !user) return;
+    const ch = db.channel("driver-trips-"+user.id)
+      .on("postgres_changes", { event:"INSERT", schema:"public", table:"trips",
+        filter:`driver=eq.${displayName}` },
+        (payload) => {
+          const t = payload.new;
+          if (t.status !== "pending") return;
+          // Seat filtering: 4-seater skips 7-seat (Friends) requests
+          const isFriends = (t.rideType||"").toLowerCase().includes("friend");
+          if (parseInt(vSeats) === 4 && isFriends) return;
+          setInReq({ id:t.id, rider:t.rider||"Rider", dest:t.dest||"Unknown",
+            fare:"CA$"+(t.fare||"0"), type:t.rideType||"Family",
+            origin:t.origin||"", distance:"" });
+          go("request");
+        })
+      .subscribe();
+    return () => db.removeChannel(ch);
+  }, [online, subPaid, user]);
 
   useEffect(() => {
     if (scr!=="request") return;
@@ -2530,7 +2555,7 @@ function DriverApp() {
       // Check not already a driver
       const { data: existingDriver } = await db.from("drivers").select("id").eq("id", resolvedUser.id).maybeSingle();
       if (existingDriver) throw new Error("You are already registered as a driver.");
-      const { error: insErr } = await db.from("drivers").insert({ id:resolvedUser.id, name, email, phone:phone||null, vehicle:(vMake&&vModel?vMake+" "+vModel:vehicle)||null, plate:plate||null, status:"pending", joined:new Date().toISOString().slice(0,10), created_at:new Date().toISOString() });
+      const { error: insErr } = await db.from("drivers").insert({ id:resolvedUser.id, name, email, phone:phone||null, vehicle:(vMake&&vModel?vMake+" "+vModel:vehicle)||null, plate:plate||null, vehicle_seats:parseInt(vSeats)||4, status:"pending", joined:new Date().toISOString().slice(0,10), created_at:new Date().toISOString() });
       if (insErr) { console.error("Driver insert error:", insErr); throw new Error(insErr.message || "Could not save driver profile. Please try again."); }
       setUser(resolvedUser); setDOtpSent(true); setDOtpValue(""); setDOtpError("");
       go("dotp");
@@ -2661,6 +2686,26 @@ function DriverApp() {
             </select>
           </div>
           <Input label="License Plate" value={plate} onChange={e=>setPlate(e.target.value)} placeholder="ABCD 123" />
+          {/* Seat Capacity */}
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Vehicle Seating Capacity *</div>
+            <div style={{ display:"flex", gap:10 }}>
+              {[["4","🚗","4-Seater","4 passengers"],["7","🚐","7-Seater","7 passengers"]].map(([val,icon,label,sub])=>(
+                <button key={val} type="button" onClick={()=>setVSeats(val)}
+                  style={{ flex:1, padding:"12px 8px", borderRadius:12, textAlign:"center",
+                    border:"2px solid "+(vSeats===val ? BLUE : BORDER),
+                    background:vSeats===val ? VLIGHT : WHITE,
+                    cursor:"pointer", transition:"all 0.15s" }}>
+                  <div style={{ fontSize:22, marginBottom:3 }}>{icon}</div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:12, color:NAVY }}>{label}</div>
+                  <div style={{ fontSize:10, color:SLATE, marginTop:2 }}>{sub}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize:10, color:SLATE, marginTop:8, background:VLIGHT, borderRadius:8, padding:"6px 10px", lineHeight:1.5 }}>
+              {"ℹ️ 4-seater receives standard requests only. 7-seater receives all requests including large groups."}
+            </div>
+          </div>
         </div>
         {/* Security */}
         <div style={{ background:"#eff6ff", borderRadius:16, padding:"16px", marginBottom:14, border:"1px solid "+BORDER }}>
