@@ -657,9 +657,10 @@ function RiderApp() {
         : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
       const totalFare = withTax(liveFare).toFixed(2);
 
-      // Find any online driver matching seat requirement
+      // Find any online driver — use neq false to include null values
       const { data: onlineDrivers, error: driverErr } = await db.from("drivers")
-        .select("id,name,vehicle_seats").eq("online", true);
+        .select("id,name,vehicle_seats,online").neq("online", false);
+      console.log("Online drivers found:", onlineDrivers?.length, onlineDrivers, driverErr);
 
       let driver = null;
       const needsLarge = chosen.id === "friends";
@@ -2521,6 +2522,7 @@ function DriverApp() {
   const [email, setEmail]   = useState("");
   const [pass, setPass]     = useState("");
   const [name, setName]     = useState("");
+  const [dbName, setDbName] = useState(""); // name as stored in drivers table
   const [phone, setPhone]   = useState("");
   const [vehicle, setVeh]   = useState("");
   const [vMake, setVMake]   = useState("");
@@ -2578,13 +2580,14 @@ function DriverApp() {
 
       // Load everything in one go — driver row + docs together
       const [{ data: dr }, { data: dbDocs }] = await Promise.all([
-        db.from("drivers").select("vehicle,plate,vehicle_seats,status,sub_paid,online").eq("id", u.id).maybeSingle(),
+        db.from("drivers").select("vehicle,plate,vehicle_seats,status,sub_paid,online,name").eq("id", u.id).maybeSingle(),
         db.from("driver_docs").select("doc_key,status,url,uploaded_at").eq("driver_id", u.id),
       ]);
 
       // Vehicle info
       if (dr?.vehicle_seats) setVSeats(String(dr.vehicle_seats));
       if (dr?.vehicle)       setVeh(dr.vehicle);
+      if (dr?.name)          setDbName(dr.name);
       if (dr?.plate)         setPlate(dr.plate);
 
       // Subscription — persisted in drivers.sub_paid column
@@ -2607,9 +2610,11 @@ function DriverApp() {
 
   useEffect(() => {
     if (!online || !user) return;
+    const driverNameFilter = dbName || displayName;
+    console.log("Realtime filter: driver=eq." + driverNameFilter);
     const ch = db.channel("driver-trips-"+user.id)
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"trips",
-        filter:`driver=eq.${displayName}` },
+        filter:`driver=eq.${driverNameFilter}` },
         (payload) => {
           const t = payload.new;
           if (t.status !== "pending") return;
