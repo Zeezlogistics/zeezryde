@@ -3110,6 +3110,50 @@ function DriverApp() {
               </Card>
             ))}
           </div>
+          {/* Seed test docs button */}
+          {docs.every(d=>d.status==="missing") && (
+            <button onClick={async ()=>{
+              if (!user) return;
+              setDocUploading("__seed__");
+              try {
+                // Generate a simple placeholder image as base64
+                function makePlaceholderB64(label) {
+                  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='260'>
+                    <rect width='400' height='260' fill='#dbeafe'/>
+                    <rect x='20' y='20' width='360' height='220' rx='12' fill='white' stroke='#93c5fd' stroke-width='2'/>
+                    <text x='200' y='90' font-family='sans-serif' font-size='36' fill='#1e3a5f' text-anchor='middle'>📄</text>
+                    <text x='200' y='130' font-family='sans-serif' font-size='13' fill='#1e40af' text-anchor='middle' font-weight='bold'>${label.slice(0,38)}</text>
+                    <text x='200' y='155' font-family='sans-serif' font-size='11' fill='#64748b' text-anchor='middle'>TEST DOCUMENT — FOR REVIEW ONLY</text>
+                    <text x='200' y='200' font-family='sans-serif' font-size='10' fill='#94a3b8' text-anchor='middle'>${displayName} · ${new Date().toLocaleDateString("en-CA")}</text>
+                  </svg>`;
+                  return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+                }
+                const now = new Date().toISOString();
+                const rows = DOC_TYPES.map(dt => ({
+                  driver_id:   user.id,
+                  driver_name: displayName,
+                  doc_key:     dt.key,
+                  doc_label:   dt.label,
+                  status:      "pending",
+                  url:         makePlaceholderB64(dt.label),
+                  uploaded_at: now
+                }));
+                const { error } = await db.from("driver_docs").upsert(rows, { onConflict:"driver_id,doc_key" });
+                if (error) throw error;
+                setDocs(prev => prev.map(d => ({
+                  ...d, status:"pending",
+                  url: rows.find(r=>r.doc_key===d.key)?.url,
+                  uploaded_at: now
+                })));
+              } catch(e) { console.error("Seed failed:", e); }
+              finally { setDocUploading(null); }
+            }}
+            style={{ width:"100%", marginBottom:14, padding:"12px", borderRadius:12,
+              border:"2px dashed "+BORDER, background:VLIGHT, cursor:"pointer",
+              color:BLUE, fontWeight:700, fontSize:13, fontFamily:"'Syne',sans-serif" }}>
+            {docUploading==="__seed__" ? "⏳ Uploading test docs..." : "🧪 Upload Test Documents (all 10)"}
+          </button>
+          )}
           {/* Hidden file inputs — one camera, one gallery */}
           <input id="doc-camera" type="file" accept="image/*" capture="environment" style={{ display:"none" }}
             onChange={e=>{ const f=e.target.files?.[0]; if(f&&docPicker) uploadDoc(docPicker,f); e.target.value=""; setDocPicker(null); }} />
