@@ -261,18 +261,19 @@ function LoadDots() {
 }
 // ─── GOOGLE MAPS LIVE ─────────────────────────────────────────────────────────
 const GMAPS_KEY = "AIzaSyB1eGrT5_aKggEVZ-xt6HPG6jbO5x9l7kE";
-let gmapsLoaded = false;
-let gmapsCallbacks = [];
-function loadGoogleMaps(cb) {
-  if (window.google?.maps) { cb(); return; }
-  gmapsCallbacks.push(cb);
-  if (gmapsLoaded) return;
-  gmapsLoaded = true;
-  window.__gmapsReady = () => gmapsCallbacks.forEach(fn => fn());
-  const s = document.createElement("script");
-  s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&callback=__gmapsReady`;
-  s.async = true; s.defer = true;
-  document.head.appendChild(s);
+let gmapsPromise = null;
+function loadGoogleMaps() {
+  if (gmapsPromise) return gmapsPromise;
+  if (window.google?.maps) { gmapsPromise = Promise.resolve(); return gmapsPromise; }
+  gmapsPromise = new Promise((resolve, reject) => {
+    window.__gmapsReady = resolve;
+    const s = document.createElement("script");
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&libraries=geometry&callback=__gmapsReady&loading=async`;
+    s.async = true;
+    s.onerror = (e) => { console.error("Google Maps load error:", e); reject(e); };
+    document.head.appendChild(s);
+  });
+  return gmapsPromise;
 }
 
 function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, finding }) {
@@ -287,7 +288,9 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
   const centerLng = driverLng || riderLng || -79.8711;
 
   useEffect(() => {
-    loadGoogleMaps(() => setReady(true));
+    loadGoogleMaps()
+      .then(() => setReady(true))
+      .catch(e => console.error("Maps failed:", e));
   }, []);
 
   useEffect(() => {
