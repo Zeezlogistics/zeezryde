@@ -3013,6 +3013,7 @@ function DriverApp() {
   const [vehicleYear, setVehicleYear] = useState("");
   const [plate, setPlate]   = useState("");
   const [vSeats, setVSeats] = useState("4");
+  const [vColor, setVColor] = useState("White");
   const [pc, setPc]         = useState("");
   const [err, setErr]       = useState("");
   const [busy, setBusy]     = useState(false);
@@ -3323,6 +3324,7 @@ function DriverApp() {
         name, email,
         phone: phone||null,
         vehicle: (vMake&&vModel?vMake+" "+vModel:vehicle)||null,
+        vehicle_color: vColor||null,
         plate: plate||null,
         vehicle_seats: parseInt(vSeats)||4,
         status: "pending",
@@ -3491,6 +3493,28 @@ function DriverApp() {
             </select>
           </div>
           <Input label="License Plate" value={plate} onChange={e=>setPlate(e.target.value)} placeholder="ABCD 123" />
+          {/* Vehicle Color */}
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Vehicle Color</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:6 }}>
+              {VEHICLE_COLORS.map(c=>(
+                <button key={c.name} type="button" onClick={()=>setVColor(c.name)}
+                  title={c.name}
+                  style={{ width:34, height:34, borderRadius:10, background:c.hex,
+                    border:"3px solid "+(vColor===c.name?"#2563eb":c.border),
+                    cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+                    boxShadow:vColor===c.name?"0 0 0 2px #2563eb, 0 2px 8px rgba(0,0,0,0.15)":"0 1px 3px rgba(0,0,0,0.1)",
+                    transition:"all 0.15s" }}>
+                  {vColor===c.name && (
+                    <span style={{ fontSize:14, color:c.hex==="#ffffff"||c.hex==="#d4b896"?"#1e293b":"#fff", fontWeight:900 }}>✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize:11, color:SLATE, marginTop:4 }}>
+              Selected: <strong style={{ color:NAVY }}>{vColor}</strong>
+            </div>
+          </div>
           {/* Seat Capacity */}
           <div style={{ marginTop:12 }}>
             <div style={{ fontSize:9, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:8 }}>Vehicle Seating Capacity *</div>
