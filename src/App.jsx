@@ -9,6 +9,18 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ─── LIVE SETTINGS READER ─────────────────────────────────────────────────────
 // Reads from admin bridge (live), then localStorage (persisted), then default
+// ── CLEAR ALL DEMO/STALE LOCAL STORAGE ON EVERY LOAD ─────────────────────────
+(function clearDemoData() {
+  const KEEP = []; // nothing to keep — all settings come from Supabase
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith("zeez_") || k.startsWith("sb-")) {
+        localStorage.removeItem(k);
+      }
+    });
+  } catch(_) {}
+})();
+
 function getLive(key, defaultVal) {
   try {
     const bridge = window.__zeezAdmin;
