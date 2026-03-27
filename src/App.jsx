@@ -24,6 +24,9 @@ function getLive(key, defaultVal) {
       if (key === "airportFareYTZ"  && bridge.getAirportFare)     return parseFloat(bridge.getAirportFare("ytz"))|| defaultVal;
       if (key === "shuttleBaseFare" && bridge.getShuttleBaseFare) return parseFloat(bridge.getShuttleBaseFare()) || defaultVal;
       if (key === "surgeEnabled"    && bridge.getSurgeEnabled)    return bridge.getSurgeEnabled();
+      if (key === "familyMult"      && bridge.getFamilyMult)      return parseFloat(bridge.getFamilyMult())      || defaultVal;
+      if (key === "friendsMult"     && bridge.getFriendsMult)     return parseFloat(bridge.getFriendsMult())     || defaultVal;
+      if (key === "maxPickupKm"     && bridge.getMaxPickupKm)     return parseFloat(bridge.getMaxPickupKm())     || defaultVal;
     }
   } catch(e) {}
   try {
@@ -878,6 +881,21 @@ function RiderApp() {
       err => console.error("Rider GPS:", err.message),
       { enableHighAccuracy: true, timeout: 8000 }
     );
+  }, []);
+
+  useEffect(() => {
+    // Load admin settings from Supabase into localStorage so getLive works
+    db.from("settings").select("value").eq("key", "admin_settings").maybeSingle()
+      .then(({ data: cfg }) => {
+        if (cfg?.value) {
+          try {
+            const s = typeof cfg.value === "string" ? JSON.parse(cfg.value) : cfg.value;
+            const existing = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
+            localStorage.setItem("zeez_settings", JSON.stringify({ ...existing, ...s }));
+            console.log("Settings loaded from Supabase:", s);
+          } catch(e) { console.error("Settings parse error:", e); }
+        }
+      }).catch(e => console.error("Settings load error:", e));
   }, []);
 
   useEffect(() => {
@@ -3030,6 +3048,20 @@ function DriverApp() {
   const approvedDocs = docs.filter(d=>d.status==="approved").length;
   const pendingDocs  = docs.filter(d=>d.status==="pending").length;
   const missingDocs  = docs.filter(d=>d.status==="missing"||d.status==="rejected").length;
+
+  // Load admin settings from Supabase on driver app init
+  useEffect(() => {
+    db.from("settings").select("value").eq("key", "admin_settings").maybeSingle()
+      .then(({ data: cfg }) => {
+        if (cfg?.value) {
+          try {
+            const s = typeof cfg.value === "string" ? JSON.parse(cfg.value) : cfg.value;
+            const existing = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
+            localStorage.setItem("zeez_settings", JSON.stringify({ ...existing, ...s }));
+          } catch(e) {}
+        }
+      }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     db.auth.getSession().then(async ({ data }) => {
