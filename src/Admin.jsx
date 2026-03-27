@@ -4574,11 +4574,13 @@ function PagePromos({ viewOnly, promos, setPromos }) {
   };
 
   const deletePromo = async (id) => {
-    const sb = await getSupabase();
-    await sb.from("promos").delete().eq("id",id).catch(()=>{});
-    setPromos(prev => prev.filter(pr => pr.id!==id));
-    setConfirmDel(null);
-    toast("Promo deleted");
+    try {
+      const { error } = await _supabase.from("promos").delete().eq("id", id);
+      if (error) { toast("Delete failed: " + error.message, false); return; }
+      setPromos(prev => prev.filter(pr => pr.id !== id));
+      setConfirmDel(null);
+      toast("Promo deleted ✓");
+    } catch(e) { toast("Delete failed: " + (e.message||"unknown"), false); }
   };
 
   const inp = { width:"100%", background:"#0d1220", border:"1px solid rgba(99,179,237,0.15)", borderRadius:8, padding:"8px 12px", color:"#f0f9ff", fontSize:12, outline:"none", boxSizing:"border-box" };
