@@ -4986,11 +4986,26 @@ function PageUsers({ viewOnly }) {
   }
 
   // Delete user
-  function handleDelete(userId) {
-    saveUsers(users.filter(u => u.id !== userId));
+  async function handleDelete(userId) {
     setModal(null);
     setSelected(null);
-    flash("User deleted");
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    const role = selected?.role;
+    try {
+      if (role === "driver") {
+        await _supabase.from("driver_docs").delete().eq("driver_id", userId);
+        await _supabase.from("trips").delete().eq("driver_id", userId);
+        const { error } = await _supabase.from("drivers").delete().eq("id", userId);
+        if (error) throw error;
+      } else if (role === "rider") {
+        await _supabase.from("trips").delete().eq("rider_id", userId);
+        const { error } = await _supabase.from("riders").delete().eq("id", userId);
+        if (error) throw error;
+      }
+      flash("User deleted successfully");
+    } catch(e) {
+      flash("Delete failed: " + (e.message || "unknown error"), false);
+    }
   }
 
   const pendingApprovals = approvals.filter(a => a.status === "pending");
