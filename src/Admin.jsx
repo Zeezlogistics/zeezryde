@@ -3104,12 +3104,22 @@ function PageDocs({ viewOnly, drivers, patchDriver, setModal }) {
     await _supabase.from("driver_docs").update({ status:"approved", note:"", reviewed_at:new Date().toISOString() }).eq("id", row.id);
     const updatedDocs = dbDocs.map(r => r.id===row.id ? {...r, status:"approved", note:""} : r);
     setDbDocs(updatedDocs);
-    // Check if ALL docs for this driver are now approved → auto-reinstate
+    // Check if ALL docs for this driver are now approved
     const driverDocs = updatedDocs.filter(r => r.driver_id === row.driver_id);
-    const allApproved = driverDocs.length > 0 && driverDocs.every(r => r.status === "approved");
-    if (allApproved) {
-      await _supabase.from("drivers").update({ status:"active" }).eq("id", row.driver_id);
-      flash("✅ All documents approved — driver reinstated as Active");
+    const allDocsApproved = driverDocs.length > 0 && driverDocs.every(r => r.status === "approved");
+    if (allDocsApproved) {
+      // Also check subscription is paid before activating
+      const { data: dr } = await _supabase.from("drivers").select("sub_paid, status").eq("id", row.driver_id).maybeSingle();
+      if (dr?.sub_paid) {
+        await _supabase.from("drivers").update({ status:"active" }).eq("id", row.driver_id);
+        setDrivers(prev => prev.map(d => d.id===row.driver_id ? {...d, status:"active"} : d));
+        flash("✅ All documents approved + subscription paid — driver activated");
+      } else {
+        // Docs all approved but subscription not paid — keep pending
+        await _supabase.from("drivers").update({ status:"pending" }).eq("id", row.driver_id);
+        setDrivers(prev => prev.map(d => d.id===row.driver_id ? {...d, status:"pending"} : d));
+        flash("✅ All documents approved — waiting for subscription payment before activation");
+      }
     }
   }
 
