@@ -301,15 +301,7 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
         zoom: 15,
         disableDefaultUI: true,
         zoomControl: true,
-        styles: riderMode ? [] : [
-          { elementType:"geometry", stylers:[{color:"#1e293b"}] },
-          { elementType:"labels.text.fill", stylers:[{color:"#94a3b8"}] },
-          { featureType:"road", elementType:"geometry", stylers:[{color:"#334155"}] },
-          { featureType:"road", elementType:"geometry.stroke", stylers:[{color:"#1e293b"}] },
-          { featureType:"road.highway", elementType:"geometry", stylers:[{color:"#475569"}] },
-          { featureType:"water", elementType:"geometry", stylers:[{color:"#0f172a"}] },
-          { featureType:"poi", stylers:[{visibility:"off"}] },
-        ]
+        styles: []
       });
     }
 
