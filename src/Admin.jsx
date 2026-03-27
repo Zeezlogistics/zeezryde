@@ -4876,27 +4876,31 @@ function PageUsers({ viewOnly }) {
     setTimeout(() => setToast(null), 3500);
   }
 
-  // Load users from localStorage (persisted locally since Supabase auth management
-  // requires service role key which we don't expose client-side)
+  // Load users from Supabase user_roles view
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("zeez_admin_users") || "[]");
-      const savedApprovals = JSON.parse(localStorage.getItem("zeez_admin_approvals") || "[]");
-      setUsers(saved);
-      setApprovals(savedApprovals);
-    } catch(e) { setUsers([]); setApprovals([]); }
-    setLoading(false);
+    setLoading(true);
+    _supabase.from("user_roles").select("*").order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("user_roles load error:", error.message);
+          // Fallback: load from drivers + riders tables directly
+          Promise.all([
+            _supabase.from("drivers").select("id, name, email, status, created_at"),
+            _supabase.from("riders").select("id, name, email, status, created_at")
+          ]).then(([{ data: drv }, { data: rid }]) => {
+            const combined = [
+              ...(drv||[]).map(d => ({ ...d, role:"driver" })),
+              ...(rid||[]).map(r => ({ ...r, role:"rider"  }))
+            ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+            setUsers(combined);
+            setLoading(false);
+          });
+        } else {
+          setUsers(data || []);
+          setLoading(false);
+        }
+      });
   }, []);
-
-  function saveUsers(list) {
-    setUsers(list);
-    try { localStorage.setItem("zeez_admin_users", JSON.stringify(list)); } catch(e) {}
-  }
-
-  function saveApprovals(list) {
-    setApprovals(list);
-    try { localStorage.setItem("zeez_admin_approvals", JSON.stringify(list)); } catch(e) {}
-  }
 
   // Perm toggle: cycles none → view → edit → none
   function cyclePerm(pageId) {
@@ -5058,6 +5062,67 @@ function PageUsers({ viewOnly }) {
       </div>
 
       {/* Users table */}
+      {/* ── App Users (Drivers & Riders from Supabase) ── */}
+      <div style={{ marginBottom:24 }}>
+        <div style={{ color:"#f0f9ff", fontSize:16, fontWeight:700, marginBottom:12, letterSpacing:-0.3 }}>
+          App Users
+          <span style={{ color:"#475569", fontSize:11, fontWeight:400, marginLeft:10 }}>
+            {users.filter(u=>u.role==="driver").length} drivers · {users.filter(u=>u.role==="rider").length} riders
+          </span>
+        </div>
+        {loading ? (
+          <div style={{ padding:30, textAlign:"center", color:"#475569" }}>Loading…</div>
+        ) : users.length === 0 ? (
+          <div style={{ padding:30, textAlign:"center", color:"#475569", fontSize:13 }}>No registered users yet.</div>
+        ) : (
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead>
+              <tr>{["NAME","EMAIL","TYPE","STATUS","JOINED",""].map(h=><Th key={h}>{h}</Th>)}</tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="trow">
+                  <Td>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{ width:30, height:30, borderRadius:"50%", background:u.role==="driver"?"rgba(34,197,94,0.15)":"rgba(99,179,237,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>
+                        {u.role==="driver" ? "🚗" : "🙋"}
+                      </div>
+                      <div>
+                        <div style={{ color:"#e2e8f0", fontSize:13, fontWeight:500 }}>{u.name||"—"}</div>
+                        <Mono small>{u.id?.slice(0,12)}…</Mono>
+                      </div>
+                    </div>
+                  </Td>
+                  <Td><span style={{ color:"#64748b", fontSize:11 }}>{u.email||"—"}</span></Td>
+                  <Td>
+                    <span style={{ padding:"3px 10px", borderRadius:5, fontSize:10, fontWeight:700,
+                      fontFamily:"'JetBrains Mono',monospace",
+                      background: u.role==="driver" ? "rgba(34,197,94,0.1)" : "rgba(99,179,237,0.1)",
+                      border: `1px solid ${u.role==="driver" ? "rgba(34,197,94,0.3)" : "rgba(99,179,237,0.3)"}`,
+                      color: u.role==="driver" ? "#22c55e" : "#93c5fd" }}>
+                      {u.role==="driver" ? "🚗 Driver" : "🙋 Rider"}
+                    </span>
+                  </Td>
+                  <Td><StatusBadge s={u.status||"active"} /></Td>
+                  <Td>
+                    <span style={{ color:"#475569", fontSize:11, fontFamily:"'JetBrains Mono',monospace" }}>
+                      {u.created_at ? new Date(u.created_at).toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}) : "—"}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span style={{ padding:"2px 8px", borderRadius:4, fontSize:9, fontWeight:700,
+                      background:"rgba(99,179,237,0.07)", color:"#64748b",
+                      fontFamily:"'JetBrains Mono',monospace" }}>
+                      {u.last_sign_in_at ? "Last: " + new Date(u.last_sign_in_at).toLocaleDateString("en-CA",{month:"short",day:"numeric"}) : "Never signed in"}
+                    </span>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       <Panel title="ALL USERS">
         {loading ? (
           <div style={{ padding:40, textAlign:"center", color:"#334155" }}>Loading…</div>
