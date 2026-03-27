@@ -795,6 +795,17 @@ function RiderApp() {
   const displayName = user?.user_metadata?.name||name||"Rider";
   const chosen = RIDES.find(r=>r.id===ride);
 
+  // Haversine distance in km between two GPS coords
+  function gpsDistKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLng = (lng2-lng1)*Math.PI/180;
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+      Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+      Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
   async function bookRide() {
     if (!dest.trim()) { setErr("Enter a destination"); return; }
     setFinding(true);
@@ -805,36 +816,65 @@ function RiderApp() {
         ? base * (parseFloat(getLive("familyMult", 1)) || 1)
         : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
       const totalFare = withTax(liveFare).toFixed(2);
+      const maxRadiusKm = parseFloat(getLive("maxPickupKm", 10)) || 10;
+      const needsLarge = chosen.id === "friends";
 
-      // Find any online driver — use neq false to include null values
+      // Fetch all online drivers with GPS coords
       const { data: onlineDrivers, error: driverErr } = await db.from("drivers")
-        .select("id,name,vehicle_seats,online").neq("online", false);
-      console.log("Online drivers found:", onlineDrivers?.length, onlineDrivers, driverErr);
+        .select("id,name,vehicle_seats,lat,lng,online")
+        .neq("online", false);
+
+      if (driverErr) console.error("Driver fetch error:", driverErr.message);
+      console.log("Online drivers:", onlineDrivers?.length, onlineDrivers);
 
       let driver = null;
-      const needsLarge = chosen.id === "friends";
       if (onlineDrivers && onlineDrivers.length > 0) {
-        // For friends ride, prefer 7-seater but fall back to any available
-        const matched = needsLarge
-          ? onlineDrivers.find(d => parseInt(d.vehicle_seats||4) >= 7) || onlineDrivers[0]
-          : onlineDrivers[0];
-        driver = matched;
+        // Filter by seat type
+        let candidates = needsLarge
+          ? onlineDrivers.filter(d => parseInt(d.vehicle_seats||4) >= 7)
+          : onlineDrivers;
+        if (!candidates.length) candidates = onlineDrivers; // fallback to any
+
+        // Filter by GPS radius if rider has GPS and drivers have GPS
+        const rLat = riderPos.lat;
+        const rLng = riderPos.lng;
+        if (rLat && rLng) {
+          const nearby = candidates.filter(d => {
+            if (!d.lat || !d.lng) return true; // include drivers without GPS
+            return gpsDistKm(rLat, rLng, d.lat, d.lng) <= maxRadiusKm;
+          });
+          candidates = nearby.length > 0 ? nearby : candidates; // fallback if none nearby
+        }
+
+        // Pick closest driver if GPS available, else first
+        if (rLat && rLng) {
+          driver = candidates.reduce((best, d) => {
+            if (!d.lat || !d.lng) return best || d;
+            const dist = gpsDistKm(rLat, rLng, d.lat, d.lng);
+            if (!best || !best.lat) return d;
+            return dist < gpsDistKm(rLat, rLng, best.lat, best.lng) ? d : best;
+          }, null);
+        } else {
+          driver = candidates[0];
+        }
       }
 
       if (!driver) {
         setFinding(false);
-        setErr("No drivers available right now. Please try again.");
+        setErr("No drivers available nearby. Please try again shortly.");
         go("dash");
         return;
       }
 
-      // Insert trip into Supabase — driver realtime listener picks this up
-      const tripId = Date.now();
+      console.log("Matched driver:", driver.name, "id:", driver.id);
+
+      // Insert trip — use driver.id for reliable realtime matching
       const tripPayload = {
         rider_id: user?.id,
         rider: displayName,
         driver: driver.name,
-        origin: "Current Location",
+        driver_id: driver.id,
+        origin: riderPos.lat ? `${riderPos.lat},${riderPos.lng}` : "Current Location",
         dest: dest.trim(),
         fare: totalFare,
         rideType: chosen.label,
@@ -843,24 +883,35 @@ function RiderApp() {
       };
       const { data: tripData, error } = await db.from("trips").insert(tripPayload).select().single();
       if (error) {
-        console.error("Trip insert error:", JSON.stringify(error));
-        throw error;
+        // If driver_id column doesn't exist, retry without it
+        if (error.message?.includes("driver_id")) {
+          delete tripPayload.driver_id;
+          const { data: td2, error: e2 } = await db.from("trips").insert(tripPayload).select().single();
+          if (e2) throw e2;
+          tripData = td2;
+        } else {
+          console.error("Trip insert error:", JSON.stringify(error));
+          throw error;
+        }
       }
 
-      const insertedId = tripData?.id || String(Date.now());
-      setAssignedDriver(driver.name); // track this driver
+      const insertedId = tripData?.id;
+      if (!insertedId) throw new Error("Trip ID not returned");
+
+      setAssignedDriver(driver.name);
       setLastFare(totalFare);
       setTrips(h=>[{ id:insertedId, dest:dest.trim(), type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA"), status:"pending" }, ...h]);
 
       // Listen for driver to accept or complete
+      let timeoutRef;
       const ch = db.channel("rider-trip-"+insertedId)
         .on("postgres_changes", { event:"UPDATE", schema:"public", table:"trips",
           filter:`id=eq.${insertedId}` }, (payload) => {
             const status = payload.new.status;
+            console.log("Trip status update:", status);
             if (status === "accepted") {
-              // Driver accepted — stop finding spinner, show driver on the way
               setFinding(false);
-              go("finding"); // stay on finding but update message
+              go("finding");
             } else if (status === "completed") {
               db.removeChannel(ch);
               clearTimeout(timeoutRef);
@@ -873,7 +924,7 @@ function RiderApp() {
         .subscribe();
 
       // Cancel after 60s if no driver response
-      const timeoutRef = setTimeout(() => {
+      timeoutRef = setTimeout(() => {
         db.removeChannel(ch);
         setFinding(false);
         setErr("No driver accepted your request. Please try again.");
@@ -881,6 +932,7 @@ function RiderApp() {
       }, 60000);
 
     } catch(e) {
+      console.error("bookRide error:", e);
       setFinding(false);
       setErr("Could not book ride. Please try again.");
       go("dash");
@@ -2810,15 +2862,20 @@ function DriverApp() {
   useEffect(() => {
     if (!online || !user) return;
     const driverNameFilter = dbName || displayName;
-    console.log("Realtime filter: driver=eq." + driverNameFilter);
+    console.log("Driver realtime — id:", user.id, "name filter:", driverNameFilter);
+    // Subscribe without filter — check both driver_id and driver name in handler
     const ch = db.channel("driver-trips-"+user.id)
-      .on("postgres_changes", { event:"INSERT", schema:"public", table:"trips",
-        filter:`driver=eq.${driverNameFilter}` },
+      .on("postgres_changes", { event:"INSERT", schema:"public", table:"trips" },
         (payload) => {
           const t = payload.new;
+          // Check this trip is for THIS driver (by id or name)
+          const isForMe = (t.driver_id && t.driver_id === user.id) ||
+                          (t.driver && (t.driver === driverNameFilter || t.driver === dbName || t.driver === displayName));
+          if (!isForMe) return;
           if (t.status !== "pending") return;
           const isFriends = (t.rideType||"").toLowerCase().includes("friend");
           if (parseInt(vSeats) === 4 && isFriends) return;
+          console.log("Trip received for driver:", t);
           const tripReq = { id:t.id, rider:t.rider||"Rider", dest:t.dest||"Unknown",
             fare:"CA$"+(t.fare||"0"), type:t.rideType||"Family",
             origin:t.origin||"", distance:"" };
