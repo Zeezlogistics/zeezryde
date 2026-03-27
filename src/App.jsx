@@ -281,11 +281,20 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
   const mapRef = useRef(null);
   const driverMarkerRef = useRef(null);
   const riderMarkerRef  = useRef(null);
+  const myLocMarkerRef  = useRef(null);
   const [ready, setReady] = useState(!!window.google?.maps);
+  const [myLat, setMyLat] = useState(null);
+  const [myLng, setMyLng] = useState(null);
 
-  // Default to Hamilton/Niagara area
-  const centerLat = driverLat || riderLat || 43.2557;
-  const centerLng = driverLng || riderLng || -79.8711;
+  // Get device GPS first — map will centre here
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => { setMyLat(pos.coords.latitude); setMyLng(pos.coords.longitude); },
+      () => { setMyLat(43.2557); setMyLng(-79.8711); }, // fallback Hamilton
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
 
   useEffect(() => {
     loadGoogleMaps()
@@ -293,16 +302,48 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
       .catch(e => console.error("Maps failed:", e));
   }, []);
 
+  // Best center: driver GPS > rider GPS > device GPS > Hamilton default
+  const centerLat = driverLat || riderLat || myLat || 43.2557;
+  const centerLng = driverLng || riderLng || myLng || -79.8711;
+
   useEffect(() => {
     if (!ready || !ref.current) return;
+    // Wait until we have a real location before initialising
+    if (!myLat && !driverLat && !riderLat) return;
     if (!mapRef.current) {
       mapRef.current = new window.google.maps.Map(ref.current, {
         center: { lat: centerLat, lng: centerLng },
-        zoom: 15,
+        zoom: 16,
         disableDefaultUI: true,
         zoomControl: true,
         styles: []
       });
+    } else {
+      // Pan to best available position
+      mapRef.current.panTo({ lat: centerLat, lng: centerLng });
+    }
+
+    // Blue dot for own device location
+    if (myLat && myLng) {
+      const mpos = { lat: myLat, lng: myLng };
+      if (!myLocMarkerRef.current) {
+        myLocMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          position: mpos,
+          icon: {
+            path: window.google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: riderMode ? "#2563eb" : "#22c55e",
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 3,
+          },
+          title: riderMode ? "Your location" : "Your location",
+          zIndex: 10
+        });
+      } else {
+        myLocMarkerRef.current.setPosition(mpos);
+      }
     }
 
     // Driver marker (car icon)
@@ -343,7 +384,7 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
         riderMarkerRef.current.setPosition(rpos);
       }
     }
-  }, [ready, driverLat, driverLng, riderLat, riderLng]);
+  }, [ready, myLat, myLng, driverLat, driverLng, riderLat, riderLng]);
 
   if (!ready) return (
     <div style={{ width:"100%", height: height||200, borderRadius:14, background:"#1e293b",
