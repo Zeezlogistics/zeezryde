@@ -1033,146 +1033,118 @@ function RiderApp() {
   const displayName = user?.user_metadata?.name||name||"Rider";
   const chosen = RIDES.find(r=>r.id===ride);
 
-  // Haversine distance in km between two GPS coords
-  function gpsDistKm(lat1, lng1, lat2, lng2) {
-    const R = 6371;
-    const dLat = (lat2-lat1)*Math.PI/180;
-    const dLng = (lng2-lng1)*Math.PI/180;
-    const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
-      Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-      Math.sin(dLng/2)*Math.sin(dLng/2);
+  // ── RIDE FLOW ─────────────────────────────────────────────────────────────
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371, toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
 
   async function bookRide() {
     if (!dest.trim()) { setErr("Enter a destination"); return; }
-    setFinding(true);
+    setErr("");
     go("finding");
+
     try {
-      const base = parseFloat(liveRates.baseFare || getLive("baseFare", 9.40)) || 9.40;
-      const fMult  = parseFloat(liveRates.familyMult  || getLive("familyMult",  1))    || 1;
-      const frMult = parseFloat(liveRates.friendsMult || getLive("friendsMult", 2.28)) || 2.28;
-      const liveFare = chosen.id==="family" ? base * fMult : base * frMult;
-      const totalFare = withTax(liveFare).toFixed(2);
-      const maxRadiusKm = parseFloat(getLive("maxPickupKm", 10)) || 10;
-      const needsLarge = chosen.id === "friends";
+      // ── 1. Calculate fare from live settings ──────────────────────────
+      const base  = parseFloat(liveRates.baseFare   || getLive("baseFare",   9.40)) || 9.40;
+      const fMult = parseFloat(liveRates.familyMult || getLive("familyMult", 1))    || 1;
+      const rMult = parseFloat(liveRates.friendsMult|| getLive("friendsMult",2.28)) || 2.28;
+      const fare  = withTax(base * (chosen.id === "family" ? fMult : rMult)).toFixed(2);
+      const isLarge = chosen.id === "friends";
+      const maxKm = parseFloat(liveRates.maxPickupKm || getLive("maxPickupKm", 20)) || 20;
 
-      // Fetch all online drivers with GPS coords
-      const { data: onlineDrivers, error: driverErr } = await db.from("drivers")
-        .select("id,name,vehicle,vehicle_seats,lat,lng,online")
-        .neq("online", false);
+      // ── 2. Find best available online driver ──────────────────────────
+      const { data: drivers, error: dErr } = await db
+        .from("drivers")
+        .select("id, name, vehicle, vehicle_seats, lat, lng")
+        .eq("online", true)
+        .eq("status", "active");
 
-      if (driverErr) console.error("Driver fetch error:", driverErr.message);
-      console.log("Online drivers:", onlineDrivers?.length, onlineDrivers);
+      if (dErr) throw new Error("Could not reach server. Check connection.");
 
-      let driver = null;
-      if (onlineDrivers && onlineDrivers.length > 0) {
-        // Filter by seat type
-        let candidates = needsLarge
-          ? onlineDrivers.filter(d => parseInt(d.vehicle_seats||4) >= 7)
-          : onlineDrivers;
-        if (!candidates.length) candidates = onlineDrivers; // fallback to any
-
-        // Filter by GPS radius if rider has GPS and drivers have GPS
-        const rLat = riderPos.lat;
-        const rLng = riderPos.lng;
-        if (rLat && rLng) {
-          const nearby = candidates.filter(d => {
-            if (!d.lat || !d.lng) return true; // include drivers without GPS
-            return gpsDistKm(rLat, rLng, d.lat, d.lng) <= maxRadiusKm;
-          });
-          candidates = nearby.length > 0 ? nearby : candidates; // fallback if none nearby
-        }
-
-        // Pick closest driver if GPS available, else first
-        if (rLat && rLng) {
-          driver = candidates.reduce((best, d) => {
-            if (!d.lat || !d.lng) return best || d;
-            const dist = gpsDistKm(rLat, rLng, d.lat, d.lng);
-            if (!best || !best.lat) return d;
-            return dist < gpsDistKm(rLat, rLng, best.lat, best.lng) ? d : best;
-          }, null);
-        } else {
-          driver = candidates[0];
-        }
+      if (!drivers || drivers.length === 0) {
+        setErr("No drivers online right now. Please try again shortly.");
+        go("dash"); return;
       }
 
-      if (!driver) {
-        setFinding(false);
-        setErr("No drivers available nearby. Please try again shortly.");
-        go("dash");
-        return;
+      // Filter seat type
+      let pool = isLarge ? (drivers.filter(d => parseInt(d.vehicle_seats||4) >= 7) || []) : drivers;
+      if (!pool.length) pool = drivers; // fallback: any driver
+
+      // Pick closest driver (if GPS available), else first
+      let driver = pool[0];
+      if (riderPos.lat && riderPos.lng) {
+        const withDist = pool.map(d => ({
+          ...d,
+          dist: (d.lat && d.lng) ? haversineKm(riderPos.lat, riderPos.lng, d.lat, d.lng) : 9999
+        }));
+        const nearby = withDist.filter(d => d.dist <= maxKm);
+        const sorted = (nearby.length ? nearby : withDist).sort((a,b) => a.dist - b.dist);
+        driver = sorted[0];
       }
 
-      console.log("Matched driver:", driver.name, "id:", driver.id);
-
-      // Insert trip — use driver.id for reliable realtime matching
-      const tripPayload = {
-        rider_id: user?.id,
-        rider: displayName,
-        driver: driver.name,
-        driver_id: driver.id,
-        origin: riderPos.lat ? `${riderPos.lat},${riderPos.lng}` : "Current Location",
-        dest: dest.trim(),
-        fare: totalFare,
-        rideType: chosen.label,
-        status: "pending",
+      // ── 3. Insert trip row ─────────────────────────────────────────────
+      const origin = riderPos.lat ? `${riderPos.lat.toFixed(6)},${riderPos.lng.toFixed(6)}` : "Current Location";
+      const { data: trip, error: tErr } = await db.from("trips").insert({
+        rider_id:     user.id,
+        rider:        displayName,
+        driver:       driver.name,
+        driver_id:    driver.id,
+        origin,
+        dest:         dest.trim(),
+        fare,
+        rideType:     chosen.label,
+        status:       "pending",
         requested_at: new Date().toISOString()
-      };
-      const { data: tripData, error } = await db.from("trips").insert(tripPayload).select().single();
-      if (error) {
-        // If driver_id column doesn't exist, retry without it
-        if (error.message?.includes("driver_id")) {
-          delete tripPayload.driver_id;
-          const { data: td2, error: e2 } = await db.from("trips").insert(tripPayload).select().single();
-          if (e2) throw e2;
-          tripData = td2;
-        } else {
-          console.error("Trip insert error:", JSON.stringify(error));
-          throw error;
-        }
-      }
+      }).select("id").single();
 
-      const insertedId = tripData?.id;
-      if (!insertedId) throw new Error("Trip ID not returned");
+      if (tErr) throw new Error(tErr.message);
 
+      // ── 4. Update state ────────────────────────────────────────────────
+      setLastFare(fare);
       setAssignedDriver(driver.name);
-      setLastFare(totalFare);
-      setTrips(h=>[{ id:insertedId, dest:dest.trim(), type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA"), status:"pending" }, ...h]);
+      setAssignedVehicle(driver.vehicle || "");
+      setTrips(prev => [{ id:trip.id, dest:dest.trim(), type:chosen.label,
+        fare:"CA$"+fare, date:new Date().toLocaleDateString("en-CA"),
+        status:"pending" }, ...prev]);
 
-      // Listen for driver to accept or complete
-      let timeoutRef;
-      const ch = db.channel("rider-trip-"+insertedId)
-        .on("postgres_changes", { event:"UPDATE", schema:"public", table:"trips",
-          filter:`id=eq.${insertedId}` }, (payload) => {
-            const status = payload.new.status;
-            console.log("Trip status update:", status);
-            if (status === "accepted") {
-              setFinding(false);
-              go("finding");
-            } else if (status === "completed") {
-              db.removeChannel(ch);
-              clearTimeout(timeoutRef);
-              setFinding(false);
-              setPendingRate(true);
-              setDest("");
-              go("complete");
-            }
-          })
+      // ── 5. Watch for driver response ───────────────────────────────────
+      let cancelTimer;
+      const ch = db.channel("ride-"+trip.id)
+        .on("postgres_changes", {
+          event:"UPDATE", schema:"public", table:"trips",
+          filter:`id=eq.${trip.id}`
+        }, ({ new: row }) => {
+          if (row.status === "accepted") {
+            clearTimeout(cancelTimer);
+            // Driver accepted — show "on the way" overlay (stay on finding screen)
+          } else if (row.status === "completed") {
+            clearTimeout(cancelTimer);
+            db.removeChannel(ch);
+            setPendingRate(true);
+            setDest("");
+            go("complete");
+          } else if (row.status === "cancelled") {
+            clearTimeout(cancelTimer);
+            db.removeChannel(ch);
+            setErr("Driver cancelled. Please try booking again.");
+            go("dash");
+          }
+        })
         .subscribe();
 
-      // Cancel after 60s if no driver response
-      timeoutRef = setTimeout(() => {
+      // 90 second timeout — no response means try again
+      cancelTimer = setTimeout(async () => {
         db.removeChannel(ch);
-        setFinding(false);
-        setErr("No driver accepted your request. Please try again.");
+        await db.from("trips").update({ status:"cancelled" }).eq("id", trip.id);
+        setErr("No driver responded. Please try again.");
         go("dash");
-      }, 60000);
+      }, 90000);
 
     } catch(e) {
-      console.error("bookRide error:", e);
-      setFinding(false);
-      setErr("Could not book ride. Please try again.");
+      setErr(e.message || "Booking failed. Please try again.");
       go("dash");
     }
   }
@@ -1301,7 +1273,15 @@ function RiderApp() {
           </div>
           <LoadDots />
           <div style={{ marginTop:14 }}>
-            <BigBtn onClick={()=>{ setFinding(false); go("dash"); }} ghost>Cancel Request</BigBtn>
+            <BigBtn onClick={async ()=>{
+            // Cancel the pending trip in DB
+            const pendingTrip = trips.find(t => t.status === "pending");
+            if (pendingTrip) {
+              try { await db.from("trips").update({ status:"cancelled" }).eq("id", String(pendingTrip.id)); } catch(_) {}
+              setTrips(prev => prev.filter(t => t.id !== pendingTrip.id));
+            }
+            setDest(""); go("dash");
+          }} ghost>Cancel</BigBtn>
           </div>
         </div>
       </div>
@@ -3152,59 +3132,59 @@ function DriverApp() {
 
   useEffect(() => {
     if (!online || !user) return;
-    const driverNameFilter = dbName || displayName;
-    console.log("Driver realtime — id:", user.id, "name filter:", driverNameFilter);
-    // Subscribe without filter — check both driver_id and driver name in handler
-    const ch = db.channel("driver-trips-"+user.id)
-      .on("postgres_changes", { event:"INSERT", schema:"public", table:"trips" },
-        (payload) => {
-          const t = payload.new;
-          // Check this trip is for THIS driver (by id or name)
-          const isForMe = (t.driver_id && t.driver_id === user.id) ||
-                          (t.driver && (t.driver === driverNameFilter || t.driver === dbName || t.driver === displayName));
-          if (!isForMe) return;
-          if (t.status !== "pending") return;
-          const isFriends = (t.rideType||"").toLowerCase().includes("friend");
-          if (parseInt(vSeats) === 4 && isFriends) return;
-          console.log("Trip received for driver:", t);
-          const tripReq = { id:t.id, rider:t.rider||"Rider", dest:t.dest||"Unknown",
-            fare:"CA$"+(t.fare||"0"), type:t.rideType||"Family",
-            origin:t.origin||"", distance:"" };
-          setInReq(tripReq);
-          // Geocode rider origin for pickup navigation
-          loadGoogleMaps().then(()=>{
-            const gc = new window.google.maps.Geocoder();
-            // Try origin as "lat,lng" string first, then as address
-            const orig = t.origin||"";
-            const latLngMatch = orig.match(/^(-?\d+\.\d+),(-?\d+\.\d+)$/);
-            if (latLngMatch) {
-              setPickupCoords({ lat:parseFloat(latLngMatch[1]), lng:parseFloat(latLngMatch[2]) });
-            } else if (orig && orig !== "Current Location") {
-              gc.geocode({ address: orig }, (res, status) => {
-                if (status==="OK" && res[0]) {
-                  const loc = res[0].geometry.location;
-                  setPickupCoords({ lat:loc.lat(), lng:loc.lng() });
-                }
-              });
-            }
-            // Geocode destination too
-            if (t.dest) {
-              gc.geocode({ address: t.dest }, (res, status) => {
-                if (status==="OK" && res[0]) {
-                  const loc = res[0].geometry.location;
-                  setTripDestCoords({ lat:loc.lat(), lng:loc.lng() });
-                }
-              });
+
+    // Subscribe to ALL new pending trips — filter by driver_id or name in handler
+    const ch = db.channel("incoming-"+user.id)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "trips"
+      }, ({ new: t }) => {
+        if (t.status !== "pending") return;
+
+        // Is this trip for me? Check driver_id (UUID) first, then name
+        const myName = dbName || displayName;
+        const forMe  = (t.driver_id === user.id) || (t.driver === myName);
+        if (!forMe) return;
+
+        // Seat filter: 4-seater skips Friends (7-seat) requests
+        if (parseInt(vSeats) === 4 && (t.rideType||"").toLowerCase().includes("friend")) return;
+
+        const req = {
+          id:     t.id,
+          rider:  t.rider  || "Rider",
+          dest:   t.dest   || "Unknown",
+          fare:   "CA$" + (t.fare || "0"),
+          type:   t.rideType || "Family",
+          origin: t.origin || ""
+        };
+        setInReq(req);
+
+        // Parse rider GPS from origin string "lat,lng"
+        const match = (t.origin||"").match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
+        if (match) {
+          setPickupCoords({ lat: parseFloat(match[1]), lng: parseFloat(match[2]) });
+        }
+
+        // Geocode destination for navigation
+        loadGoogleMaps().then(() => {
+          if (!t.dest || !window.google?.maps) return;
+          new window.google.maps.Geocoder().geocode({ address: t.dest }, (res, s) => {
+            if (s === "OK" && res[0]) {
+              setTripDestCoords({ lat: res[0].geometry.location.lat(), lng: res[0].geometry.location.lng() });
             }
           });
-          showLocalNotification(
-            "🚗 New Trip Request",
-            "Rider: " + (t.rider||"Rider") + " — " + (t.dest||"Unknown") + " | " + "CA$"+(t.fare||"0"),
-            tripReq
-          );
-          go("request");
-        })
+        });
+
+        // Push notification
+        showLocalNotification(
+          "🚗 New Trip Request",
+          `${req.rider} → ${req.dest}  ${req.fare}`,
+          req
+        );
+
+        go("request");
+      })
       .subscribe();
+
     return () => db.removeChannel(ch);
   }, [online, user, dbName]);
 
@@ -3344,48 +3324,56 @@ function DriverApp() {
 
   async function toggleOnline() {
     if (!subPaid) { setErr("Pay your weekly subscription first"); return; }
-    // Re-fetch status fresh from DB each time
+    setErr("");
     try {
-      const { data: dr } = await db.from("drivers").select("status,sub_paid").eq("id", user?.id).maybeSingle();
-      if (dr) {
-        setDriverStatus(dr.status||"pending");
-        if (dr.sub_paid) setSubPaid(true);
-        if (dr.status !== "active") {
-          setErr("Account status: " + (dr.status||"pending") + ". Admin must approve all documents first.");
-          return;
-        }
+      // Always check latest status from DB
+      const { data: dr } = await db.from("drivers")
+        .select("status, sub_paid")
+        .eq("id", user.id)
+        .single();
+      if (dr?.sub_paid) setSubPaid(true);
+      if (!dr || dr.status !== "active") {
+        setErr("Your account must be active before going online. Ensure all documents are approved.");
+        return;
       }
+      const next = !online;
+      setOnline(next);
+      await db.from("drivers").update({ online: next }).eq("id", user.id);
+      try { window.__zeezAdmin?.setDriverOnline?.(next); } catch(_) {}
     } catch(e) {
-      console.error("toggleOnline status check:", e);
-      // Don't block on network error
+      setErr("Connection error. Please try again.");
     }
-    const next = !online;
-    setOnline(next); setErr("");
-    try {
-      const { data: { user:u } } = await db.auth.getUser();
-      if (u) await db.from("drivers").update({ online:next }).eq("id", u.id);
-    } catch(_) {}
-    try { if(window.__zeezAdmin?.setDriverOnline) window.__zeezAdmin.setDriverOnline(next); } catch(_) {}
   }
 
   async function acceptRide() {
     if (!inReq) return;
-    const fareNum = parseFloat((inReq.fare||"0").replace("CA$",""))||0;
-    setTrips(t=>[{ id:inReq.id, dest:inReq.dest, fare:inReq.fare, type:inReq.type, date:new Date().toLocaleDateString("en-CA") }, ...t]);
-    setEarned(e=>e+fareNum);
-    setInRouteTrip(inReq.id);
-    setLastFare(fareNum.toFixed(2));
-    // UPDATE trip — triggers rider's realtime listener
+    const fareNum = parseFloat((inReq.fare||"0").replace("CA$","")) || 0;
     try {
-      const { error: updErr } = await db.from("trips").update({
-        status: "accepted",
-        fare: fareNum.toFixed(2)
-      }).eq("id", String(inReq.id));
-      if (updErr) console.error("acceptRide update error:", updErr.message);
-    } catch(e) { console.error("acceptRide:", e); }
-    try { if(window.__zeezAdmin?.updateTrip) window.__zeezAdmin.updateTrip(inReq.id,{ status:"accepted", driver:displayName }); } catch(_) {}
-    setInReq(null);
-    go("enroute");
+      const { error } = await db.from("trips")
+        .update({ status:"accepted", driver:displayName, driver_id:user.id })
+        .eq("id", String(inReq.id));
+      if (error) throw error;
+      setTrips(t => [{ id:inReq.id, dest:inReq.dest, fare:inReq.fare,
+        type:inReq.type, date:new Date().toLocaleDateString("en-CA") }, ...t]);
+      setEarned(e => e + fareNum);
+      setInRouteTrip(inReq.id);
+      setLastFare(fareNum.toFixed(2));
+      setInReq(null);
+      go("enroute");
+    } catch(e) {
+      setErr("Failed to accept ride. Please try again.");
+    }
+  }
+
+  async function completeRide() {
+    if (!inRouteTrip) { go("dash"); return; }
+    try {
+      await db.from("trips").update({ status:"completed" }).eq("id", String(inRouteTrip));
+    } catch(e) { console.error("completeRide:", e); }
+    setInRouteTrip(null);
+    setPickupCoords({ lat:null, lng:null });
+    setTripDestCoords({ lat:null, lng:null });
+    go("dash");
   }
 
   // SPLASH
@@ -3662,15 +3650,7 @@ function DriverApp() {
         <div style={{ color:GREEN, fontWeight:900, fontSize:30, fontFamily:"'Syne',sans-serif" }}>{"CA$"+lastFare}</div>
       </div>
       <div style={{ width:"100%" }}>
-        <BigBtn onClick={async ()=>{
-          // Mark trip completed in DB — triggers rider complete screen
-          if (inRouteTrip) {
-            try {
-              await db.from("trips").update({ status:"completed" }).eq("id", String(inRouteTrip));
-            } catch(e) { console.error("complete trip:", e); }
-          }
-          go("dash");
-        }} green>Complete Trip</BigBtn>
+        <BigBtn onClick={completeRide} green>Complete Trip</BigBtn>
       </div>
     </div>
   );
