@@ -259,22 +259,108 @@ function LoadDots() {
     </div>
   );
 }
-// ─── MAP COMPONENT (OpenStreetMap iframe — works everywhere) ─────────────────
-function MapView({ height, riderMode }) {
-  const dot  = riderMode ? "#2563eb" : "#3b82f6";
-  const zoom = 14;
-  const lat  = 43.2557;
-  const lng  = -79.8711;
-  const src  = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-0.05},${lat-0.03},${lng+0.05},${lat+0.03}&layer=mapnik&marker=${lat},${lng}`;
+// ─── GOOGLE MAPS LIVE ─────────────────────────────────────────────────────────
+const GMAPS_KEY = "AIzaSyB1eGrT5_aKggEVZ-xt6HPG6jbO5x9l7kE";
+let gmapsLoaded = false;
+let gmapsCallbacks = [];
+function loadGoogleMaps(cb) {
+  if (window.google?.maps) { cb(); return; }
+  gmapsCallbacks.push(cb);
+  if (gmapsLoaded) return;
+  gmapsLoaded = true;
+  window.__gmapsReady = () => gmapsCallbacks.forEach(fn => fn());
+  const s = document.createElement("script");
+  s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&callback=__gmapsReady`;
+  s.async = true; s.defer = true;
+  document.head.appendChild(s);
+}
+
+function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, finding }) {
+  const ref = useRef(null);
+  const mapRef = useRef(null);
+  const driverMarkerRef = useRef(null);
+  const riderMarkerRef  = useRef(null);
+  const [ready, setReady] = useState(!!window.google?.maps);
+
+  // Default to Hamilton/Niagara area
+  const centerLat = driverLat || riderLat || 43.2557;
+  const centerLng = driverLng || riderLng || -79.8711;
+
+  useEffect(() => {
+    loadGoogleMaps(() => setReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !ref.current) return;
+    if (!mapRef.current) {
+      mapRef.current = new window.google.maps.Map(ref.current, {
+        center: { lat: centerLat, lng: centerLng },
+        zoom: 15,
+        disableDefaultUI: true,
+        zoomControl: true,
+        styles: riderMode ? [] : [
+          { elementType:"geometry", stylers:[{color:"#1e293b"}] },
+          { elementType:"labels.text.fill", stylers:[{color:"#94a3b8"}] },
+          { featureType:"road", elementType:"geometry", stylers:[{color:"#334155"}] },
+          { featureType:"road", elementType:"geometry.stroke", stylers:[{color:"#1e293b"}] },
+          { featureType:"road.highway", elementType:"geometry", stylers:[{color:"#475569"}] },
+          { featureType:"water", elementType:"geometry", stylers:[{color:"#0f172a"}] },
+          { featureType:"poi", stylers:[{visibility:"off"}] },
+        ]
+      });
+    }
+
+    // Driver marker (car icon)
+    if (driverLat && driverLng) {
+      const pos = { lat: driverLat, lng: driverLng };
+      if (!driverMarkerRef.current) {
+        driverMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          position: pos,
+          icon: {
+            url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><text y="32" font-size="32">🚗</text></svg>'),
+            scaledSize: new window.google.maps.Size(40, 40),
+            anchor: new window.google.maps.Point(20, 20),
+          },
+          title: "Driver"
+        });
+      } else {
+        driverMarkerRef.current.setPosition(pos);
+      }
+      mapRef.current.panTo(pos);
+    }
+
+    // Rider marker (person pin)
+    if (riderLat && riderLng) {
+      const rpos = { lat: riderLat, lng: riderLng };
+      if (!riderMarkerRef.current) {
+        riderMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current,
+          position: rpos,
+          icon: {
+            url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="#2563eb" stroke="#fff" stroke-width="3"/><text x="18" y="24" text-anchor="middle" font-size="18">📍</text></svg>'),
+            scaledSize: new window.google.maps.Size(36, 36),
+            anchor: new window.google.maps.Point(18, 18),
+          },
+          title: "Pickup"
+        });
+      } else {
+        riderMarkerRef.current.setPosition(rpos);
+      }
+    }
+  }, [ready, driverLat, driverLng, riderLat, riderLng]);
+
+  if (!ready) return (
+    <div style={{ width:"100%", height: height||200, borderRadius:14, background:"#1e293b",
+      display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ color:"#60a5fa", fontSize:12 }}>Loading map…</div>
+    </div>
+  );
+
   return (
-    <div style={{ width:"100%", height: height||200, borderRadius:14, overflow:"hidden", border:"1px solid "+BORDER, position:"relative" }}>
-      <iframe
-        title="map"
-        src={src}
-        style={{ width:"100%", height:"100%", border:"none" }}
-        loading="lazy"
-      />
-      <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-100%)", width:16, height:16, borderRadius:"50%", background:dot, border:"3px solid #fff", boxShadow:"0 2px 8px rgba(0,0,0,0.4)", pointerEvents:"none" }} />
+    <div style={{ width:"100%", height: height||200, borderRadius:14, overflow:"hidden",
+      border:"1px solid "+BORDER, position:"relative" }}>
+      <div ref={ref} style={{ width:"100%", height:"100%" }} />
     </div>
   );
 }
@@ -378,6 +464,9 @@ function RiderApp() {
   const [trips, setTrips]   = useState([]);
   const [rating, setRating] = useState(0);
   const [pendingRate, setPendingRate] = useState(false);
+  const [riderPos, setRiderPos] = useState({ lat:null, lng:null });
+  const [assignedDriver, setAssignedDriver] = useState(null); // driver name for tracking
+  const [driverLivePos, setDriverLivePos] = useState({ lat:null, lng:null });
   const [airportCode, setAirportCode]     = useState("yyz");
   const [airportDir,  setAirportDir]      = useState("to");   // "to" | "from"
   const [airportPickup,  setAirportPickup]  = useState("");
@@ -512,6 +601,30 @@ function RiderApp() {
   useEffect(() => {
     if (scr === "airport" || tab === "shuttle") loadSettingsAndTrips();
   }, [scr, tab]);
+
+  // Subscribe to assigned driver's live GPS
+  useEffect(() => {
+    if (!assignedDriver) return;
+    const ch = db.channel("driver-gps-"+assignedDriver)
+      .on("postgres_changes", { event:"UPDATE", schema:"public", table:"drivers",
+        filter:`name=eq.${assignedDriver}` },
+        (payload) => {
+          const { lat, lng } = payload.new;
+          if (lat && lng) setDriverLivePos({ lat, lng });
+        })
+      .subscribe();
+    return () => db.removeChannel(ch);
+  }, [assignedDriver]);
+
+  // Get rider's own GPS position
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => setRiderPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      err => console.error("Rider GPS:", err.message),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
 
   useEffect(() => {
     db.auth.getSession().then(({ data }) => {
@@ -699,6 +812,7 @@ function RiderApp() {
       }
 
       const insertedId = tripData?.id || String(Date.now());
+      setAssignedDriver(driver.name); // track this driver
       setLastFare(totalFare);
       setTrips(h=>[{ id:insertedId, dest:dest.trim(), type:chosen.label, fare:"CA$"+totalFare, date:new Date().toLocaleDateString("en-CA"), status:"pending" }, ...h]);
 
@@ -842,7 +956,7 @@ function RiderApp() {
     <div style={{ ...sc, position:"relative" }}>
       <style>{STYLES}</style>
       <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-        <MapView height="100vh" riderMode={true} fullscreen />
+        <MapView height="100vh" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} />
       </div>
       <div style={{ position:"absolute", top:20, left:0, right:0, zIndex:10, display:"flex", justifyContent:"center" }}>
         <div style={{ background:"rgba(15,23,42,0.9)", backdropFilter:"blur(10px)", borderRadius:30, padding:"10px 22px", display:"flex", alignItems:"center", gap:10 }}>
@@ -1329,7 +1443,7 @@ function RiderApp() {
         <div className="fade" style={{ position:"relative", height:"100vh" }}>
           {/* Full-screen map background */}
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-            <MapView height="100%" riderMode={true} />
+            <MapView height="100%" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} />
           </div>
           {/* Top header overlay */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px 0" }}>
@@ -2542,8 +2656,9 @@ function DriverApp() {
   const [trips, setTrips]   = useState([]);
   const [earned, setEarned] = useState(0);
   const [inReq, setInReq]   = useState(null);
-  const [inRouteTrip, setInRouteTrip] = useState(null); // trip id currently in progress
+  const [inRouteTrip, setInRouteTrip] = useState(null);
   const [lastFare, setLastFare] = useState("0.00");
+  const [driverPos, setDriverPos] = useState({ lat:null, lng:null }); // live GPS
   const [cdown, setCdown]   = useState(15);
   const [subPaid, setSubPaid] = useState(false);
   const [driverStatus, setDriverStatus] = useState("pending");
@@ -2616,6 +2731,32 @@ function DriverApp() {
     }).catch(() => setTimeout(() => go("login"), 1800));
   }, []);
 
+
+  // Live GPS tracking — broadcast position to Supabase every 4s when online
+  useEffect(() => {
+    if (!online || !user) return;
+    let watchId = null;
+    let lastPush = 0;
+    if (!navigator.geolocation) return;
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setDriverPos({ lat, lng });
+        // Push to Supabase every 4 seconds
+        const now = Date.now();
+        if (now - lastPush > 4000) {
+          lastPush = now;
+          db.from("drivers").update({ lat, lng, last_seen: new Date().toISOString() })
+            .eq("id", user.id).then(({ error }) => {
+              if (error) console.error("GPS update error:", error.message);
+            });
+        }
+      },
+      (err) => console.error("GPS error:", err.message),
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+    );
+    return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
+  }, [online, user]);
 
   // Listen for notification tap from service worker
   useEffect(() => {
@@ -3105,7 +3246,7 @@ function DriverApp() {
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>Trip in Progress</div>
         <div style={{ color:LBLUE, fontSize:13, marginTop:4 }}>Navigate to rider pickup</div>
       </div>
-      <MapView height={180} riderMode={false} finding={true} />
+      <MapView height={180} riderMode={false} driverLat={driverPos.lat} driverLng={driverPos.lng} />
       <div style={{ background:"rgba(37,99,235,0.12)", border:"1.5px solid "+GREEN, borderRadius:16, padding:"14px 32px", textAlign:"center" }}>
         <div style={{ color:LBLUE, fontSize:11, fontWeight:600 }}>EARNING</div>
         <div style={{ color:GREEN, fontWeight:900, fontSize:30, fontFamily:"'Syne',sans-serif" }}>{"CA$"+lastFare}</div>
@@ -3133,7 +3274,7 @@ function DriverApp() {
         <div className="fade" style={{ position:"relative", height:"100vh" }}>
           {/* Full-screen map background */}
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-            <MapView height="100%" riderMode={false} />
+            <MapView height="100%" riderMode={false} driverLat={driverPos.lat} driverLng={driverPos.lng} />
           </div>
           {/* Top header — logo left, earnings absolute center */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
