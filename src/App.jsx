@@ -268,7 +268,7 @@ function loadGoogleMaps() {
   gmapsPromise = new Promise((resolve, reject) => {
     window.__gmapsReady = resolve;
     const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&libraries=geometry&callback=__gmapsReady&loading=async`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&libraries=places,geometry&callback=__gmapsReady&loading=async`;
     s.async = true;
     s.onerror = (e) => { console.error("Google Maps load error:", e); reject(e); };
     document.head.appendChild(s);
@@ -463,6 +463,111 @@ async function sendDriverSMS(phone, message) {
       body: JSON.stringify({ phone, message }),
     });
   } catch(e) { console.log("SMS send error:", e.message); }
+}
+
+
+// ─── GOOGLE PLACES AUTOCOMPLETE INPUT ─────────────────────────────────────────
+function PlacesInput({ value, onChange, onSelect, placeholder, style }) {
+  const inputRef = useRef(null);
+  const dropRef  = useRef(null);
+  const acRef    = useRef(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDrop, setShowDrop] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadGoogleMaps().then(() => {
+      if (!window.google?.maps?.places) return;
+      acRef.current = new window.google.maps.places.AutocompleteService();
+    }).catch(() => {});
+  }, []);
+
+  function handleChange(e) {
+    const val = e.target.value;
+    onChange(val);
+    if (!val.trim() || !acRef.current) { setSuggestions([]); setShowDrop(false); return; }
+    setLoading(true);
+    acRef.current.getPlacePredictions(
+      { input: val, componentRestrictions: { country: "ca" },
+        location: new window.google.maps.LatLng(43.2557, -79.8711),
+        radius: 80000 },
+      (results, status) => {
+        setLoading(false);
+        if (status === "OK" && results) {
+          setSuggestions(results);
+          setShowDrop(true);
+        } else {
+          setSuggestions([]);
+          setShowDrop(false);
+        }
+      }
+    );
+  }
+
+  function handleSelect(suggestion) {
+    const desc = suggestion.description;
+    onChange(desc);
+    onSelect && onSelect(desc);
+    setSuggestions([]);
+    setShowDrop(false);
+    inputRef.current?.blur();
+  }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (dropRef.current && !dropRef.current.contains(e.target) &&
+          inputRef.current && !inputRef.current.contains(e.target)) {
+        setShowDrop(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div style={{ position:"relative", flex:1 }}>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={handleChange}
+        onFocus={() => suggestions.length > 0 && setShowDrop(true)}
+        placeholder={placeholder || "Where to?"}
+        style={{ width:"100%", border:"none", outline:"none", fontSize:15,
+          color:NAVY, background:"transparent",
+          fontFamily:"'Plus Jakarta Sans',sans-serif", ...style }}
+        autoComplete="off"
+      />
+      {showDrop && suggestions.length > 0 && (
+        <div ref={dropRef} style={{
+          position:"absolute", top:"calc(100% + 8px)", left:-46, right:-14,
+          background:WHITE, borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,0.18)",
+          border:"1px solid "+BORDER, zIndex:999, overflow:"hidden", maxHeight:280,
+          overflowY:"auto"
+        }}>
+          {suggestions.map((s, i) => (
+            <button key={s.place_id} onMouseDown={() => handleSelect(s)}
+              style={{ width:"100%", padding:"12px 14px", border:"none", borderBottom:i<suggestions.length-1?"1px solid "+BORDER:"none",
+                background:"none", textAlign:"left", cursor:"pointer", display:"flex", alignItems:"flex-start", gap:10 }}>
+              <span style={{ fontSize:16, marginTop:1, flexShrink:0 }}>📍</span>
+              <div>
+                <div style={{ fontSize:13, fontWeight:600, color:NAVY, lineHeight:1.3 }}>
+                  {s.structured_formatting?.main_text || s.description}
+                </div>
+                <div style={{ fontSize:11, color:SLATE, marginTop:2 }}>
+                  {s.structured_formatting?.secondary_text || ""}
+                </div>
+              </div>
+            </button>
+          ))}
+          <div style={{ padding:"6px 14px", borderTop:"1px solid "+BORDER, display:"flex", justifyContent:"flex-end" }}>
+            <img src="https://maps.gstatic.com/mapfiles/api-3/images/powered-by-google-on-white3.png"
+              alt="Powered by Google" style={{ height:14, opacity:0.7 }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function RiderApp() {
@@ -1545,8 +1650,12 @@ function RiderApp() {
             {/* Search bar */}
             <div style={{ background:WHITE, borderRadius:14, padding:"12px 14px", display:"flex", alignItems:"center", gap:10, boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
               <span style={{ fontSize:18 }}>📍</span>
-              <input value={dest} onChange={e=>{ setDest(e.target.value); setErr(""); }} placeholder="Where to?"
-                style={{ flex:1, border:"none", outline:"none", fontSize:15, color:NAVY, background:"transparent", fontFamily:"'Plus Jakarta Sans',sans-serif" }} />
+              <PlacesInput
+                value={dest}
+                onChange={v=>{ setDest(v); setErr(""); }}
+                onSelect={v=>{ setDest(v); setErr(""); }}
+                placeholder="Where to?"
+              />
               {dest && <button onClick={()=>setDest("")} style={{ background:"none", border:"none", cursor:"pointer", color:SLATE, fontSize:18, lineHeight:1 }}>×</button>}
             </div>
             {/* Quick location buttons */}
