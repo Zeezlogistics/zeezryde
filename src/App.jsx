@@ -710,6 +710,7 @@ function RiderApp() {
   const [bankOpen, setBankOpen]         = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [ride, setRide]     = useState("family");
+  const [panelOpen, setPanelOpen] = useState(true);
   const [dest, setDest]     = useState("");
   const [finding, setFinding] = useState(false);
   const [trips, setTrips]   = useState([]);
@@ -1807,14 +1808,31 @@ function RiderApp() {
               </div>
             )}
           </div>
-          {/* Bottom panel overlay */}
-          <div style={{ position:"absolute", bottom:64, left:0, right:0, zIndex:10, padding:"0 16px 0" }}>
-            <div style={{ background:"rgba(10,22,40,0.25)", borderRadius:"20px 20px 0 0", padding:"16px 16px 20px", border:"1px solid rgba(30,58,95,0.2)" }}>
+          {/* Bottom panel overlay — collapsible */}
+          <div style={{ position:"absolute", bottom:64, left:0, right:0, zIndex:10 }}>
+            {/* Drag handle / toggle */}
+            <button onClick={()=>setPanelOpen(o=>!o)}
+              style={{ display:"block", width:"100%", background:"rgba(10,22,40,0.25)",
+                borderRadius:"20px 20px 0 0", border:"1px solid rgba(30,58,95,0.2)",
+                borderBottom:"none", padding:"8px 0 4px", cursor:"pointer" }}>
+              <div style={{ width:36, height:4, borderRadius:2, background:"rgba(255,255,255,0.4)", margin:"0 auto 2px" }} />
+              <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.7)", letterSpacing:1.2,
+                textTransform:"uppercase", textAlign:"center", paddingBottom:2 }}>
+                {panelOpen ? "▼ Hide" : "▲ Book a Ride"}
+              </div>
+            </button>
+
+            {/* Collapsible content */}
+            <div style={{ background:"rgba(10,22,40,0.25)", border:"1px solid rgba(30,58,95,0.2)",
+              borderTop:"none", padding: panelOpen ? "14px 16px 20px" : "0 16px",
+              maxHeight: panelOpen ? "600px" : "0px",
+              overflow:"hidden",
+              transition:"max-height 0.35s cubic-bezier(0.4,0,0.2,1), padding 0.35s" }}>
+
               <div style={{ fontSize:10, fontWeight:700, color:SLATE, letterSpacing:1.2, textTransform:"uppercase", marginBottom:10 }}>Choose ride</div>
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {RIDES.map(r=>{
                   const locked = !dest.trim();
-                  // Live fares from admin settings
                   const base = parseFloat(getLive("baseFare", 9.40)) || 9.40;
                   const estFare = r.id==="family"
                     ? base * (parseFloat(getLive("familyMult", 1)) || 1)
@@ -1827,8 +1845,7 @@ function RiderApp() {
                       opacity:locked?0.4:1,
                       border:"2px solid "+(ride===r.id?BLUE:BORDER),
                       background:ride===r.id?VLIGHT:WHITE,
-                      transition:"opacity 0.2s",
-                      position:"relative" }}>
+                      transition:"all 0.15s", position:"relative" }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                       <div style={{ fontSize:24 }}>{r.icon}</div>
                       {!locked && (
@@ -1845,15 +1862,17 @@ function RiderApp() {
               </div>
               {!dest.trim() && (
                 <div style={{ fontSize:11, color:SLATE, textAlign:"center", marginTop:-8, marginBottom:10 }}>
-                  {"Enter a destination above to select a ride type"}
+                  Enter a destination above to unlock ride types
                 </div>
               )}
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                <button onClick={()=>{ setAirportDone(false); setAirportReview(false); go("airport"); }} style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:"#f8fafc", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+                <button onClick={()=>{ setAirportDone(false); setAirportReview(false); go("airport"); }}
+                  style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:WHITE, cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
                   <span style={{ fontSize:16 }}>✈️</span>
                   <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>Airport</span>
                 </button>
-                <button onClick={()=>setTab("shuttle")} style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:"#f8fafc", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+                <button onClick={()=>setTab("shuttle")}
+                  style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:WHITE, cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
                   <span style={{ fontSize:16 }}>🚌</span>
                   <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>Shuttle</span>
                 </button>
