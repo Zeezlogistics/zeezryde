@@ -276,7 +276,7 @@ function loadGoogleMaps() {
   return gmapsPromise;
 }
 
-function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, finding, driverVehicle, destLat, destLng }) {
+function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, finding, driverVehicle, destLat, destLng, mode }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
   const driverMarkerRef = useRef(null);
@@ -396,52 +396,105 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
       }
     }
 
-    // Destination marker (flag) + route A→B
-    if (destLat && destLng && riderLat && riderLng) {
-      const dpos = { lat: destLat, lng: destLng };
-      // Destination pin
-      const flagSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='40' height='44' viewBox='0 0 40 44'><text y='36' font-size='32'>🏁</text></svg>";
-      if (!destMarkerRef.current) {
-        destMarkerRef.current = new window.google.maps.Marker({
-          map: mapRef.current, position: dpos, zIndex: 15,
-          icon: { url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(flagSvg),
-            scaledSize: new window.google.maps.Size(40,44), anchor: new window.google.maps.Point(10,44) },
-          title: "Destination"
-        });
-      } else {
-        destMarkerRef.current.setPosition(dpos);
-      }
+    // ── Route & Bounds logic based on mode ───────────────────────────────
+    if (!directionsServiceRef.current && window.google?.maps) {
+      directionsServiceRef.current = new window.google.maps.DirectionsService();
+    }
+    if (!routeRendererRef.current && window.google?.maps) {
+      routeRendererRef.current = new window.google.maps.DirectionsRenderer({
+        suppressMarkers: true,
+        polylineOptions: { strokeColor:"#2563eb", strokeWeight:5, strokeOpacity:0.85 }
+      });
+      routeRendererRef.current.setMap(mapRef.current);
+    }
 
-      // Draw route using Directions API
-      if (!directionsServiceRef.current) {
-        directionsServiceRef.current = new window.google.maps.DirectionsService();
-      }
-      if (!routeRendererRef.current) {
-        routeRendererRef.current = new window.google.maps.DirectionsRenderer({
-          suppressMarkers: true,
-          polylineOptions: { strokeColor:"#2563eb", strokeWeight:4, strokeOpacity:0.8 }
+    function fitAll(...points) {
+      const valid = points.filter(p => p && p.lat && p.lng);
+      if (valid.length < 2) return;
+      const bounds = new window.google.maps.LatLngBounds();
+      valid.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+      mapRef.current.fitBounds(bounds, { top:80, bottom:100, left:60, right:60 });
+    }
+
+    function drawRoute(origin, dest, color="#2563eb") {
+      if (!origin?.lat || !dest?.lat || !directionsServiceRef.current) return;
+      if (routeRendererRef.current) {
+        routeRendererRef.current.setOptions({
+          polylineOptions: { strokeColor: color, strokeWeight:5, strokeOpacity:0.85 }
         });
-        routeRendererRef.current.setMap(mapRef.current);
       }
       directionsServiceRef.current.route({
-        origin: { lat: riderLat, lng: riderLng },
-        destination: { lat: destLat, lng: destLng },
+        origin: { lat: origin.lat, lng: origin.lng },
+        destination: { lat: dest.lat, lng: dest.lng },
         travelMode: window.google.maps.TravelMode.DRIVING
       }, (result, status) => {
-        if (status === "OK") {
+        if (status === "OK" && routeRendererRef.current) {
           routeRendererRef.current.setDirections(result);
-          // Fit map to show full route
-          const bounds = new window.google.maps.LatLngBounds();
-          bounds.extend({ lat: riderLat, lng: riderLng });
-          bounds.extend({ lat: destLat, lng: destLng });
-          mapRef.current.fitBounds(bounds, { top:60, bottom:60, left:40, right:40 });
         }
       });
-    } else if (routeRendererRef.current) {
-      routeRendererRef.current.setDirections({ routes:[] });
+    }
+
+    function clearRoute() {
+      if (routeRendererRef.current) routeRendererRef.current.setDirections({ routes:[] });
       if (destMarkerRef.current) { destMarkerRef.current.setMap(null); destMarkerRef.current = null; }
     }
-  }, [ready, myLat, myLng, driverLat, driverLng, riderLat, riderLng, destLat, destLng, driverVehicle]);
+
+    function placeDestMarker(pos) {
+      const flagSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='44' height='48' viewBox='0 0 44 48'><text y='40' font-size='36'>🏁</text></svg>";
+      if (!destMarkerRef.current) {
+        destMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current, position: pos, zIndex:15,
+          icon: { url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(flagSvg),
+            scaledSize:new window.google.maps.Size(44,48), anchor:new window.google.maps.Point(10,48) },
+          title:"Destination"
+        });
+      } else { destMarkerRef.current.setPosition(pos); }
+    }
+
+    // MODE: rider browsing — show route rider→dest, fit both in view
+    if ((mode==="rider-browse" || (!mode && riderMode)) && destLat && destLng && riderLat && riderLng) {
+      placeDestMarker({ lat:destLat, lng:destLng });
+      drawRoute({ lat:riderLat, lng:riderLng }, { lat:destLat, lng:destLng });
+      fitAll({ lat:riderLat, lng:riderLng }, { lat:destLat, lng:destLng });
+    }
+
+    // MODE: rider enroute — driver coming to pickup — fit driver+rider in view
+    else if (mode==="rider-pickup" && driverLat && driverLng && riderLat && riderLng) {
+      drawRoute({ lat:driverLat, lng:driverLng }, { lat:riderLat, lng:riderLng }, "#f59e0b");
+      fitAll({ lat:driverLat, lng:driverLng }, { lat:riderLat, lng:riderLng });
+    }
+
+    // MODE: rider in trip — driver heading to destination — fit driver+dest
+    else if (mode==="rider-trip" && driverLat && driverLng && destLat && destLng) {
+      placeDestMarker({ lat:destLat, lng:destLng });
+      drawRoute({ lat:driverLat, lng:driverLng }, { lat:destLat, lng:destLng });
+      fitAll({ lat:driverLat, lng:driverLng }, { lat:destLat, lng:destLng });
+    }
+
+    // MODE: driver pickup — navigate from driver to rider — fit both + turn-by-turn
+    else if (mode==="driver-pickup" && driverLat && driverLng && riderLat && riderLng) {
+      drawRoute({ lat:driverLat, lng:driverLng }, { lat:riderLat, lng:riderLng }, "#f59e0b");
+      fitAll({ lat:driverLat, lng:driverLng }, { lat:riderLat, lng:riderLng });
+    }
+
+    // MODE: driver trip — navigate driver to destination — follow driver, show route
+    else if (mode==="driver-trip" && driverLat && driverLng && destLat && destLng) {
+      placeDestMarker({ lat:destLat, lng:destLng });
+      drawRoute({ lat:driverLat, lng:driverLng }, { lat:destLat, lng:destLng });
+      // Keep driver centered with heading tilt for navigation feel
+      if (mapRef.current) {
+        mapRef.current.panTo({ lat:driverLat, lng:driverLng });
+        mapRef.current.setZoom(17);
+        mapRef.current.setTilt(45);
+      }
+    }
+
+    // No route needed — clear
+    else if (!destLat && !destLng) {
+      clearRoute();
+    }
+
+  }, [ready, mode, myLat, myLng, driverLat, driverLng, riderLat, riderLng, destLat, destLng, driverVehicle]);
 
   if (!ready) return (
     <div style={{ width:"100%", height: height||200, borderRadius:14, background:"#1e293b",
@@ -1208,7 +1261,7 @@ function RiderApp() {
     <div style={{ ...sc, position:"relative" }}>
       <style>{STYLES}</style>
       <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-        <MapView height="100vh" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} destLat={destCoords.lat} destLng={destCoords.lng} driverVehicle={assignedVehicle} />
+        <MapView height="100vh" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} destLat={destCoords.lat} destLng={destCoords.lng} driverVehicle={assignedVehicle} mode={driverLivePos.lat ? "rider-pickup" : "rider-browse"} />
       </div>
       <div style={{ position:"absolute", top:20, left:0, right:0, zIndex:10, display:"flex", justifyContent:"center" }}>
         <div style={{ background:"rgba(15,23,42,0.9)", backdropFilter:"blur(10px)", borderRadius:30, padding:"10px 22px", display:"flex", alignItems:"center", gap:10 }}>
@@ -1695,7 +1748,7 @@ function RiderApp() {
         <div className="fade" style={{ position:"relative", height:"100vh" }}>
           {/* Full-screen map background */}
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-            <MapView height="100%" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} destLat={destCoords.lat} destLng={destCoords.lng} driverVehicle={assignedVehicle} />
+            <MapView height="100%" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} destLat={destCoords.lat} destLng={destCoords.lng} driverVehicle={assignedVehicle} mode="rider-browse" />
           </div>
           {/* Top header overlay */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px 0" }}>
@@ -2925,7 +2978,9 @@ function DriverApp() {
   const [inReq, setInReq]   = useState(null);
   const [inRouteTrip, setInRouteTrip] = useState(null);
   const [lastFare, setLastFare] = useState("0.00");
-  const [driverPos, setDriverPos] = useState({ lat:null, lng:null }); // live GPS
+  const [driverPos, setDriverPos] = useState({ lat:null, lng:null });
+  const [pickupCoords, setPickupCoords] = useState({ lat:null, lng:null }); // rider pickup location
+  const [tripDestCoords, setTripDestCoords] = useState({ lat:null, lng:null }); // trip destination // live GPS
   const [cdown, setCdown]   = useState(15);
   const [subPaid, setSubPaid] = useState(false);
   const [driverStatus, setDriverStatus] = useState("pending");
@@ -3059,6 +3114,32 @@ function DriverApp() {
             fare:"CA$"+(t.fare||"0"), type:t.rideType||"Family",
             origin:t.origin||"", distance:"" };
           setInReq(tripReq);
+          // Geocode rider origin for pickup navigation
+          loadGoogleMaps().then(()=>{
+            const gc = new window.google.maps.Geocoder();
+            // Try origin as "lat,lng" string first, then as address
+            const orig = t.origin||"";
+            const latLngMatch = orig.match(/^(-?\d+\.\d+),(-?\d+\.\d+)$/);
+            if (latLngMatch) {
+              setPickupCoords({ lat:parseFloat(latLngMatch[1]), lng:parseFloat(latLngMatch[2]) });
+            } else if (orig && orig !== "Current Location") {
+              gc.geocode({ address: orig }, (res, status) => {
+                if (status==="OK" && res[0]) {
+                  const loc = res[0].geometry.location;
+                  setPickupCoords({ lat:loc.lat(), lng:loc.lng() });
+                }
+              });
+            }
+            // Geocode destination too
+            if (t.dest) {
+              gc.geocode({ address: t.dest }, (res, status) => {
+                if (status==="OK" && res[0]) {
+                  const loc = res[0].geometry.location;
+                  setTripDestCoords({ lat:loc.lat(), lng:loc.lng() });
+                }
+              });
+            }
+          });
           showLocalNotification(
             "🚗 New Trip Request",
             "Rider: " + (t.rider||"Rider") + " — " + (t.dest||"Unknown") + " | " + "CA$"+(t.fare||"0"),
@@ -3518,7 +3599,7 @@ function DriverApp() {
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:24, color:WHITE }}>Trip in Progress</div>
         <div style={{ color:LBLUE, fontSize:13, marginTop:4 }}>Navigate to rider pickup</div>
       </div>
-      <MapView height={180} riderMode={false} driverLat={driverPos.lat} driverLng={driverPos.lng} />
+      <MapView height={240} riderMode={false} driverLat={driverPos.lat} driverLng={driverPos.lng} riderLat={pickupCoords.lat} riderLng={pickupCoords.lng} destLat={tripDestCoords.lat} destLng={tripDestCoords.lng} mode="driver-trip" />
       <div style={{ background:"rgba(37,99,235,0.12)", border:"1.5px solid "+GREEN, borderRadius:16, padding:"14px 32px", textAlign:"center" }}>
         <div style={{ color:LBLUE, fontSize:11, fontWeight:600 }}>EARNING</div>
         <div style={{ color:GREEN, fontWeight:900, fontSize:30, fontFamily:"'Syne',sans-serif" }}>{"CA$"+lastFare}</div>
@@ -3546,7 +3627,7 @@ function DriverApp() {
         <div className="fade" style={{ position:"relative", height:"100vh" }}>
           {/* Full-screen map background */}
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-            <MapView height="100%" riderMode={false} driverLat={driverPos.lat} driverLng={driverPos.lng} />
+            <MapView height="100%" riderMode={false} driverLat={driverPos.lat} driverLng={driverPos.lng} riderLat={pickupCoords.lat} riderLng={pickupCoords.lng} mode={inReq ? "driver-pickup" : "driver-idle"} />
           </div>
           {/* Top header — logo left, earnings absolute center */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px" }}>
