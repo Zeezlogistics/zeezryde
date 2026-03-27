@@ -3642,7 +3642,16 @@ function DriverApp() {
               </div>
         <BigBtn onClick={async ()=>{
           setSubPaid(true);
-          try { await db.from("drivers").update({ sub_paid:true }).eq("id", user?.id); } catch(_) {}
+          try {
+            await db.from("drivers").update({ sub_paid:true }).eq("id", user?.id);
+            // Check if all docs are also approved — if so, activate
+            const { data: docs } = await db.from("driver_docs").select("status").eq("driver_id", user?.id);
+            const allApproved = docs && docs.length > 0 && docs.every(d => d.status === "approved");
+            if (allApproved) {
+              await db.from("drivers").update({ status:"active" }).eq("id", user?.id);
+              setDriverStatus("active");
+            }
+          } catch(_) {}
           go("dash");
         }} green>{"Pay CA$"+subFee+" and Activate"}</BigBtn>
         <p style={{ textAlign:"center", marginTop:10, fontSize:11, color:SLATE }}>
