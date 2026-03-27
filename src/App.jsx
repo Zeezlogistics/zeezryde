@@ -714,7 +714,10 @@ function RiderApp() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [ride, setRide]     = useState("family");
   const [panelOpen, setPanelOpen] = useState(true);
-  const [liveRates, setLiveRates] = useState({}); // loaded from Supabase settings
+  const [liveRates, setLiveRates] = useState(() => {
+    // Initialise immediately from localStorage so fares show before Supabase responds
+    try { return JSON.parse(localStorage.getItem("zeez_settings") || "{}"); } catch(_) { return {}; }
+  });
   const [dest, setDest]     = useState("");
   const [finding, setFinding] = useState(false);
   const [trips, setTrips]   = useState([]);
@@ -885,19 +888,26 @@ function RiderApp() {
   }, []);
 
   useEffect(() => {
-    // Load admin settings from Supabase — store in state for live fare display
+    // First: immediately load any cached settings from localStorage
+    try {
+      const cached = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
+      if (Object.keys(cached).length > 0) setLiveRates(cached);
+    } catch(_) {}
+
+    // Then: fetch fresh from Supabase (overwrites with latest)
     db.from("settings").select("value").eq("key", "admin_settings").maybeSingle()
-      .then(({ data: cfg }) => {
-        if (cfg?.value) {
-          try {
-            const s = typeof cfg.value === "string" ? JSON.parse(cfg.value) : cfg.value;
-            const existing = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
-            const merged = { ...existing, ...s };
-            localStorage.setItem("zeez_settings", JSON.stringify(merged));
-            setLiveRates(merged); // trigger fare card re-render
-          } catch(e) { console.error("Settings parse error:", e); }
-        }
-      }).catch(e => console.error("Settings load error:", e));
+      .then(({ data: cfg, error }) => {
+        if (error) { console.error("Settings fetch error:", error.message); return; }
+        if (!cfg?.value) { console.warn("No admin_settings found in Supabase"); return; }
+        try {
+          const s = typeof cfg.value === "string" ? JSON.parse(cfg.value) : cfg.value;
+          if (!s || typeof s !== "object") return;
+          console.log("Admin settings loaded:", { baseFare:s.baseFare, familyMult:s.familyMult, friendsMult:s.friendsMult });
+          localStorage.setItem("zeez_settings", JSON.stringify(s));
+          setLiveRates(s); // re-render fare cards with live values
+        } catch(e) { console.error("Settings parse error:", e); }
+      })
+      .catch(e => console.error("Settings load failed:", e));
   }, []);
 
   useEffect(() => {
@@ -1835,10 +1845,10 @@ function RiderApp() {
                 {RIDES.map(r=>{
                   const locked = !dest.trim();
                   // Read from liveRates (Supabase) first, then getLive fallback
-                  const base = parseFloat(liveRates.baseFare || getLive("baseFare", 9.40)) || 9.40;
-                  const fMult = parseFloat(liveRates.familyMult || getLive("familyMult", 1)) || 1;
-                  const frMult = parseFloat(liveRates.friendsMult || getLive("friendsMult", 2.28)) || 2.28;
-                  const estFare = r.id==="family" ? base * fMult : base * frMult;
+                  const base  = parseFloat(liveRates.baseFare)   || parseFloat(getLive("baseFare",   9.40)) || 9.40;
+                  const fMult = parseFloat(liveRates.familyMult) || parseFloat(getLive("familyMult", 1))    || 1;
+                  const rMult = parseFloat(liveRates.friendsMult)|| parseFloat(getLive("friendsMult",2.28)) || 2.28;
+                  const estFare = r.id==="family" ? base * fMult : base * rMult;
                   const estTotal = withTax(estFare).toFixed(2);
                   return (
                   <button key={r.id} onClick={()=>{ if(locked) return; setRide(r.id); }}
