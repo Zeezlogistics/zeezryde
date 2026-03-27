@@ -276,12 +276,15 @@ function loadGoogleMaps() {
   return gmapsPromise;
 }
 
-function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, finding }) {
+function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, finding, driverVehicle, destLat, destLng }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
   const driverMarkerRef = useRef(null);
   const riderMarkerRef  = useRef(null);
   const myLocMarkerRef  = useRef(null);
+  const destMarkerRef   = useRef(null);
+  const routeRendererRef = useRef(null);
+  const directionsServiceRef = useRef(null);
   const [ready, setReady] = useState(!!window.google?.maps);
   const [myLat, setMyLat] = useState(null);
   const [myLng, setMyLng] = useState(null);
@@ -323,45 +326,53 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
       mapRef.current.panTo({ lat: centerLat, lng: centerLng });
     }
 
-    // Blue dot for own device location
+    // Rider = 🙋 emoji, Driver = car emoji matching vehicle
     if (myLat && myLng) {
       const mpos = { lat: myLat, lng: myLng };
+      const myEmoji = riderMode ? "🙋" : "🚗";
+      const mySize  = riderMode ? 44 : 40;
+      const myIconSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='${mySize}' height='${mySize}' viewBox='0 0 ${mySize} ${mySize}'><text y='${mySize-4}' font-size='${mySize-4}'>${myEmoji}</text></svg>`;
+      const myIcon = {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(myIconSvg),
+        scaledSize: new window.google.maps.Size(mySize, mySize),
+        anchor: new window.google.maps.Point(mySize/2, mySize),
+      };
       if (!myLocMarkerRef.current) {
         myLocMarkerRef.current = new window.google.maps.Marker({
-          map: mapRef.current,
-          position: mpos,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: riderMode ? "#2563eb" : "#22c55e",
-            fillOpacity: 1,
-            strokeColor: "#fff",
-            strokeWeight: 3,
-          },
-          title: riderMode ? "Your location" : "Your location",
-          zIndex: 10
+          map: mapRef.current, position: mpos, icon: myIcon,
+          title: riderMode ? "You" : "You", zIndex: 10
         });
       } else {
         myLocMarkerRef.current.setPosition(mpos);
+        myLocMarkerRef.current.setIcon(myIcon);
       }
     }
 
-    // Driver marker (car icon)
+    // Driver marker — emoji based on vehicle type
     if (driverLat && driverLng) {
       const pos = { lat: driverLat, lng: driverLng };
+      // Pick emoji based on vehicle name keywords
+      const veh = (driverVehicle||"").toLowerCase();
+      const carEmoji = veh.includes("suv")||veh.includes("van")||veh.includes("sienna")||
+        veh.includes("odyssey")||veh.includes("pilot")||veh.includes("traverse")||
+        veh.includes("suburban")||veh.includes("expedition")||veh.includes("tahoe") ? "🚐"
+        : veh.includes("truck")||veh.includes("ram")||veh.includes("f-150")||
+          veh.includes("tacoma")||veh.includes("sierra") ? "🛻"
+        : "🚗";
+      const carSize = carEmoji === "🚐" ? 48 : 40;
+      const carSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='${carSize}' height='${carSize}' viewBox='0 0 ${carSize} ${carSize}'><text y='${carSize-4}' font-size='${carSize-6}'>${carEmoji}</text></svg>`;
+      const driverIcon = {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(carSvg),
+        scaledSize: new window.google.maps.Size(carSize, carSize),
+        anchor: new window.google.maps.Point(carSize/2, carSize),
+      };
       if (!driverMarkerRef.current) {
         driverMarkerRef.current = new window.google.maps.Marker({
-          map: mapRef.current,
-          position: pos,
-          icon: {
-            url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><text y="32" font-size="32">🚗</text></svg>'),
-            scaledSize: new window.google.maps.Size(40, 40),
-            anchor: new window.google.maps.Point(20, 20),
-          },
-          title: "Driver"
+          map: mapRef.current, position: pos, icon: driverIcon, title: "Driver", zIndex: 20
         });
       } else {
         driverMarkerRef.current.setPosition(pos);
+        driverMarkerRef.current.setIcon(driverIcon);
       }
       mapRef.current.panTo(pos);
     }
@@ -384,7 +395,53 @@ function MapView({ height, riderMode, driverLat, driverLng, riderLat, riderLng, 
         riderMarkerRef.current.setPosition(rpos);
       }
     }
-  }, [ready, myLat, myLng, driverLat, driverLng, riderLat, riderLng]);
+
+    // Destination marker (flag) + route A→B
+    if (destLat && destLng && riderLat && riderLng) {
+      const dpos = { lat: destLat, lng: destLng };
+      // Destination pin
+      const flagSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='40' height='44' viewBox='0 0 40 44'><text y='36' font-size='32'>🏁</text></svg>";
+      if (!destMarkerRef.current) {
+        destMarkerRef.current = new window.google.maps.Marker({
+          map: mapRef.current, position: dpos, zIndex: 15,
+          icon: { url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(flagSvg),
+            scaledSize: new window.google.maps.Size(40,44), anchor: new window.google.maps.Point(10,44) },
+          title: "Destination"
+        });
+      } else {
+        destMarkerRef.current.setPosition(dpos);
+      }
+
+      // Draw route using Directions API
+      if (!directionsServiceRef.current) {
+        directionsServiceRef.current = new window.google.maps.DirectionsService();
+      }
+      if (!routeRendererRef.current) {
+        routeRendererRef.current = new window.google.maps.DirectionsRenderer({
+          suppressMarkers: true,
+          polylineOptions: { strokeColor:"#2563eb", strokeWeight:4, strokeOpacity:0.8 }
+        });
+        routeRendererRef.current.setMap(mapRef.current);
+      }
+      directionsServiceRef.current.route({
+        origin: { lat: riderLat, lng: riderLng },
+        destination: { lat: destLat, lng: destLng },
+        travelMode: window.google.maps.TravelMode.DRIVING
+      }, (result, status) => {
+        if (status === "OK") {
+          routeRendererRef.current.setDirections(result);
+          // Fit map to show full route
+          const bounds = new window.google.maps.LatLngBounds();
+          bounds.extend({ lat: riderLat, lng: riderLng });
+          bounds.extend({ lat: destLat, lng: destLng });
+          mapRef.current.fitBounds(bounds, { top:60, bottom:60, left:40, right:40 });
+        }
+      });
+    } else if (routeRendererRef.current) {
+      routeRendererRef.current.setDirections({ routes:[] });
+      if (destMarkerRef.current) { destMarkerRef.current.setMap(null); destMarkerRef.current = null; }
+    }
+  }, [ready, myLat, myLng, driverLat, driverLng, riderLat, riderLng, destLat, destLng, driverVehicle]);
 
   if (!ready) return (
     <div style={{ width:"100%", height: height||200, borderRadius:14, background:"#1e293b",
@@ -607,6 +664,8 @@ function RiderApp() {
   const [pendingRate, setPendingRate] = useState(false);
   const [riderPos, setRiderPos] = useState({ lat:null, lng:null });
   const [assignedDriver, setAssignedDriver] = useState(null); // driver name for tracking
+  const [destCoords, setDestCoords] = useState({ lat:null, lng:null });
+  const [assignedVehicle, setAssignedVehicle] = useState("");
   const [driverLivePos, setDriverLivePos] = useState({ lat:null, lng:null });
   const [airportCode, setAirportCode]     = useState("yyz");
   const [airportDir,  setAirportDir]      = useState("to");   // "to" | "from"
@@ -926,7 +985,7 @@ function RiderApp() {
 
       // Fetch all online drivers with GPS coords
       const { data: onlineDrivers, error: driverErr } = await db.from("drivers")
-        .select("id,name,vehicle_seats,lat,lng,online")
+        .select("id,name,vehicle,vehicle_seats,lat,lng,online")
         .neq("online", false);
 
       if (driverErr) console.error("Driver fetch error:", driverErr.message);
@@ -1149,7 +1208,7 @@ function RiderApp() {
     <div style={{ ...sc, position:"relative" }}>
       <style>{STYLES}</style>
       <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-        <MapView height="100vh" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} />
+        <MapView height="100vh" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} destLat={destCoords.lat} destLng={destCoords.lng} driverVehicle={assignedVehicle} />
       </div>
       <div style={{ position:"absolute", top:20, left:0, right:0, zIndex:10, display:"flex", justifyContent:"center" }}>
         <div style={{ background:"rgba(15,23,42,0.9)", backdropFilter:"blur(10px)", borderRadius:30, padding:"10px 22px", display:"flex", alignItems:"center", gap:10 }}>
@@ -1636,7 +1695,7 @@ function RiderApp() {
         <div className="fade" style={{ position:"relative", height:"100vh" }}>
           {/* Full-screen map background */}
           <div style={{ position:"absolute", inset:0, zIndex:0 }}>
-            <MapView height="100%" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} />
+            <MapView height="100%" riderMode={true} riderLat={riderPos.lat} riderLng={riderPos.lng} driverLat={driverLivePos.lat} driverLng={driverLivePos.lng} destLat={destCoords.lat} destLng={destCoords.lng} driverVehicle={assignedVehicle} />
           </div>
           {/* Top header overlay */}
           <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"14px 16px 0" }}>
@@ -1652,8 +1711,19 @@ function RiderApp() {
               <span style={{ fontSize:18 }}>📍</span>
               <PlacesInput
                 value={dest}
-                onChange={v=>{ setDest(v); setErr(""); }}
-                onSelect={v=>{ setDest(v); setErr(""); }}
+                onChange={v=>{ setDest(v); setErr(""); if(!v.trim()) setDestCoords({lat:null,lng:null}); }}
+                onSelect={v=>{
+                  setDest(v); setErr("");
+                  loadGoogleMaps().then(()=>{
+                    const gc = new window.google.maps.Geocoder();
+                    gc.geocode({ address: v }, (results, status) => {
+                      if (status==="OK" && results[0]) {
+                        const loc = results[0].geometry.location;
+                        setDestCoords({ lat: loc.lat(), lng: loc.lng() });
+                      }
+                    });
+                  });
+                }}
                 placeholder="Where to?"
               />
               {dest && <button onClick={()=>setDest("")} style={{ background:"none", border:"none", cursor:"pointer", color:SLATE, fontSize:18, lineHeight:1 }}>×</button>}
