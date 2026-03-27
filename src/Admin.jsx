@@ -1233,7 +1233,7 @@ function PageDrivers({ viewOnly, drivers, search, filter, setFilter, patchDriver
                 <div style={{ color:"rgba(148,163,184,0.4)", fontSize:8, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", marginBottom:12, textTransform:"uppercase" }}>Message Preview</div>
 
                 <div style={{ color:"#e2e8f0", fontSize:13, lineHeight:1.85, fontFamily:"'Space Grotesk',sans-serif" }}>
-                  <p style={{ margin:"0 0 12px" }}>Hey <strong style={{ color:"#60a5fa" }}>{reminderTarget.name.split(" ")[0]}</strong> 👋</p>
+                  <p style={{ margin:"0 0 12px" }}>Hey <strong style={{ color:"#60a5fa" }}>{(reminderTarget.name||"Driver").split(" ")[0]}</strong> 👋</p>
                   <p style={{ margin:"0 0 12px" }}>
                     We've been keeping your seat warm. You built something real here: <strong style={{ color:"#a5f3fc" }}>{reminderTarget.trips.toLocaleString()} trips</strong>, a <strong style={{ color:"#fde68a" }}>★ {reminderTarget.rating.toFixed(2)}</strong> rating, and a reputation riders trust.
                   </p>
@@ -3488,7 +3488,7 @@ function PageZones({ viewOnly, drivers, patchDriver }) {
       ctx.font = `${isSel ? "bold " : ""}9px 'JetBrains Mono',monospace`;
       ctx.fillStyle = isSel ? "#f0f9ff" : "#94a3b8";
       ctx.textAlign = "center";
-      const words = z.name.split(" ");
+      const words = (z.name||"").split(" ");
       if (words.length > 2) {
         // Two lines for long names
         const mid = Math.ceil(words.length/2);
@@ -3701,7 +3701,7 @@ function PageZones({ viewOnly, drivers, patchDriver }) {
                         if (!d) return null;
                         return (
                           <div key={did} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.07)", borderRadius:7, marginBottom:4 }}>
-                            <div style={{ width:24, height:24, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{d.name.split(" ").map(n=>n[0]).join("")}</div>
+                            <div style={{ width:24, height:24, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{(d.name||"?").split(" ").map(n=>n[0]||"").join("")}</div>
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ color:"#cbd5e1", fontSize:11 }}>{d.name}</div>
                               <div style={{ color:"#334155", fontSize:9, fontFamily:"'JetBrains Mono',monospace" }}>{d.id}</div>
@@ -3719,7 +3719,7 @@ function PageZones({ viewOnly, drivers, patchDriver }) {
                       <div style={{ color:"#60a5fa", fontSize:9, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1.5, marginBottom:8 }}>ADD DRIVER TO {sel.name.toUpperCase()}</div>
                       {drivers.filter(d=>!assignedDriverIds.includes(d.id)).map(d => (
                         <div key={d.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(99,179,237,0.05)" }}>
-                          <div style={{ width:22, height:22, borderRadius:"50%", background:"linear-gradient(135deg,#475569,#334155)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{d.name.split(" ").map(n=>n[0]).join("")}</div>
+                          <div style={{ width:22, height:22, borderRadius:"50%", background:"linear-gradient(135deg,#475569,#334155)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{(d.name||"?").split(" ").map(n=>n[0]||"").join("")}</div>
                           <div style={{ flex:1 }}>
                             <div style={{ color:"#94a3b8", fontSize:11 }}>{d.name}</div>
                             <div style={{ color:"#334155", fontSize:9 }}>★{d.rating}</div>
@@ -3755,14 +3755,14 @@ function PageZones({ viewOnly, drivers, patchDriver }) {
                 const dZones = (driverZones[d.id]||[]).map(zid=>zones.find(z=>z.id===zid)).filter(Boolean);
                 return (
                   <div key={d.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"7px 10px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(99,179,237,0.06)", borderRadius:7 }}>
-                    <div style={{ width:24, height:24, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{d.name.split(" ").map(n=>n[0]).join("")}</div>
+                    <div style={{ width:24, height:24, borderRadius:"50%", background:"linear-gradient(135deg,#3b82f6,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:700, color:"#fff", flexShrink:0 }}>{(d.name||"?").split(" ").map(n=>n[0]||"").join("")}</div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ color:"#94a3b8", fontSize:11, fontWeight:500 }}>{d.name}</div>
                       <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginTop:2 }}>
                         {dZones.length===0
                           ? <span style={{ color:"#ef4444", fontSize:9, fontStyle:"italic" }}>No zones — cannot take pickups</span>
                           : dZones.map(z=>(
-                              <span key={z.id} style={{ background:`${z.color}18`, border:`1px solid ${z.color}40`, borderRadius:4, padding:"1px 5px", fontSize:8, color:z.color, fontFamily:"'JetBrains Mono',monospace" }}>{z.name.split(" ").slice(0,2).join(" ")}</span>
+                              <span key={z.id} style={{ background:`${z.color}18`, border:`1px solid ${z.color}40`, borderRadius:4, padding:"1px 5px", fontSize:8, color:z.color, fontFamily:"'JetBrains Mono',monospace" }}>{(z.name||"?").split(" ").slice(0,2).join(" ")}</span>
                             ))
                         }
                       </div>
@@ -4765,7 +4765,7 @@ function Mono({ children, small }) {
 }
 
 function Avi({ name, seed = "", size = 32, hue = 220 }) {
-  const initials = name.split(" ").slice(0,2).map(w => w[0]).join("").toUpperCase();
+  const initials = (name||"?").split(" ").slice(0,2).map(w => w[0]||"").join("").toUpperCase() || "?";
   const palette = [
     ["#1d4ed8","#3b82f6"], ["#6d28d9","#8b5cf6"], ["#065f46","#059669"],
     ["#92400e","#d97706"], ["#9f1239","#e11d48"], ["#164e63","#0891b2"],
