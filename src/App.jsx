@@ -1887,6 +1887,7 @@ function RiderApp() {
                   Enter a destination above to unlock ride types
                 </div>
               )}
+              {!dest.trim() && (
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
                 <button onClick={()=>{ setAirportDone(false); setAirportReview(false); go("airport"); }}
                   style={{ flex:1, padding:"9px 8px", borderRadius:10, border:"1px solid "+BORDER, background:WHITE, cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
@@ -1899,6 +1900,7 @@ function RiderApp() {
                   <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:11, color:NAVY }}>Shuttle</span>
                 </button>
               </div>
+              )}
               <Err msg={err} />
               <BigBtn onClick={bookRide} disabled={!dest.trim()}>{"Book "+chosen.label+" Ride"}</BigBtn>
             </div>
