@@ -3022,6 +3022,7 @@ function DriverApp() {
   const [earned, setEarned] = useState(0);
   const [inReq, setInReq]   = useState(null);
   const [inRouteTrip, setInRouteTrip] = useState(null);
+  const [driverRates, setDriverRates] = useState({ subFee:25, commPct:20 }); // from Supabase
   const [lastFare, setLastFare] = useState("0.00");
   const [driverPos, setDriverPos] = useState({ lat:null, lng:null });
   const [pickupCoords, setPickupCoords] = useState({ lat:null, lng:null }); // rider pickup location
@@ -3042,7 +3043,7 @@ function DriverApp() {
 
   const go = (s) => { setErr(""); setScr(s); };
   const displayName = user?.user_metadata?.name||name||"Driver";
-  const baseSubFee = parseFloat(getLive("subFee", 25)) || 25;
+  const baseSubFee = parseFloat(driverRates.subFee || getLive("subFee", 25)) || 25;
   const subFee = (() => {
     if (!promoApplied || !appliedPromo) return baseSubFee;
     if (appliedPromo.discount_type === "pct") {
@@ -3064,11 +3065,13 @@ function DriverApp() {
         if (cfg?.value) {
           try {
             const s = typeof cfg.value === "string" ? JSON.parse(cfg.value) : cfg.value;
-            const existing = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
-            localStorage.setItem("zeez_settings", JSON.stringify({ ...existing, ...s }));
-          } catch(e) {}
+            if (s && typeof s === "object") {
+              setDriverRates(s);
+              console.log("✅ Driver rates loaded:", { subFee: s.subFee, commPct: s.commPct });
+            }
+          } catch(e) { console.error("Driver settings parse:", e); }
         }
-      }).catch(() => {});
+      }).catch(e => console.error("Driver settings load:", e));
   }, []);
 
   useEffect(() => {
