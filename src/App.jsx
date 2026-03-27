@@ -3643,7 +3643,21 @@ function DriverApp() {
                   <div style={{ marginTop:6, fontSize:11, color:RED, fontWeight:600 }}>{err}</div>
                 )}
               </div>
+        {approvedDocs < DOC_TYPES.length && (
+          <div style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.3)",
+            borderRadius:12, padding:"12px 16px", marginBottom:16, textAlign:"center" }}>
+            <div style={{ color:"#ef4444", fontWeight:700, fontSize:13 }}>⚠️ Documents Required</div>
+            <div style={{ color:"#94a3b8", fontSize:11, marginTop:4 }}>
+              {DOC_TYPES.length - approvedDocs} document{DOC_TYPES.length - approvedDocs !== 1 ? "s" : ""} pending approval.
+              All documents must be approved before subscribing.
+            </div>
+          </div>
+        )}
         <BigBtn onClick={async ()=>{
+          if (approvedDocs < DOC_TYPES.length) {
+            setErr("All documents must be approved before subscribing.");
+            return;
+          }
           setSubPaid(true);
           try {
             await db.from("drivers").update({ sub_paid:true }).eq("id", user?.id);
@@ -3787,7 +3801,14 @@ function DriverApp() {
                       : "Slide the car to go online" }
                     </div>
                   </div>
-                  <button onClick={()=>{ if(!subPaid) go("subscription"); }}
+                  <button onClick={()=>{
+                      if (subPaid) return;
+                      if (approvedDocs < DOC_TYPES.length) {
+                        setErr("All documents must be approved before subscribing.");
+                        return;
+                      }
+                      go("subscription");
+                    }}
                     style={{ background:subPaid?"#22c55e":"#ef4444", borderRadius:20, padding:"5px 12px",
                       display:"flex", alignItems:"center", gap:5, flexShrink:0,
                       border:"none", cursor:subPaid?"default":"pointer",
