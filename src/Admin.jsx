@@ -582,28 +582,45 @@ export default function AdminApp() {
   }
 
   async function deleteDrivers(ids) {
+    if (!ids || ids.length === 0) return;
     setDrivers(prev => prev.filter(d => !ids.includes(d.id)));
-    try {
-      for (const id of ids) {
-        // Delete docs first (try both string and text match)
-        const { error: docsErr } = await _supabase.from("driver_docs").delete().eq("driver_id", id);
-        if (docsErr) console.error("driver_docs delete error:", docsErr.message);
-        const { error: drvErr } = await _supabase.from("drivers").delete().eq("id", id);
-        if (drvErr) console.error("drivers delete error:", drvErr.message);
-      }
-      flash(ids.length + " driver" + (ids.length > 1 ? "s" : "") + " deleted");
-      setDocRefreshKey(k => k + 1);
-    } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
+    let errors = [];
+    for (const id of ids) {
+      // 1. Delete documents
+      const { error: e1 } = await _supabase.from("driver_docs").delete().eq("driver_id", id);
+      if (e1) errors.push("docs: " + e1.message);
+      // 2. Delete trips where driver_id matches
+      const { error: e2 } = await _supabase.from("trips").delete().eq("driver_id", id);
+      if (e2) errors.push("trips: " + e2.message);
+      // 3. Delete driver row
+      const { error: e3 } = await _supabase.from("drivers").delete().eq("id", id);
+      if (e3) errors.push("driver: " + e3.message);
+    }
+    if (errors.length > 0) {
+      flash("Partial delete — check RLS policies: " + errors.join(", "), false);
+    } else {
+      flash(ids.length + " driver" + (ids.length > 1 ? "s" : "") + " deleted successfully");
+    }
+    setDocRefreshKey(k => k + 1);
   }
 
   async function deleteRiders(ids) {
+    if (!ids || ids.length === 0) return;
     setRiders(prev => prev.filter(r => !ids.includes(r.id)));
-    try {
-      for (const id of ids) {
-        await _supabase.from("riders").delete().eq("id", id);
-      }
-      flash(ids.length + " rider" + (ids.length > 1 ? "s" : "") + " deleted");
-    } catch(e) { flash("Delete failed: " + (e.message||"unknown error")); }
+    let errors = [];
+    for (const id of ids) {
+      // 1. Delete trips where rider_id matches
+      const { error: e1 } = await _supabase.from("trips").delete().eq("rider_id", id);
+      if (e1) errors.push("trips: " + e1.message);
+      // 2. Delete rider row
+      const { error: e2 } = await _supabase.from("riders").delete().eq("id", id);
+      if (e2) errors.push("rider: " + e2.message);
+    }
+    if (errors.length > 0) {
+      flash("Partial delete — check RLS policies: " + errors.join(", "), false);
+    } else {
+      flash(ids.length + " rider" + (ids.length > 1 ? "s" : "") + " deleted successfully");
+    }
   }
 
 
