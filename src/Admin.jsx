@@ -124,6 +124,7 @@ export default function AdminApp() {
   // ── Supabase Auth state ───────────────────────────────────────────────────
   const [authed,     setAuthed]     = useState(false);
   const [viewOnly,   setViewOnly]   = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [authEmail,  setAuthEmail]  = useState("");
   const [authPass,   setAuthPass]   = useState("");
   const [authError,  setAuthError]  = useState("");
@@ -146,7 +147,9 @@ export default function AdminApp() {
       const sb = await getSupabase();
       const { error } = await sb.auth.signInWithPassword({ email: authEmail, password: authPass });
       if (error) throw error;
-      setViewOnly(authEmail.toLowerCase() === "viewer@zeezryde.com");
+      const isViewer = authEmail.toLowerCase() === "viewer@zeezryde.com";
+      setViewOnly(isViewer);
+      setIsSuperAdmin(!isViewer);
       setAuthed(true);
     } catch (err) {
       setAuthError(err.message || "Login failed");
@@ -833,7 +836,7 @@ export default function AdminApp() {
           {page === "shuttle"   && <PageShuttle viewOnly={viewOnly} flash={flash} shuttleDrivers={shuttleDrivers} setShuttleDrivers={setShuttleDrivers} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} vehicles={shuttleVehicles} setVehicles={setShuttleVehicles} drivers={drivers} trips={shuttleTrips} setTrips={setShuttleTrips} airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} dispatchEmail={dispatchEmail} setDispatchEmail={setDispatchEmail} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} />}
           {page === "payment"   && <PagePayment viewOnly={viewOnly}   methods={paymentMethods} setMethods={setPaymentMethods} payouts={payoutRequests} setPayouts={setPayoutRequests} trips={ALL_TRIPS} subs={ALL_SUBS} stripePublishableKey={stripePublishableKey} setStripePublishableKey={setStripePublishableKey} stripeSecretKey={stripeSecretKey} setStripeSecretKey={setStripeSecretKey} stripeWebhookSecret={stripeWebhookSecret} setStripeWebhookSecret={setStripeWebhookSecret} stripeAccountId={stripeAccountId} setStripeAccountId={setStripeAccountId} stripeMode={stripeMode} setStripeMode={setStripeMode} stripeConnected={stripeConnected} setStripeConnected={setStripeConnected} payoutSchedule={payoutSchedule} setPayoutSchedule={setPayoutSchedule} payoutDay={payoutDay} setPayoutDay={setPayoutDay} stripeAutoCapture={stripeAutoCapture} setStripeAutoCapture={setStripeAutoCapture} businessName={businessName} setBusinessName={setBusinessName} businessEmail={businessEmail} setBusinessEmail={setBusinessEmail} businessPhone={businessPhone} setBusinessPhone={setBusinessPhone} businessAddress={businessAddress} setBusinessAddress={setBusinessAddress} businessBankName={businessBankName} setBusinessBankName={setBusinessBankName} businessBankLast4={businessBankLast4} setBusinessBankLast4={setBusinessBankLast4} businessTransitNo={businessTransitNo} setBusinessTransitNo={setBusinessTransitNo} businessInstNo={businessInstNo} setBusinessInstNo={setBusinessInstNo} autoPayoutEnabled={autoPayoutEnabled} setAutoPayoutEnabled={setAutoPayoutEnabled} lastAutoPayoutDate={lastAutoPayoutDate} nextAutoPayoutDate={nextAutoPayoutDate} cashoutRequests={cashoutRequests} setCashoutRequests={setCashoutRequests} />}
           {page === "data"      && <PageDataManagement viewOnly={viewOnly} />}
-          {page === "users"     && <PageUsers viewOnly={viewOnly} />}
+          {page === "users"     && <PageUsers viewOnly={viewOnly} isSuperAdmin={isSuperAdmin} />}
           {page === "settings"  && <PageSettings viewOnly={viewOnly}  airportFareYYZ={airportFareYYZ} setAirportFareYYZ={setAirportFareYYZ} airportFareYHM={airportFareYHM} setAirportFareYHM={setAirportFareYHM} airportFareYTZ={airportFareYTZ} setAirportFareYTZ={setAirportFareYTZ} airportBookingFee={airportBookingFee} setAirportBookingFee={setAirportBookingFee} airportMinNotice={airportMinNotice} setAirportMinNotice={setAirportMinNotice} shuttleBaseFare={shuttleBaseFare} setShuttleBaseFare={setShuttleBaseFare} shuttlePeakMult={shuttlePeakMult} setShuttlePeakMult={setShuttlePeakMult} shuttleBookingFee={shuttleBookingFee} setShuttleBookingFee={setShuttleBookingFee} shuttlePeakOn={shuttlePeakOn} setShuttlePeakOn={setShuttlePeakOn} riderDelayFee={riderDelayFee} setRiderDelayFee={setRiderDelayFee} driverCancelFee={driverCancelFee} setDriverCancelFee={setDriverCancelFee} surgeEnabled={surgeEnabled} setSurgeEnabled={setSurgeEnabled} surgeRadiusKm={surgeRadiusKm} setSurgeRadiusKm={setSurgeRadiusKm} subFee={subFee} setSubFee={setSubFee} commPct={commPct} setCommPct={setCommPct} countdown={countdown} setCountdown={setCountdown} reqSub={reqSub} setReqSub={setReqSub} autoSusp={autoSusp} setAutoSusp={setAutoSusp} adminAlert={adminAlert} setAdminAlert={setAdminAlert} flash={flash} trips={ALL_TRIPS} drivers={drivers} subs={ALL_SUBS} maxPickupKm={maxPickupKm} setMaxPickupKm={setMaxPickupKm} pickupFeeKm={pickupFeeKm} setPickupFeeKm={setPickupFeeKm} dispatchMode={dispatchMode} setDispatchMode={setDispatchMode} pickupFeeOn={pickupFeeOn} setPickupFeeOn={setPickupFeeOn} baseFare={baseFare} setBaseFare={setBaseFare} ratePerKm={ratePerKm} setRatePerKm={setRatePerKm} ratePerMin={ratePerMin} setRatePerMin={setRatePerMin} minimumFare={minimumFare} setMinimumFare={setMinimumFare} beyondCapKm={beyondCapKm} setBeyondCapKm={setBeyondCapKm} beyondFeeFlat={beyondFeeFlat} setBeyondFeeFlat={setBeyondFeeFlat} beyondFeeOn={beyondFeeOn} setBeyondFeeOn={setBeyondFeeOn} waitFeeOn={waitFeeOn} setWaitFeeOn={setWaitFeeOn} waitFeeRate={waitFeeRate} setWaitFeeRate={setWaitFeeRate} waitFeeMinutes={waitFeeMinutes} setWaitFeeMinutes={setWaitFeeMinutes} />}
         </main>
       </div>
@@ -4859,7 +4862,7 @@ const PERM_COLORS = {
   edit: { bg:"rgba(34,197,94,0.1)",   border:"rgba(34,197,94,0.3)",   color:"#22c55e", label:"Edit" },
 };
 
-function PageUsers({ viewOnly }) {
+function PageUsers({ viewOnly, isSuperAdmin }) {
 
 
   const [users,       setUsers]       = useState([]);
@@ -4916,27 +4919,34 @@ function PageUsers({ viewOnly }) {
   }
 
   // Create new user
-  function handleCreate() {
+  async function handleCreate() {
+    if (!isSuperAdmin) { flash("Only Super Admin can create viewer accounts", false); return; }
     if (!form.name.trim()) { flash("Name is required", false); return; }
     if (!form.email.trim() || !form.email.includes("@")) { flash("Valid email required", false); return; }
     if (!form.password || form.password.length < 8) { flash("Password must be 8+ characters", false); return; }
-    if (users.some(u => u.email.toLowerCase() === form.email.toLowerCase())) {
-      flash("Email already exists", false); return;
-    }
+    // Viewer accounts only — no drivers or riders
     const newUser = {
       id: "USR-" + Date.now(),
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
-      password: form.password, // stored locally; in production use Supabase Auth
-      role: form.role,
+      role: "view", // always viewer — only super admin can create, and only viewer role
       perms: { ...form.perms },
       status: "active",
       created_at: new Date().toISOString(),
     };
-    saveUsers([...users, newUser]);
+    // Save viewer account to Supabase admin_viewers table
+    try {
+      await _supabase.from("admin_viewers").upsert({
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        created_at: newUser.created_at
+      });
+    } catch(e) { console.warn("admin_viewers save:", e.message); }
+    setUsers(prev => [...prev, newUser]);
     setModal(null);
     setForm({ name:"", email:"", password:"", role:"view", perms: EMPTY_PERMS() });
-    flash(`User ${newUser.name} created`);
+    flash(`Viewer account created for ${newUser.name}`);
   }
 
   // Request edit — goes to approval queue
@@ -5065,13 +5075,13 @@ function PageUsers({ viewOnly }) {
         <div style={{ color:"#64748b", fontSize:12 }}>
           {users.length} user{users.length!==1?"s":""} · {users.filter(u=>u.status==="active").length} active
         </div>
-        {!viewOnly && (
+        {isSuperAdmin && (
           <button onClick={() => {
             setForm({ name:"", email:"", password:"", role:"view", perms: EMPTY_PERMS() });
             setModal("create");
           }} style={{ padding:"8px 18px", borderRadius:8, border:"1px solid rgba(59,130,246,0.3)",
             background:"rgba(59,130,246,0.08)", color:"#60a5fa", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            + Create User
+            + Create Viewer Account
           </button>
         )}
       </div>
