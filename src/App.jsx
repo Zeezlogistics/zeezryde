@@ -714,6 +714,7 @@ function RiderApp() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [ride, setRide]     = useState("family");
   const [panelOpen, setPanelOpen] = useState(true);
+  const [liveRates, setLiveRates] = useState({}); // loaded from Supabase settings
   const [dest, setDest]     = useState("");
   const [finding, setFinding] = useState(false);
   const [trips, setTrips]   = useState([]);
@@ -884,15 +885,16 @@ function RiderApp() {
   }, []);
 
   useEffect(() => {
-    // Load admin settings from Supabase into localStorage so getLive works
+    // Load admin settings from Supabase — store in state for live fare display
     db.from("settings").select("value").eq("key", "admin_settings").maybeSingle()
       .then(({ data: cfg }) => {
         if (cfg?.value) {
           try {
             const s = typeof cfg.value === "string" ? JSON.parse(cfg.value) : cfg.value;
             const existing = JSON.parse(localStorage.getItem("zeez_settings") || "{}");
-            localStorage.setItem("zeez_settings", JSON.stringify({ ...existing, ...s }));
-            console.log("Settings loaded from Supabase:", s);
+            const merged = { ...existing, ...s };
+            localStorage.setItem("zeez_settings", JSON.stringify(merged));
+            setLiveRates(merged); // trigger fare card re-render
           } catch(e) { console.error("Settings parse error:", e); }
         }
       }).catch(e => console.error("Settings load error:", e));
@@ -1047,10 +1049,10 @@ function RiderApp() {
     setFinding(true);
     go("finding");
     try {
-      const base = parseFloat(getLive("baseFare", 9.40)) || 9.40;
-      const liveFare = chosen.id==="family"
-        ? base * (parseFloat(getLive("familyMult", 1)) || 1)
-        : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
+      const base = parseFloat(liveRates.baseFare || getLive("baseFare", 9.40)) || 9.40;
+      const fMult  = parseFloat(liveRates.familyMult  || getLive("familyMult",  1))    || 1;
+      const frMult = parseFloat(liveRates.friendsMult || getLive("friendsMult", 2.28)) || 2.28;
+      const liveFare = chosen.id==="family" ? base * fMult : base * frMult;
       const totalFare = withTax(liveFare).toFixed(2);
       const maxRadiusKm = parseFloat(getLive("maxPickupKm", 10)) || 10;
       const needsLarge = chosen.id === "friends";
@@ -1786,6 +1788,7 @@ function RiderApp() {
                 onChange={v=>{ setDest(v); setErr(""); if(!v.trim()) setDestCoords({lat:null,lng:null}); }}
                 onSelect={v=>{
                   setDest(v); setErr("");
+                  setPanelOpen(true); // auto-expand panel when dest selected
                   loadGoogleMaps().then(()=>{
                     const gc = new window.google.maps.Geocoder();
                     gc.geocode({ address: v }, (results, status) => {
@@ -1851,10 +1854,11 @@ function RiderApp() {
               <div style={{ display:"flex", gap:8, marginBottom:14 }}>
                 {RIDES.map(r=>{
                   const locked = !dest.trim();
-                  const base = parseFloat(getLive("baseFare", 9.40)) || 9.40;
-                  const estFare = r.id==="family"
-                    ? base * (parseFloat(getLive("familyMult", 1)) || 1)
-                    : base * (parseFloat(getLive("friendsMult", 2.28)) || 2.28);
+                  // Read from liveRates (Supabase) first, then getLive fallback
+                  const base = parseFloat(liveRates.baseFare || getLive("baseFare", 9.40)) || 9.40;
+                  const fMult = parseFloat(liveRates.familyMult || getLive("familyMult", 1)) || 1;
+                  const frMult = parseFloat(liveRates.friendsMult || getLive("friendsMult", 2.28)) || 2.28;
+                  const estFare = r.id==="family" ? base * fMult : base * frMult;
                   const estTotal = withTax(estFare).toFixed(2);
                   return (
                   <button key={r.id} onClick={()=>{ if(locked) return; setRide(r.id); }}
