@@ -698,12 +698,67 @@ function PlacesInput({ value, onChange, onSelect, placeholder, style }) {
   );
 }
 
+// ── AUTO DAY / NIGHT MODE ────────────────────────────────────────────────────
+function useNightMode() {
+  const isDark = () => {
+    if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) return true;
+    if (window.matchMedia?.("(prefers-color-scheme: light)").matches) return false;
+    const h = new Date().getHours();
+    return h >= 20 || h < 6;
+  };
+  const [night, setNight] = useState(isDark);
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const handler = () => setNight(isDark());
+    mq?.addEventListener("change", handler);
+    const tick = setInterval(() => setNight(isDark()), 60000);
+    return () => { mq?.removeEventListener("change", handler); clearInterval(tick); };
+  }, []);
+  return night;
+}
+
+function getTheme(night) {
+  if (!night) return {};
+  // Dark overrides — light bg colours flip to dark, text colours flip to light
+  return {
+    WHITE:  "#1e293b",
+    VLIGHT: "#0f2240",
+    NAVY:   "#bfdbfe",
+    BLUE:   "#60a5fa",
+    LBLUE:  "#93c5fd",
+    SLATE:  "#94a3b8",
+    BORDER: "#334155",
+  };
+}
+
+function useTheme() {
+  const night = useNightMode();
+  const overrides = getTheme(night);
+  useEffect(() => {
+    document.body.style.background = night ? "#0f172a" : "#f8faff";
+    document.body.style.transition = "background 0.4s";
+  }, [night]);
+  // Return scoped constants — fall back to global values if not dark
+  return {
+    night,
+    NAVY:   overrides.NAVY   || NAVY,
+    BLUE:   overrides.BLUE   || BLUE,
+    LBLUE:  overrides.LBLUE  || LBLUE,
+    VLIGHT: overrides.VLIGHT || VLIGHT,
+    WHITE:  overrides.WHITE  || WHITE,
+    SLATE:  overrides.SLATE  || SLATE,
+    BORDER: overrides.BORDER || BORDER,
+  };
+}
+
 function RiderApp() {
   useEffect(() => {
     document.body.style.background = night ? "#0f172a" : "#f0f9ff";
     document.body.style.transition = "background 0.4s";
   }, [night]);
 
+  const { night, NAVY, BLUE, LBLUE, VLIGHT, WHITE, SLATE, BORDER } = useTheme();
+  const { night, NAVY, BLUE, LBLUE, VLIGHT, WHITE, SLATE, BORDER } = useTheme();
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
   const [user, setUser]     = useState(null);
@@ -3017,15 +3072,7 @@ function SlideToggle({ online, onToggle, subPaid }) {
 }
 
 function DriverApp() {
-  const night = useNightMode();
-  const T = getTheme(night);
-  const NAVY = T.NAVY, BLUE = T.BLUE, LBLUE = T.LBLUE, VLIGHT = T.VLIGHT,
-        WHITE = T.WHITE, SLATE = T.SLATE, BORDER = T.BORDER;
-  useEffect(() => {
-    document.body.style.background = night ? "#0f172a" : "#f0f9ff";
-    document.body.style.transition = "background 0.4s";
-  }, [night]);
-
+  const { night, NAVY, BLUE, LBLUE, VLIGHT, WHITE, SLATE, BORDER } = useTheme();
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
   const [user, setUser]     = useState(null);
