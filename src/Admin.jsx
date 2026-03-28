@@ -366,7 +366,12 @@ export default function AdminApp() {
           if (sd) setShuttleDrivers(sd);
         if (cfg?.value) {
           const s = cfg.value;
-          const applyIfSet = (key, fn) => { if (s[key] !== undefined) fn(s[key]); };
+          const applyIfSet = (key, fn, type="string") => {
+            if (s[key] === undefined || s[key] === null) return;
+            if (type === "bool") fn(s[key] === true || s[key] === "true");
+            else if (type === "num") fn(parseFloat(s[key]) || 0);
+            else fn(String(s[key]));
+          };
           applyIfSet("baseFare",        setBaseFare);
           applyIfSet("ratePerKm",       setRatePerKm);
           applyIfSet("ratePerMin",      setRatePerMin);
@@ -374,8 +379,8 @@ export default function AdminApp() {
           applyIfSet("commPct",         setCommPct);
           applyIfSet("subFee",          setSubFee);
           applyIfSet("countdown",       setCountdown);
-          applyIfSet("reqSub",          setReqSub);
-          applyIfSet("surgeEnabled",    setSurgeEnabled);
+          applyIfSet("reqSub",          setReqSub, "bool");
+          applyIfSet("surgeEnabled",    setSurgeEnabled, "bool");
           applyIfSet("surgeRadiusKm",   setSurgeRadiusKm);
           applyIfSet("airportFareYYZ",  setAirportFareYYZ);
           applyIfSet("airportFareYHM",  setAirportFareYHM);
@@ -1877,33 +1882,59 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
     if (isNaN(parseFloat(minimumFare))|| parseFloat(minimumFare)< 0) errors.push("Min fare");
     if (isNaN(parseFloat(commPct))    || parseFloat(commPct) < 0 || parseFloat(commPct) > 100) errors.push("Commission %");
     if (errors.length) { flash(`Invalid values: ${errors.join(", ")}`, false); return; }
-    // Persist to localStorage so settings survive page refresh
+    // Build clean serializable settings object
     const settings = {
-      baseFare, ratePerKm, ratePerMin, minimumFare, familyMult, friendsMult,
-      commPct, subFee, countdown, reqSub, surgeEnabled, surgeRadiusKm,
-      demandTier, maxPickupKm, pickupFeeKm, pickupFeeOn,
-      beyondCapKm, beyondFeeFlat, beyondFeeOn, waitFeeOn, waitFeeRate, waitFeeMinutes,
-      riderDelayFee, driverCancelFee, dispatchMode, autoSusp, adminAlert,
-      airportFareYYZ, airportFareYHM, airportFareYTZ, airportBookingFee, airportMinNotice,
-      shuttleBaseFare, shuttleBookingFee, shuttlePeakOn, shuttlePeakMult,
+      baseFare:       String(baseFare),
+      ratePerKm:      String(ratePerKm),
+      ratePerMin:     String(ratePerMin),
+      minimumFare:    String(minimumFare),
+      familyMult:     String(familyMult),
+      friendsMult:    String(friendsMult),
+      commPct:        String(commPct),
+      subFee:         String(subFee),
+      countdown:      String(countdown),
+      reqSub:         Boolean(reqSub),
+      surgeEnabled:   Boolean(surgeEnabled),
+      surgeRadiusKm:  String(surgeRadiusKm),
+      demandTier:     String(demandTier),
+      maxPickupKm:    String(maxPickupKm),
+      pickupFeeKm:    String(pickupFeeKm),
+      pickupFeeOn:    Boolean(pickupFeeOn),
+      beyondCapKm:    String(beyondCapKm),
+      beyondFeeFlat:  String(beyondFeeFlat),
+      beyondFeeOn:    Boolean(beyondFeeOn),
+      waitFeeOn:      Boolean(waitFeeOn),
+      waitFeeRate:    String(waitFeeRate),
+      waitFeeMinutes: String(waitFeeMinutes),
+      riderDelayFee:  String(riderDelayFee),
+      driverCancelFee:String(driverCancelFee),
+      dispatchMode:   String(dispatchMode),
+      autoSusp:       Boolean(autoSusp),
+      adminAlert:     String(adminAlert||""),
+      airportFareYYZ: String(airportFareYYZ),
+      airportFareYHM: String(airportFareYHM),
+      airportFareYTZ: String(airportFareYTZ),
+      airportBookingFee: String(airportBookingFee),
+      airportMinNotice:  String(airportMinNotice),
+      shuttleBaseFare:   String(shuttleBaseFare),
+      shuttleBookingFee: String(shuttleBookingFee),
+      shuttlePeakOn:     Boolean(shuttlePeakOn),
+      shuttlePeakMult:   String(shuttlePeakMult),
     };
-    try {
-      const clean = Object.fromEntries(
-        Object.entries(settings).filter(([,v]) => typeof v !== "object" || v === null)
-      );
-      localStorage.setItem("zeez_settings", JSON.stringify(clean));
-    } catch(e) {
-      // Quota exceeded - clear old bloat and try again with minimal data
-      try {
-        localStorage.removeItem("zeez_settings");
-        localStorage.setItem("zeez_settings", JSON.stringify(settings));
-      } catch(e2) { console.error("localStorage quota:", e2); }
-    }
-    // Also save to Supabase settings table for cross-device persistence
+    // Save to Supabase FIRST — this is the source of truth
     try {
       const sb = await getSupabase();
-      await sb.from("settings").upsert({ key:"admin_settings", value:settings, updated_at:new Date().toISOString() });
-    } catch(e) { console.error("Settings Supabase save:", e); }
+      const { error } = await sb.from("settings").upsert({
+        key: "admin_settings",
+        value: settings,
+        updated_at: new Date().toISOString()
+      });
+      if (error) throw error;
+      console.log("✅ Settings saved to Supabase");
+    } catch(e) {
+      flash("Supabase save failed: " + e.message, false);
+      return;
+    }
     // Push live to rider/driver app via bridge
     try {
       if (window.__zeezAdmin) {
@@ -3915,6 +3946,18 @@ function AIPricingAdvisor({ trips, drivers, subs, currentSettings, pricingState,
   // ── Scheduler state ──────────────────────────────────────────────────────────
   const [schedulerOn,   setSchedulerOn]   = useState(false);
   const [intervalHrs,   setIntervalHrs]   = useState("1");
+
+  // Load scheduler state from Supabase on mount
+  useEffect(() => {
+    getSupabase().then(sb =>
+      sb.from("settings").select("value").eq("key","zeez_scheduler").maybeSingle()
+    ).then(({ data }) => {
+      if (data?.value) {
+        if (data.value.on === true) setSchedulerOn(true);
+        if (data.value.hrs) setIntervalHrs(String(data.value.hrs));
+      }
+    }).catch(() => {});
+  }, []);
   const [nextRunAt,     setNextRunAt]     = useState(null);
   const [countdown,     setCountdown]     = useState(null);
   const [inbox,         setInbox]         = useState([]);   // notification cards
@@ -3948,6 +3991,20 @@ function AIPricingAdvisor({ trips, drivers, subs, currentSettings, pricingState,
     }, 1000);
     return () => clearInterval(countdownRef.current);
   }, [schedulerOn, nextRunAt]);
+
+  // Persist scheduler preference
+  useEffect(() => {
+    try {
+      // Save scheduler state to Supabase
+    getSupabase().then(sb => {
+      sb.from("settings").upsert({
+        key: "zeez_scheduler",
+        value: { on: schedulerOn, hrs: intervalHrs },
+        updated_at: new Date().toISOString()
+      }).catch(() => {});
+    });
+    } catch(_) {}
+  }, [schedulerOn, intervalHrs]);
 
   // Scheduler runner
   useEffect(() => {
