@@ -1403,7 +1403,7 @@ function RiderApp() {
 
           <Err msg={err} />
           <BigBtn onClick={bookShuttle} disabled={savedCards.length===0&&savedBanks.length===0}>
-            Pay {"CA$"+withTax(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)+" & Confirm"}
+            Pay {"CA$"+(selectedSeats.length*selectedTrip.fare_per_seat).toFixed(2)+" & Confirm"}
           </BigBtn>
         </div>
       </div>
@@ -1943,7 +1943,7 @@ function RiderApp() {
                     <div style={{ fontSize:11, color:SLATE }}>{t.depart_date} at {t.depart_time}</div>
                     <div style={{ fontSize:11, color:SLATE, marginTop:1 }}>{t.seats_total-t.seats_booked} seats available</div>
                   </div>
-                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:16 }}>{"CA$"+withTax(t.fare_per_seat).toFixed(2)}</div>
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:BLUE, fontSize:16 }}>{"CA$"+parseFloat(t.fare_per_seat).toFixed(2)+"/seat"}</div>
                 </div>
                 <div style={{ marginTop:10, background:BORDER, borderRadius:4, height:3 }}>
                   <div style={{ width:(t.seats_booked/t.seats_total*100)+"%", background:BLUE, height:"100%", borderRadius:4 }} />
@@ -2565,7 +2565,7 @@ const VEHICLE_COLORS = [
 ];
 
 // ─── DRIVER ACCOUNT TAB COMPONENT ────────────────────────────────────────────
-function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, onSubscription, onDocs, onSummary, onLogout }) {
+function DriverAccountTab({ displayName, user, vehicle, plate, vehicleColor, subPaid, trips, onSubscription, onDocs, onSummary, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [editName,    setEditName]    = useState("");
   const [editEmail,   setEditEmail]   = useState("");
@@ -2590,9 +2590,11 @@ function DriverAccountTab({ displayName, user, vehicle, plate, subPaid, trips, o
   const [bankOtpSent,   setBankOtpSent]   = useState(false);
   const [bankSecErr,    setBankSecErr]     = useState("");
   const [bankSecStep,   setBankSecStep]   = useState("view"); // "view"|"auth"|"edit"
-  const [vehicles, setVehicles] = useState(
-    vehicle ? [{ id:1, make:vehicle, plate:plate||"", color:"#94a3b8", colorName:"Silver", active:true }] : []
-  );
+  const [vehicles, setVehicles] = useState(() => {
+    if (!vehicle) return [];
+    const col = VEHICLE_COLORS.find(c => c.name === vehicleColor) || VEHICLE_COLORS.find(c=>c.name==="Silver") || { hex:"#94a3b8", name:"Silver" };
+    return [{ id:1, make:vehicle, plate:plate||"", color:col.hex, colorName:col.name, active:true }];
+  });
   const [addOpen,    setAddOpen]    = useState(false);
   const [newYear,    setNewYear]    = useState("");
   const [newMake,    setNewMake]    = useState("");
@@ -3086,13 +3088,14 @@ function DriverApp() {
 
       // Load everything in one go — driver row + docs together
       const [{ data: dr }, { data: dbDocs }] = await Promise.all([
-        db.from("drivers").select("vehicle,plate,vehicle_seats,status,sub_paid,online,name").eq("id", u.id).maybeSingle(),
+        db.from("drivers").select("vehicle,plate,vehicle_seats,vehicle_color,status,sub_paid,online,name").eq("id", u.id).maybeSingle(),
         db.from("driver_docs").select("doc_key,status,url,uploaded_at").eq("driver_id", u.id),
       ]);
 
       // Vehicle info
       if (dr?.vehicle_seats) setVSeats(String(dr.vehicle_seats));
       if (dr?.vehicle)       setVeh(dr.vehicle);
+      if (dr?.vehicle_color) setVColor(dr.vehicle_color);
       if (dr?.name)          setDbName(dr.name);
       if (dr?.plate)         setPlate(dr.plate);
 
@@ -3317,10 +3320,22 @@ function DriverApp() {
       } else {
         resolvedUser = signUpData.user;
       }
-      // Clear any old docs from previous registration — fresh start
-      await db.from("driver_docs").delete().eq("driver_id", resolvedUser.id);
-      // Reset local docs state to all missing
-      setDocs(DOC_TYPES.map(d => ({ ...d, status:"missing", url:null })));
+      // Only clear docs if this is a brand new sign-up (not re-login)
+      const isNewSignUp = !!signUpData?.user && !signUpError;
+      if (isNewSignUp) {
+        await db.from("driver_docs").delete().eq("driver_id", resolvedUser.id);
+        setDocs(DOC_TYPES.map(d => ({ ...d, status:"missing", url:null })));
+      } else {
+        // Re-login — reload existing docs from DB
+        const { data: existingDocs } = await db.from("driver_docs")
+          .select("doc_key,status,url,uploaded_at").eq("driver_id", resolvedUser.id);
+        if (existingDocs && existingDocs.length > 0) {
+          setDocs(prev => prev.map(d => {
+            const found = existingDocs.find(r => r.doc_key === d.key);
+            return found ? { ...d, status: found.status, url: found.url, uploaded_at: found.uploaded_at } : d;
+          }));
+        }
+      }
       // Upsert driver row — handles both fresh registration and re-registration after deletion
       const { error: insErr } = await db.from("drivers").upsert({
         id: resolvedUser.id,
@@ -3971,6 +3986,7 @@ function DriverApp() {
       {tab==="account" && (
         <DriverAccountTab
           displayName={displayName} user={user} vehicle={vehicle} plate={plate}
+          vehicleColor={vColor}
           subPaid={subPaid}
           onSubscription={()=>go("subscription")} onDocs={()=>setTab("docs")}
           onSummary={()=>setTab("summary")} onLogout={doLogout}
