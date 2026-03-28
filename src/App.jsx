@@ -665,9 +665,12 @@ function PlacesInput({ value, onChange, onSelect, placeholder, style }) {
       />
       {showDrop && suggestions.length > 0 && (
         <div ref={dropRef} style={{
-          position:"absolute", top:"calc(100% + 8px)", left:-46, right:-14,
-          background:WHITE, borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,0.18)",
-          border:"1px solid "+BORDER, zIndex:999, overflow:"hidden", maxHeight:280,
+          position:"fixed",
+          top: (() => { try { const r = inputRef.current?.getBoundingClientRect(); return (r ? r.bottom + 6 : 200) + "px"; } catch(_){ return "200px"; } })(),
+          left: (() => { try { const r = inputRef.current?.getBoundingClientRect(); return Math.max(8, r?.left || 16) + "px"; } catch(_){ return "16px"; } })(),
+          right: "16px",
+          background:"#ffffff", borderRadius:14, boxShadow:"0 8px 32px rgba(0,0,0,0.22)",
+          border:"1px solid #bfdbfe", zIndex:99999, overflow:"hidden", maxHeight:260,
           overflowY:"auto"
         }}>
           {suggestions.map((s, i) => (
@@ -696,6 +699,11 @@ function PlacesInput({ value, onChange, onSelect, placeholder, style }) {
 }
 
 function RiderApp() {
+  useEffect(() => {
+    document.body.style.background = night ? "#0f172a" : "#f0f9ff";
+    document.body.style.transition = "background 0.4s";
+  }, [night]);
+
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
   const [user, setUser]     = useState(null);
@@ -1687,13 +1695,17 @@ function RiderApp() {
             {airportDir==="to" && (
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Pickup Address (Niagara Region)</div>
-                <input
-                  type="text"
-                  value={airportPickup}
-                  onChange={e=>setAirportPickup(e.target.value)}
-                  placeholder="e.g. 123 Main St, Niagara Falls, ON"
-                  style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportPickup?BLUE:BORDER), background:WHITE, fontSize:13, color:NAVY, outline:"none", boxSizing:"border-box" }}
-                />
+                <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportPickup?BLUE:BORDER), background:WHITE, boxSizing:"border-box" }}>
+                  <span style={{ fontSize:16, flexShrink:0 }}>📍</span>
+                  <PlacesInput
+                    value={airportPickup}
+                    onChange={v=>{ setAirportPickup(v); }}
+                    onSelect={v=>setAirportPickup(v)}
+                    placeholder="e.g. 123 Main St, Niagara Falls, ON"
+                    style={{ fontSize:13, color:NAVY }}
+                  />
+                  {airportPickup && <button onClick={()=>setAirportPickup("")} style={{ background:"none", border:"none", cursor:"pointer", color:SLATE, fontSize:16 }}>×</button>}
+                </div>
                 <div style={{ fontSize:10, color:SLATE, marginTop:5 }}>We serve Niagara Falls, St. Catharines, Welland, Grimsby &amp; surrounding areas.</div>
               </div>
             )}
@@ -1701,13 +1713,17 @@ function RiderApp() {
             {airportDir==="from" && (
               <div style={{ marginBottom:14 }}>
                 <div style={{ fontSize:9, fontWeight:700, color:LBLUE, letterSpacing:1.3, textTransform:"uppercase", marginBottom:8 }}>Drop-off Address (Niagara Region)</div>
-                <input
-                  type="text"
-                  value={airportDropoff}
-                  onChange={e=>setAirportDropoff(e.target.value)}
-                  placeholder="e.g. 123 Main St, Niagara Falls, ON"
-                  style={{ width:"100%", padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportDropoff?BLUE:BORDER), background:WHITE, fontSize:13, color:NAVY, outline:"none", boxSizing:"border-box" }}
-                />
+                <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderRadius:10, border:"1.5px solid "+(airportDropoff?BLUE:BORDER), background:WHITE, boxSizing:"border-box" }}>
+                  <span style={{ fontSize:16, flexShrink:0 }}>🏁</span>
+                  <PlacesInput
+                    value={airportDropoff}
+                    onChange={v=>{ setAirportDropoff(v); }}
+                    onSelect={v=>setAirportDropoff(v)}
+                    placeholder="e.g. 123 Main St, Niagara Falls, ON"
+                    style={{ fontSize:13, color:NAVY }}
+                  />
+                  {airportDropoff && <button onClick={()=>setAirportDropoff("")} style={{ background:"none", border:"none", cursor:"pointer", color:SLATE, fontSize:16 }}>×</button>}
+                </div>
                 <div style={{ fontSize:10, color:SLATE, marginTop:5 }}>We serve Niagara Falls, St. Catharines, Welland, Grimsby &amp; surrounding areas.</div>
               </div>
             )}
@@ -3001,6 +3017,15 @@ function SlideToggle({ online, onToggle, subPaid }) {
 }
 
 function DriverApp() {
+  const night = useNightMode();
+  const T = getTheme(night);
+  const NAVY = T.NAVY, BLUE = T.BLUE, LBLUE = T.LBLUE, VLIGHT = T.VLIGHT,
+        WHITE = T.WHITE, SLATE = T.SLATE, BORDER = T.BORDER;
+  useEffect(() => {
+    document.body.style.background = night ? "#0f172a" : "#f0f9ff";
+    document.body.style.transition = "background 0.4s";
+  }, [night]);
+
   const [scr, setScr]       = useState("splash");
   const [tab, setTab]       = useState("home");
   const [user, setUser]     = useState(null);
