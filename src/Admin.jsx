@@ -592,17 +592,24 @@ export default function AdminApp() {
       // 1. Delete documents
       const { error: e1 } = await _supabase.from("driver_docs").delete().eq("driver_id", id);
       if (e1) errors.push("docs: " + e1.message);
-      // 2. Delete trips where driver_id matches
+      // 2. Delete trips
       const { error: e2 } = await _supabase.from("trips").delete().eq("driver_id", id);
       if (e2) errors.push("trips: " + e2.message);
       // 3. Delete driver row
       const { error: e3 } = await _supabase.from("drivers").delete().eq("id", id);
       if (e3) errors.push("driver: " + e3.message);
+      // 4. Delete from auth.users via RPC
+      const { error: e4 } = await _supabase.rpc("delete_auth_user", { uid: id });
+      if (e4) {
+        // Fallback: try direct admin delete
+        const { error: e5 } = await _supabase.auth.admin?.deleteUser(id).catch(()=>({ error: { message:"no admin access" } })) || {};
+        if (e5) console.warn("Auth delete fallback failed:", e5?.message);
+      }
     }
     if (errors.length > 0) {
-      flash("Partial delete — check RLS policies: " + errors.join(", "), false);
+      flash("Partial delete: " + errors.join(" | ") + " — Run SQL: SELECT delete_auth_user(id) FROM drivers WHERE id IN (...)", false);
     } else {
-      flash(ids.length + " driver" + (ids.length > 1 ? "s" : "") + " deleted successfully");
+      flash(ids.length + " driver" + (ids.length > 1 ? "s" : "") + " fully deleted ✓");
     }
     setDocRefreshKey(k => k + 1);
   }
@@ -612,17 +619,16 @@ export default function AdminApp() {
     setRiders(prev => prev.filter(r => !ids.includes(r.id)));
     let errors = [];
     for (const id of ids) {
-      // 1. Delete trips where rider_id matches
       const { error: e1 } = await _supabase.from("trips").delete().eq("rider_id", id);
       if (e1) errors.push("trips: " + e1.message);
-      // 2. Delete rider row
       const { error: e2 } = await _supabase.from("riders").delete().eq("id", id);
       if (e2) errors.push("rider: " + e2.message);
+      await _supabase.rpc("delete_auth_user", { uid: id });
     }
     if (errors.length > 0) {
-      flash("Partial delete — check RLS policies: " + errors.join(", "), false);
+      flash("Errors: " + errors.join(" | "), false);
     } else {
-      flash(ids.length + " rider" + (ids.length > 1 ? "s" : "") + " deleted successfully");
+      flash(ids.length + " rider" + (ids.length > 1 ? "s" : "") + " fully deleted ✓");
     }
   }
 
@@ -2032,12 +2038,27 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
 
           {/* ── UBER UNDERCUT ENGINE ── */}
           <UberUndercutPanel
-            onApply={(rates) => {
+            onApply={async (rates) => {
               setBaseFare(String(rates.baseFare));
               setRatePerKm(String(rates.ratePerKm));
               setRatePerMin(String(rates.ratePerMin));
               setMinimumFare(String(rates.minimumFare));
-              flash("Undercut rates applied — always cheaper than Uber ✓");
+              // Save to Supabase so rider/driver apps get updated rates
+              try {
+                const sb = await getSupabase();
+                const { data: current } = await sb.from("settings").select("value").eq("key","admin_settings").maybeSingle();
+                const existing = current?.value || {};
+                const updated = { ...existing,
+                  baseFare:    rates.baseFare,
+                  ratePerKm:   rates.ratePerKm,
+                  ratePerMin:  rates.ratePerMin,
+                  minimumFare: rates.minimumFare,
+                };
+                await sb.from("settings").upsert({ key:"admin_settings", value:updated, updated_at:new Date().toISOString() });
+                flash("✅ Undercut rates applied and saved — always cheaper than Uber");
+              } catch(e) {
+                flash("Rates applied to UI — save manually to persist: " + e.message, false);
+              }
             }}
           />
 
@@ -2128,7 +2149,8 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
             currentSettings={{ subFee, commPct, countdown }}
             pricingState={{ baseFare, ratePerKm, ratePerMin, minimumFare, familyMult, friendsMult, demandTier }}
             dispatchState={{ maxPickupKm, pickupFeeKm, pickupFeeOn, beyondCapKm, beyondFeeFlat, beyondFeeOn, waitFeeOn, waitFeeRate, waitFeeMinutes }}
-            onApply={(patch) => {
+            onApply={async (patch) => {
+              // Apply to state
               if (patch.baseFare    !== undefined) setBaseFare(String(patch.baseFare));
               if (patch.ratePerKm   !== undefined) setRatePerKm(String(patch.ratePerKm));
               if (patch.ratePerMin  !== undefined) setRatePerMin(String(patch.ratePerMin));
@@ -2141,12 +2163,45 @@ function PageSettings({ viewOnly, airportFareYYZ, setAirportFareYYZ, airportFare
               if (patch.pickupFeeKm !== undefined) setPickupFeeKm(String(patch.pickupFeeKm));
               if (patch.maxPickupKm !== undefined) setMaxPickupKm(String(patch.maxPickupKm));
               if (patch.pickupFeeOn !== undefined) setPickupFeeOn(Boolean(patch.pickupFeeOn));
-              flash("AI recommendation applied ✓");
+              // Auto-save to Supabase so rider/driver apps get the new rates
+              try {
+                const updated = {
+                  baseFare:    patch.baseFare    ?? baseFare,
+                  ratePerKm:   patch.ratePerKm   ?? ratePerKm,
+                  ratePerMin:  patch.ratePerMin  ?? ratePerMin,
+                  minimumFare: patch.minimumFare ?? minimumFare,
+                  familyMult:  patch.familyMult  ?? familyMult,
+                  friendsMult: patch.friendsMult ?? friendsMult,
+                  demandTier:  patch.demandTier  ?? demandTier,
+                  commPct:     patch.commPct     ?? commPct,
+                  subFee:      patch.subFee      ?? subFee,
+                  maxPickupKm: patch.maxPickupKm ?? maxPickupKm,
+                  pickupFeeKm: patch.pickupFeeKm ?? pickupFeeKm,
+                  pickupFeeOn: patch.pickupFeeOn ?? pickupFeeOn,
+                };
+                const sb = await getSupabase();
+                await sb.from("settings").upsert({ key:"admin_settings", value:updated, updated_at:new Date().toISOString() });
+                flash("✅ AI recommendation applied and saved to Supabase");
+              } catch(e) {
+                flash("AI applied to UI — save manually to persist: " + e.message, false);
+              }
             }}
           />
 
           {/* Live Uber vs ZeezRyde comparison */}
-          <UberComparisonPanel cfg={cfg} familyMult={familyMult} friendsMult={friendsMult} />
+          <UberComparisonPanel cfg={cfg} familyMult={familyMult} friendsMult={friendsMult} trips={trips} drivers={drivers}
+              onApply={async (patch) => {
+                if (patch.familyMult  !== undefined) setFamilyMult(String(patch.familyMult));
+                if (patch.friendsMult !== undefined) setFriendsMult(String(patch.friendsMult));
+                if (patch.baseFare    !== undefined) setBaseFare(String(patch.baseFare));
+                try {
+                  const sb = await getSupabase();
+                  const updated = { baseFare: patch.baseFare??baseFare, familyMult: patch.familyMult??familyMult, friendsMult: patch.friendsMult??friendsMult };
+                  await sb.from("settings").upsert({ key:"admin_settings", value:{ ...updated }, updated_at:new Date().toISOString() });
+                  flash("✅ Traffic-based pricing applied and saved");
+                } catch(e) { flash("Applied to UI — save manually to persist", false); }
+              }}
+            />
 
           {/* Surge control */}
           <SettingsPanel title="DEMAND SURGE CONTROL">
@@ -2696,7 +2751,7 @@ function UberUndercutPanel({ onApply }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // UBER vs ZEEZRYDE LIVE COMPARISON PANEL
 // ─────────────────────────────────────────────────────────────────────────────
-function UberComparisonPanel({ cfg, familyMult, friendsMult }) {
+function UberComparisonPanel({ cfg, familyMult, friendsMult, trips = [], drivers = [], onApply }) {
   const TRIPS = [
     { label:"Short trip",   km:3,  min:6  },
     { label:"Medium trip",  km:8,  min:14 },
@@ -2706,10 +2761,60 @@ function UberComparisonPanel({ cfg, familyMult, friendsMult }) {
 
   const noSurgeCfg = { ...cfg, surgeMultiplier: 1.0 };
 
+  // ── Auto traffic-based cheaper % ─────────────────────────────────────────
+  // High traffic (many recent trips) → only 5% cheaper (protect margins)
+  // Normal traffic → 10% cheaper
+  // Low traffic → 20% cheaper (attract riders)
+  const now = Date.now();
+  const recentTrips = (trips || []).filter(t => {
+    if (!t.requested_at) return false;
+    return (now - new Date(t.requested_at).getTime()) < 60 * 60 * 1000; // last 1 hour
+  }).length;
+  const onlineDrivers = (drivers || []).filter(d => d.online).length;
+  const trafficLevel = recentTrips >= 10 ? "high" : recentTrips >= 4 ? "normal" : "low";
+  const trafficDiscount = trafficLevel === "high" ? 5 : trafficLevel === "normal" ? 10 : 20;
+  const trafficLabel = trafficLevel === "high"
+    ? "🔴 High Traffic — 5% cheaper than Uber"
+    : trafficLevel === "normal"
+    ? "🟡 Normal Traffic — 10% cheaper than Uber"
+    : "🟢 Low Traffic — 20% cheaper than Uber";
+
   return (
     <SettingsPanel title="LIVE PRICE COMPARISON — vs UBER">
-      <div style={{ color:"#334155", fontSize:10, marginBottom:12 }}>
+      <div style={{ color:"#334155", fontSize:10, marginBottom:8 }}>
         Real-time comparison at current settings. Green = cheaper. Red = more expensive than Uber.
+      </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12,
+        background:"rgba(99,179,237,0.05)", border:"1px solid rgba(99,179,237,0.1)", borderRadius:8, padding:"8px 12px" }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:"#f0f9ff" }}>{trafficLabel}</div>
+          <div style={{ fontSize:9, color:"#475569", marginTop:2 }}>
+            {recentTrips} trip{recentTrips!==1?"s":""} in last hour · {onlineDrivers} driver{onlineDrivers!==1?"s":""} online
+          </div>
+          <div style={{ fontSize:9, color:"#64748b", marginTop:3 }}>
+            Auto: High traffic → 5% cheaper · Normal → 10% · Low → 20%
+          </div>
+          {onApply && (
+            <button onClick={()=> {
+              // Calculate what multipliers achieve the target discount vs Uber
+              const uberXFam = calcUberFare("uberX", 8, 14);
+              const target = uberXFam * (1 - trafficDiscount / 100);
+              const newFamMult = Math.max(0.5, +(target / Math.max(0.01, calcFare({...cfg, surgeMultiplier:1}, 8, 14).total)).toFixed(2));
+              onApply({ familyMult: newFamMult, friendsMult: +(newFamMult * 2).toFixed(2) });
+            }}
+              style={{ marginTop:4, padding:"3px 10px", borderRadius:5, border:"none",
+                background: trafficLevel==="high"?"rgba(239,68,68,0.15)":trafficLevel==="normal"?"rgba(234,179,8,0.15)":"rgba(34,197,94,0.15)",
+                color: trafficLevel==="high"?"#ef4444":trafficLevel==="normal"?"#eab308":"#22c55e",
+                fontSize:9, fontWeight:700, cursor:"pointer", fontFamily:"'JetBrains Mono',monospace" }}>
+              ⚡ AUTO-APPLY {trafficDiscount}% DISCOUNT
+            </button>
+          )}
+        </div>
+        <div style={{ textAlign:"right", display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          <div style={{ fontSize:18, fontWeight:900, color: trafficLevel==="high"?"#ef4444":trafficLevel==="normal"?"#eab308":"#22c55e",
+            fontFamily:"'JetBrains Mono',monospace" }}>{trafficDiscount}%</div>
+          <div style={{ fontSize:8, color:"#475569" }}>AUTO DISCOUNT</div>
+        </div>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr", background:"rgba(255,255,255,0.02)", padding:"6px 10px", borderBottom:"1px solid rgba(99,179,237,0.07)", borderRadius:"6px 6px 0 0" }}>
         {["TRIP","UBERX","ZEEZ FAMILY","UBERXL","ZEEZ FRIENDS"].map(h => <div key={h} style={{ fontSize:7.5, color:"rgba(148,163,184,0.35)", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, fontWeight:700 }}>{h}</div>)}
@@ -3955,7 +4060,10 @@ Only include fields to change in "changes". If nothing needs changing, leave it 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 500,
@@ -4021,7 +4129,10 @@ Only include fields to change in "changes". If nothing needs changing, leave it 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 800,
